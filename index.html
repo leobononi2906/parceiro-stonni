@@ -640,7 +640,7 @@ async function carregarOsParaEditar(el,id){
     // carregar peças da OS
     var r2=await fetch(SB_URL+'/rest/v1/prt_os_pecas?os_id=eq.'+id+'&select=*',{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
     var pecas=await r2.json();
-    if(Array.isArray(pecas))_pecasSelecionadas=pecas.map(function(p){return{id:p.id,referencia:p.referencia,nome:p.nome_peca,quantidade:p.quantidade,custo_unitario:p.custo_unitario}});
+    if(Array.isArray(pecas))_pecasSelecionadas=pecas.map(function(p){return{id:p.id,referencia:p.referencia,nome:p.nome_peca,quantidade:p.quantidade,custo_unitario:p.custo_unitario,osOrigId:p.id}});
     _osStep=1;
     el.innerHTML=
       '<div class="page-header"><h1>Editar OS #'+o.protocolo+'</h1></div>'+
@@ -890,14 +890,17 @@ async function uploadFoto(tipo){
   if(!file)return;
   preview.innerHTML='<span class="spinner"></span><span class="text-xs text-muted">Enviando...</span>';
   try{
-    var ext=file.name.split('.').pop();
-    var path='os-'+Date.now()+'-'+tipo+'.'+ext;
+    var ext=file.name.split('.').pop().toLowerCase();
+    var path=_parceiroId+'/os-'+Date.now()+'-'+tipo+'.'+ext;
+    // Pegar token da sessão ativa
+    var sess=await sb.auth.getSession();
+    var token=(sess&&sess.data&&sess.data.session)?sess.data.session.access_token:SB_KEY;
     var r=await fetch(SB_URL+'/storage/v1/object/prt-os-fotos/'+path,{
       method:'POST',
-      headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':file.type},
+      headers:{'apikey':SB_KEY,'Authorization':'Bearer '+token,'Content-Type':file.type,'x-upsert':'true'},
       body:file
     });
-    if(!r.ok) throw new Error('Upload falhou');
+    if(!r.ok){var errBody=await r.text();console.error('Upload err:',r.status,errBody);throw new Error('Upload falhou: '+r.status)}
     var url=SB_URL+'/storage/v1/object/public/prt-os-fotos/'+path;
     if(tipo==='nf'){_osData.foto_nf=url}else{_osData.foto_equipamento=url}
     preview.innerHTML='<img src="'+url+'" style="width:100%;height:100%;object-fit:cover;border-radius:var(--radius-sm)">';
