@@ -594,6 +594,8 @@ async function carregarDashboardKPIs(){
 var _osStep=1;
 var _osData={};
 var _servicosCache=[];
+var _pecasCatalogo=[];
+var _pecasSelecionadas=[];
 
 var LINHAS_PRODUTO={
   'Geladeira':['Stonni ST 18L','Stonni ST 30L','Adventure 25L','Adventure 40L','Adventure 45L Dual Zone','Adventure 55L Dual Zone'],
@@ -604,7 +606,7 @@ var LINHAS_PRODUTO={
 var LINHAS_DB={'Geladeira':'geladeira','Ar Condicionado':'ar_condicionado','Gerador':'gerador','Outros':'outros'};
 
 function renderNovaOS(el){
-  _osStep=1;_osData={};_servicosCache=[];
+  _osStep=1;_osData={};_servicosCache=[];_pecasCatalogo=[];_pecasSelecionadas=[];
   el.innerHTML=
     '<div class="page-header"><h1>Nova Ordem de Serviço</h1></div>'+
     '<div class="steps-bar"><div class="step-dot active" id="dot1"></div><div class="step-dot" id="dot2"></div><div class="step-dot" id="dot3"></div><div class="step-dot" id="dot4"></div></div>'+
@@ -646,7 +648,7 @@ function renderOsStep(){
         '<div class="form-group"><label>Número de série <span class="text-xs text-muted">(opcional)</span></label><input type="text" id="osProdSerie" value="'+esc(_osData.numero_serie)+'" placeholder="Se disponível"></div>'+
         '<div class="flex justify-between mt-16"><button class="btn btn-ghost btn-sm" onclick="osVoltar()">← Voltar</button><button class="btn btn-primary btn-sm" onclick="osProximo(2)">Próximo →</button></div>';
       break;
-    case 3: // Diagnóstico + Solução + Serviço
+    case 3: // Diagnóstico + Solução + Serviço + Peças
       var servHtml='<div class="loading-full" id="servicosLista"><span class="spinner"></span> Carregando serviços...</div>';
       if(_servicosCache.length){servHtml=renderServicosHtml()}
       area.innerHTML=
@@ -665,12 +667,21 @@ function renderOsStep(){
         '<hr style="border:0;border-top:1px solid var(--border);margin:16px 0">'+
         '<div class="card-title">Serviço realizado</div>'+
         '<div id="servicosArea">'+servHtml+'</div>'+
+        '<hr style="border:0;border-top:1px solid var(--border);margin:16px 0">'+
+        '<div class="card-title">Peças utilizadas <span class="text-xs text-muted fw-600">(opcional)</span></div>'+
+        '<div id="pecasArea"><div class="loading-full"><span class="spinner"></span> Carregando peças...</div></div>'+
+        '<div id="pecasSelArea">'+renderPecasSelHtml()+'</div>'+
         '<div class="flex justify-between mt-16"><button class="btn btn-ghost btn-sm" onclick="osVoltar()">← Voltar</button><button class="btn btn-primary btn-sm" onclick="osProximo(3)">Revisar →</button></div>';
       if(!_servicosCache.length) carregarServicos();
+      carregarPecasCatalogo();
       break;
     case 4: // Revisão
       var servSel=_servicosCache.find(function(s){return s.codigo===_osData.codigo_servico});
       var servTxt=servSel?(servSel.codigo+' — '+servSel.descricao+' ('+fmt(servSel.valor)+')'):'Nenhum selecionado';
+      var pecasTxt='';
+      if(_pecasSelecionadas.length){
+        pecasTxt=_pecasSelecionadas.map(function(p){return p.nome+' x'+p.quantidade}).join(', ');
+      }else{pecasTxt='Nenhuma'}
       area.innerHTML=
         '<div class="card-title">4. Revisão</div>'+
         '<div style="font-size:.88rem;line-height:1.8">'+
@@ -683,6 +694,7 @@ function renderOsStep(){
           '<p><strong>Diagnóstico:</strong> '+esc(_osData.diagnostico||'-')+'</p>'+
           '<p><strong>Solução:</strong> '+esc((_osData.solucao_tipo||'').replace(/_/g,' '))+'</p>'+
           '<p><strong>Serviço:</strong> '+servTxt+'</p>'+
+          '<p><strong>Peças:</strong> '+esc(pecasTxt)+'</p>'+
           '<p><strong>Data:</strong> '+fmtData(_osData.data_servico)+'</p>'+
         '</div>'+
         '<div class="flex justify-between mt-24" style="gap:8px;flex-wrap:wrap">'+
@@ -696,6 +708,7 @@ function renderOsStep(){
 
 function esc(v){return(v||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
 
+// ===== SERVIÇOS =====
 async function carregarServicos(){
   var linhaDb=LINHAS_DB[_osData.produto_linha]||'';
   if(!linhaDb){document.getElementById('servicosArea').innerHTML='<p class="text-muted text-sm">Selecione uma linha de produto primeiro</p>';return}
@@ -740,6 +753,67 @@ function selecionarServico(codigo){
   document.getElementById('servicosArea').innerHTML=renderServicosHtml();
 }
 
+// ===== PEÇAS UTILIZADAS =====
+async function carregarPecasCatalogo(){
+  var linhaDb=LINHAS_DB[_osData.produto_linha]||'';
+  try{
+    var url=SB_URL+'/rest/v1/prt_pecas_catalogo?ativo=eq.true&order=nome.asc&select=id,referencia,nome,linha_produto,aplicacao,custo_unitario';
+    if(linhaDb) url+='&linha_produto=eq.'+linhaDb;
+    var r=await fetch(url,{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
+    _pecasCatalogo=await r.json();
+    if(!Array.isArray(_pecasCatalogo))_pecasCatalogo=[];
+    var box=document.getElementById('pecasArea');
+    if(!_pecasCatalogo.length){
+      box.innerHTML='<p class="text-muted text-sm mb-8">Nenhuma peça cadastrada no catálogo ainda. O cadastro será feito em Configurações.</p>';
+    }else{
+      box.innerHTML=
+        '<div class="flex gap-8 mb-8" style="flex-wrap:wrap">'+
+          '<select id="selPeca" style="flex:1;min-width:200px;padding:8px 12px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:.85rem">'+
+            '<option value="">Selecione a peça...</option>'+
+            _pecasCatalogo.map(function(p){return '<option value="'+p.id+'">'+p.referencia+' — '+p.nome+'</option>'}).join('')+
+          '</select>'+
+          '<input type="number" id="qtdPeca" value="1" min="1" style="width:60px;padding:8px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);text-align:center;font-size:.85rem">'+
+          '<button class="btn btn-primary btn-sm" style="width:auto;padding:8px 16px" onclick="adicionarPeca()">+ Adicionar</button>'+
+        '</div>';
+    }
+  }catch(e){console.error(e);document.getElementById('pecasArea').innerHTML='<p class="text-muted text-sm">Erro ao carregar peças</p>'}
+}
+
+function adicionarPeca(){
+  var sel=document.getElementById('selPeca');
+  var qtd=parseInt(document.getElementById('qtdPeca').value)||1;
+  var pecaId=parseInt(sel.value);
+  if(!pecaId){toast('Selecione uma peça','error');return}
+  var peca=_pecasCatalogo.find(function(p){return p.id===pecaId});
+  if(!peca) return;
+  // verificar se já adicionada
+  var existe=_pecasSelecionadas.find(function(p){return p.id===pecaId});
+  if(existe){existe.quantidade+=qtd}
+  else{_pecasSelecionadas.push({id:peca.id,referencia:peca.referencia,nome:peca.nome,quantidade:qtd,custo_unitario:peca.custo_unitario||0})}
+  sel.value='';document.getElementById('qtdPeca').value='1';
+  document.getElementById('pecasSelArea').innerHTML=renderPecasSelHtml();
+}
+
+function removerPeca(idx){
+  _pecasSelecionadas.splice(idx,1);
+  document.getElementById('pecasSelArea').innerHTML=renderPecasSelHtml();
+}
+
+function renderPecasSelHtml(){
+  if(!_pecasSelecionadas.length) return '';
+  var html='<div class="mt-8">';
+  _pecasSelecionadas.forEach(function(p,i){
+    html+='<div class="flex items-center justify-between" style="padding:6px 0;border-bottom:1px solid var(--border)">'+
+      '<div><span class="text-sm fw-600">'+p.referencia+'</span> <span class="text-sm text-muted">'+p.nome+'</span></div>'+
+      '<div class="flex items-center gap-8">'+
+        '<span class="text-sm fw-600">x'+p.quantidade+'</span>'+
+        '<button class="text-danger text-sm" style="background:none;padding:4px" onclick="removerPeca('+i+')">✕</button>'+
+      '</div></div>';
+  });
+  html+='</div>';
+  return html;
+}
+
 function osAtualizarModelos(){
   var linha=document.getElementById('osProdLinha').value;
   var sel=document.getElementById('osProdModelo');
@@ -763,7 +837,7 @@ function osProximo(step){
       _osData.produto_modelo=document.getElementById('osProdModelo').value||null;
       _osData.numero_serie=document.getElementById('osProdSerie').value.trim()||null;
       if(!_osData.produto_linha){toast('Selecione a linha do produto','error');return}
-      _servicosCache=[];// recarrega serviços ao mudar linha
+      _servicosCache=[];
       break;
     case 3:
       _osData.codigo_erro=document.getElementById('osCodErro').value.trim()||null;
@@ -813,8 +887,19 @@ async function osSalvar(status){
     });
     var res=await r.json();
     if(!r.ok) throw new Error(JSON.stringify(res));
-    var proto=Array.isArray(res)?res[0].protocolo:res.protocolo;
-    toast(status==='rascunho'?'Rascunho salvo! Protocolo: '+proto:'OS enviada! Protocolo: '+proto,'success');
+    var osRow=Array.isArray(res)?res[0]:res;
+    // salvar peças utilizadas
+    if(_pecasSelecionadas.length&&osRow.id){
+      var pecasPayload=_pecasSelecionadas.map(function(p){
+        return{os_id:osRow.id,referencia:p.referencia,nome_peca:p.nome,quantidade:p.quantidade,custo_unitario:p.custo_unitario||null,origem:'estoque_parceiro'}
+      });
+      await fetch(SB_URL+'/rest/v1/prt_os_pecas',{
+        method:'POST',
+        headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'},
+        body:JSON.stringify(pecasPayload)
+      });
+    }
+    toast(status==='rascunho'?'Rascunho salvo! Protocolo: '+osRow.protocolo:'OS enviada! Protocolo: '+osRow.protocolo,'success');
     navegar('minhas-os');
   }catch(e){
     console.error(e);toast('Erro ao salvar OS','error');
