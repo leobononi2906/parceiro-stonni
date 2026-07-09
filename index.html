@@ -282,6 +282,12 @@ tbody tr:hover{background:var(--primary-bg)}
 .fw-600{font-weight:600}.fw-700{font-weight:700}
 .hidden{display:none!important}
 .truncate{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.foto-preview{
+  width:100%;height:120px;border:2px dashed var(--border);border-radius:var(--radius-sm);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;
+  cursor:pointer;transition:border-color .15s;overflow:hidden;
+}
+.foto-preview:hover{border-color:var(--primary)}
 </style>
 </head>
 <body>
@@ -482,7 +488,7 @@ function renderPagina(pagina){
   var el=document.getElementById('mainContent');
   switch(pagina){
     case 'dashboard': renderDashboard(el);break;
-    case 'nova-os': renderNovaOS(el);break;
+    case 'nova-os': renderNovaOS(el,window._editOsId);window._editOsId=null;break;
     case 'minhas-os': renderMinhasOS(el);break;
     case 'material': renderMaterial(el);break;
     case 'estoque': renderEstoque(el);break;
@@ -605,13 +611,43 @@ var LINHAS_PRODUTO={
 };
 var LINHAS_DB={'Geladeira':'geladeira','Ar Condicionado':'ar_condicionado','Gerador':'gerador','Outros':'outros'};
 
-function renderNovaOS(el){
-  _osStep=1;_osData={};_servicosCache=[];_pecasCatalogo=[];_pecasSelecionadas=[];
+function renderNovaOS(el,editId){
+  _osStep=1;_osData={};_servicosCache=[];_pecasCatalogo=[];_pecasSelecionadas=[];_editandoOsId=null;
+  if(editId) return carregarOsParaEditar(el,editId);
   el.innerHTML=
     '<div class="page-header"><h1>Nova Ordem de Serviço</h1></div>'+
     '<div class="steps-bar"><div class="step-dot active" id="dot1"></div><div class="step-dot" id="dot2"></div><div class="step-dot" id="dot3"></div><div class="step-dot" id="dot4"></div></div>'+
     '<div class="card" id="osFormArea"></div>';
   renderOsStep();
+}
+var _editandoOsId=null;
+
+async function carregarOsParaEditar(el,id){
+  el.innerHTML='<div class="loading-full"><span class="spinner"></span> Carregando OS...</div>';
+  try{
+    var r=await fetch(SB_URL+'/rest/v1/prt_ordens_servico?id=eq.'+id+'&select=*',{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
+    var rows=await r.json();
+    if(!rows.length){toast('OS não encontrada','error');navegar('minhas-os');return}
+    var o=rows[0];
+    _editandoOsId=o.id;
+    _osData={cliente_nome:o.cliente_nome,cliente_telefone:o.cliente_telefone,cliente_uf:o.cliente_uf,cliente_cidade:o.cliente_cidade,
+      produto_linha:o.produto_linha,produto_modelo:o.produto_modelo,numero_serie:o.numero_serie,
+      numero_nf:o.numero_nf,data_compra:o.data_compra,
+      codigo_erro:o.codigo_erro,defeito_descricao:o.defeito_descricao,diagnostico:o.diagnostico,
+      solucao_tipo:o.solucao_tipo,data_servico:o.data_servico,
+      codigo_servico:o.codigo_servico,categoria_servico:o.categoria_servico,valor_servico:o.valor_servico,
+      foto_nf:o.foto_nf,foto_equipamento:o.foto_equipamento};
+    // carregar peças da OS
+    var r2=await fetch(SB_URL+'/rest/v1/prt_os_pecas?os_id=eq.'+id+'&select=*',{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
+    var pecas=await r2.json();
+    if(Array.isArray(pecas))_pecasSelecionadas=pecas.map(function(p){return{id:p.id,referencia:p.referencia,nome:p.nome_peca,quantidade:p.quantidade,custo_unitario:p.custo_unitario}});
+    _osStep=1;
+    el.innerHTML=
+      '<div class="page-header"><h1>Editar OS #'+o.protocolo+'</h1></div>'+
+      '<div class="steps-bar"><div class="step-dot active" id="dot1"></div><div class="step-dot" id="dot2"></div><div class="step-dot" id="dot3"></div><div class="step-dot" id="dot4"></div></div>'+
+      '<div class="card" id="osFormArea"></div>';
+    renderOsStep();
+  }catch(e){console.error(e);toast('Erro ao carregar OS','error')}
 }
 
 function renderOsStep(){
@@ -640,12 +676,17 @@ function renderOsStep(){
         modelos='<option value="">(opcional)</option>'+LINHAS_PRODUTO[_osData.produto_linha].map(function(m){return '<option'+(_osData.produto_modelo===m?' selected':'')+'>'+m+'</option>'}).join('');
       }
       area.innerHTML=
-        '<div class="card-title">2. Produto</div>'+
+        '<div class="card-title">2. Produto e Compra</div>'+
         '<div class="form-group"><label>Linha do produto</label><select id="osProdLinha" onchange="osAtualizarModelos()"><option value="">Selecione</option>'+
           Object.keys(LINHAS_PRODUTO).map(function(l){return '<option'+(_osData.produto_linha===l?' selected':'')+'>'+l+'</option>'}).join('')+
         '</select></div>'+
         '<div class="form-group"><label>Modelo <span class="text-xs text-muted">(opcional)</span></label><select id="osProdModelo">'+modelos+'</select></div>'+
         '<div class="form-group"><label>Número de série <span class="text-xs text-muted">(opcional)</span></label><input type="text" id="osProdSerie" value="'+esc(_osData.numero_serie)+'" placeholder="Se disponível"></div>'+
+        '<hr style="border:0;border-top:1px solid var(--border);margin:16px 0">'+
+        '<div class="form-row cols-2">'+
+          '<div class="form-group"><label>Número da NF de compra <span class="text-xs text-muted">(opcional)</span></label><input type="text" id="osNF" value="'+esc(_osData.numero_nf)+'" placeholder="NF de compra do cliente"></div>'+
+          '<div class="form-group"><label>Data da compra <span class="text-xs text-muted">(opcional)</span></label><input type="date" id="osDataCompra" value="'+esc(_osData.data_compra)+'"></div>'+
+        '</div>'+
         '<div class="flex justify-between mt-16"><button class="btn btn-ghost btn-sm" onclick="osVoltar()">← Voltar</button><button class="btn btn-primary btn-sm" onclick="osProximo(2)">Próximo →</button></div>';
       break;
     case 3: // Diagnóstico + Solução + Serviço + Peças
@@ -671,6 +712,22 @@ function renderOsStep(){
         '<div class="card-title">Peças utilizadas <span class="text-xs text-muted fw-600">(opcional)</span></div>'+
         '<div id="pecasArea"><div class="loading-full"><span class="spinner"></span> Carregando peças...</div></div>'+
         '<div id="pecasSelArea">'+renderPecasSelHtml()+'</div>'+
+        '<hr style="border:0;border-top:1px solid var(--border);margin:16px 0">'+
+        '<div class="card-title">Fotos</div>'+
+        '<div class="form-row cols-2">'+
+          '<div class="form-group"><label>Foto da NF</label>'+
+            '<input type="file" id="fotoNF" accept="image/*" capture="environment" onchange="uploadFoto(\'nf\')" style="display:none">'+
+            '<div id="previewNF" class="foto-preview" onclick="document.getElementById(\'fotoNF\').click()">'+
+              (_osData.foto_nf?'<img src="'+_osData.foto_nf+'" style="width:100%;height:100%;object-fit:cover;border-radius:var(--radius-sm)">':'<svg viewBox="0 0 24 24" width="24" height="24" stroke="var(--text-d)" fill="none" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg><span class="text-xs text-muted">Foto da NF</span>')+
+            '</div>'+
+          '</div>'+
+          '<div class="form-group"><label>Foto do equipamento</label>'+
+            '<input type="file" id="fotoEquip" accept="image/*" capture="environment" onchange="uploadFoto(\'equip\')" style="display:none">'+
+            '<div id="previewEquip" class="foto-preview" onclick="document.getElementById(\'fotoEquip\').click()">'+
+              (_osData.foto_equipamento?'<img src="'+_osData.foto_equipamento+'" style="width:100%;height:100%;object-fit:cover;border-radius:var(--radius-sm)">':'<svg viewBox="0 0 24 24" width="24" height="24" stroke="var(--text-d)" fill="none" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg><span class="text-xs text-muted">Equipamento no veículo</span>')+
+            '</div>'+
+          '</div>'+
+        '</div>'+
         '<div class="flex justify-between mt-16"><button class="btn btn-ghost btn-sm" onclick="osVoltar()">← Voltar</button><button class="btn btn-primary btn-sm" onclick="osProximo(3)">Revisar →</button></div>';
       if(!_servicosCache.length) carregarServicos();
       carregarPecasCatalogo();
@@ -689,6 +746,8 @@ function renderOsStep(){
           '<p><strong>Telefone:</strong> '+esc(_osData.cliente_telefone||'Não informado')+'</p>'+
           '<p><strong>Produto:</strong> '+esc(_osData.produto_linha)+(_osData.produto_modelo?' — '+esc(_osData.produto_modelo):'')+'</p>'+
           '<p><strong>Série:</strong> '+esc(_osData.numero_serie||'Não informado')+'</p>'+
+          (_osData.numero_nf?'<p><strong>NF Compra:</strong> '+esc(_osData.numero_nf)+'</p>':'')+
+          (_osData.data_compra?'<p><strong>Data Compra:</strong> '+fmtData(_osData.data_compra)+'</p>':'')+
           '<p><strong>Erro:</strong> '+esc(_osData.codigo_erro||'Nenhum')+'</p>'+
           '<p><strong>Defeito:</strong> '+esc(_osData.defeito_descricao)+'</p>'+
           '<p><strong>Diagnóstico:</strong> '+esc(_osData.diagnostico||'-')+'</p>'+
@@ -696,6 +755,7 @@ function renderOsStep(){
           '<p><strong>Serviço:</strong> '+servTxt+'</p>'+
           '<p><strong>Peças:</strong> '+esc(pecasTxt)+'</p>'+
           '<p><strong>Data:</strong> '+fmtData(_osData.data_servico)+'</p>'+
+          '<p><strong>Fotos:</strong> '+(_osData.foto_nf?'NF ✅ ':'NF ❌ ')+(_osData.foto_equipamento?'Equipamento ✅':'Equipamento ❌')+'</p>'+
         '</div>'+
         '<div class="flex justify-between mt-24" style="gap:8px;flex-wrap:wrap">'+
           '<button class="btn btn-ghost btn-sm" onclick="osVoltar()">← Voltar</button>'+
@@ -823,6 +883,31 @@ function osAtualizarModelos(){
   }
 }
 
+async function uploadFoto(tipo){
+  var input=document.getElementById(tipo==='nf'?'fotoNF':'fotoEquip');
+  var preview=document.getElementById(tipo==='nf'?'previewNF':'previewEquip');
+  var file=input.files[0];
+  if(!file)return;
+  preview.innerHTML='<span class="spinner"></span><span class="text-xs text-muted">Enviando...</span>';
+  try{
+    var ext=file.name.split('.').pop();
+    var path='os-'+Date.now()+'-'+tipo+'.'+ext;
+    var r=await fetch(SB_URL+'/storage/v1/object/prt-os-fotos/'+path,{
+      method:'POST',
+      headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':file.type},
+      body:file
+    });
+    if(!r.ok) throw new Error('Upload falhou');
+    var url=SB_URL+'/storage/v1/object/public/prt-os-fotos/'+path;
+    if(tipo==='nf'){_osData.foto_nf=url}else{_osData.foto_equipamento=url}
+    preview.innerHTML='<img src="'+url+'" style="width:100%;height:100%;object-fit:cover;border-radius:var(--radius-sm)">';
+    toast('Foto enviada!','success');
+  }catch(e){
+    console.error(e);toast('Erro no upload da foto','error');
+    preview.innerHTML='<span class="text-xs text-danger">Erro — toque para tentar novamente</span>';
+  }
+}
+
 function osProximo(step){
   switch(step){
     case 1:
@@ -836,6 +921,8 @@ function osProximo(step){
       _osData.produto_linha=document.getElementById('osProdLinha').value;
       _osData.produto_modelo=document.getElementById('osProdModelo').value||null;
       _osData.numero_serie=document.getElementById('osProdSerie').value.trim()||null;
+      _osData.numero_nf=document.getElementById('osNF').value.trim()||null;
+      _osData.data_compra=document.getElementById('osDataCompra').value||null;
       if(!_osData.produto_linha){toast('Selecione a linha do produto','error');return}
       _servicosCache=[];
       break;
@@ -868,6 +955,8 @@ async function osSalvar(status){
     produto_linha:_osData.produto_linha,
     produto_modelo:_osData.produto_modelo||null,
     numero_serie:_osData.numero_serie||null,
+    numero_nf:_osData.numero_nf||null,
+    data_compra:_osData.data_compra||null,
     codigo_erro:_osData.codigo_erro||null,
     defeito_descricao:_osData.defeito_descricao,
     diagnostico:_osData.diagnostico||null,
@@ -876,22 +965,39 @@ async function osSalvar(status){
     categoria_servico:_osData.categoria_servico||null,
     valor_servico:_osData.valor_servico||null,
     data_servico:_osData.data_servico,
-    status:status
+    foto_nf:_osData.foto_nf||null,
+    foto_equipamento:_osData.foto_equipamento||null,
+    status:status,
+    atualizado_em:new Date().toISOString()
   };
   if(status==='enviada') payload.data_envio=new Date().toISOString();
   try{
-    var r=await fetch(SB_URL+'/rest/v1/prt_ordens_servico',{
-      method:'POST',
+    var r,url,method;
+    if(_editandoOsId){
+      // PATCH — editar OS existente
+      url=SB_URL+'/rest/v1/prt_ordens_servico?id=eq.'+_editandoOsId;
+      method='PATCH';
+      // deletar peças antigas antes de reinserir
+      await fetch(SB_URL+'/rest/v1/prt_os_pecas?os_id=eq.'+_editandoOsId,{
+        method:'DELETE',headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}
+      });
+    }else{
+      url=SB_URL+'/rest/v1/prt_ordens_servico';
+      method='POST';
+    }
+    r=await fetch(url,{
+      method:method,
       headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json','Prefer':'return=representation'},
       body:JSON.stringify(payload)
     });
     var res=await r.json();
     if(!r.ok) throw new Error(JSON.stringify(res));
     var osRow=Array.isArray(res)?res[0]:res;
+    var osId=_editandoOsId||osRow.id;
     // salvar peças utilizadas
-    if(_pecasSelecionadas.length&&osRow.id){
+    if(_pecasSelecionadas.length&&osId){
       var pecasPayload=_pecasSelecionadas.map(function(p){
-        return{os_id:osRow.id,referencia:p.referencia,nome_peca:p.nome,quantidade:p.quantidade,custo_unitario:p.custo_unitario||null,origem:'estoque_parceiro'}
+        return{os_id:osId,referencia:p.referencia,nome_peca:p.nome,quantidade:p.quantidade,custo_unitario:p.custo_unitario||null,origem:'estoque_parceiro'}
       });
       await fetch(SB_URL+'/rest/v1/prt_os_pecas',{
         method:'POST',
@@ -899,12 +1005,62 @@ async function osSalvar(status){
         body:JSON.stringify(pecasPayload)
       });
     }
-    toast(status==='rascunho'?'Rascunho salvo! Protocolo: '+osRow.protocolo:'OS enviada! Protocolo: '+osRow.protocolo,'success');
+    var proto=osRow.protocolo||'';
+    toast((_editandoOsId?'OS atualizada':'OS '+(status==='rascunho'?'salva':'enviada'))+'! '+proto,'success');
+    _editandoOsId=null;
     navegar('minhas-os');
   }catch(e){
     console.error(e);toast('Erro ao salvar OS','error');
     btn.disabled=false;btn.innerHTML=status==='rascunho'?'Salvar rascunho':'Enviar para Stonni';
   }
+}
+
+// ===== PDF DA OS =====
+function gerarPdfOS(id){
+  var o=_todasOS.find(function(x){return x.id===id});
+  if(!o)return;
+  var w=window.open('','_blank');
+  w.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>OS '+(o.protocolo||o.id)+'</title>'+
+    '<style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;font-size:12px;padding:20px;color:#222}'+
+    '.header{text-align:center;margin-bottom:16px;border-bottom:2px solid #0B1426;padding-bottom:12px}'+
+    '.header h1{font-size:16px;color:#0B1426}.header p{font-size:11px;color:#666;margin-top:4px}'+
+    '.proto{font-size:14px;font-weight:bold;margin:12px 0;text-align:center;background:#f0f4f8;padding:8px;border-radius:4px}'+
+    '.section{margin-bottom:12px}.section h2{font-size:12px;font-weight:bold;background:#0B1426;color:#fff;padding:4px 8px;margin-bottom:6px}'+
+    '.row{display:flex;border-bottom:1px solid #ddd;padding:3px 0}.row .lbl{width:140px;font-weight:bold;color:#555}.row .val{flex:1}'+
+    '.fotos{display:flex;gap:12px;margin-top:8px}.fotos img{max-width:200px;max-height:150px;border:1px solid #ddd;border-radius:4px}'+
+    '.footer{margin-top:24px;text-align:center;font-size:10px;color:#999;border-top:1px solid #ddd;padding-top:8px}'+
+    '@media print{body{padding:10px}}</style></head><body>'+
+    '<div class="header"><h1>STONNI — Rede de Assistência Técnica Autorizada</h1><p>Ordem de Serviço</p></div>'+
+    '<div class="proto">'+(o.protocolo||'OS #'+o.id)+' — Status: '+(o.status||'').toUpperCase()+'</div>'+
+    '<div class="section"><h2>CLIENTE</h2>'+
+      '<div class="row"><span class="lbl">Nome:</span><span class="val">'+(o.cliente_nome||'-')+'</span></div>'+
+      '<div class="row"><span class="lbl">Telefone:</span><span class="val">'+(o.cliente_telefone||'-')+'</span></div>'+
+      '<div class="row"><span class="lbl">Cidade/UF:</span><span class="val">'+(o.cliente_cidade||'')+' / '+(o.cliente_uf||'')+'</span></div>'+
+    '</div>'+
+    '<div class="section"><h2>PRODUTO</h2>'+
+      '<div class="row"><span class="lbl">Linha:</span><span class="val">'+(o.produto_linha||'-')+'</span></div>'+
+      '<div class="row"><span class="lbl">Modelo:</span><span class="val">'+(o.produto_modelo||'-')+'</span></div>'+
+      '<div class="row"><span class="lbl">Nº Série:</span><span class="val">'+(o.numero_serie||'-')+'</span></div>'+
+      '<div class="row"><span class="lbl">NF Compra:</span><span class="val">'+(o.numero_nf||'-')+'</span></div>'+
+      '<div class="row"><span class="lbl">Data Compra:</span><span class="val">'+fmtData(o.data_compra)+'</span></div>'+
+    '</div>'+
+    '<div class="section"><h2>DIAGNÓSTICO E SERVIÇO</h2>'+
+      '<div class="row"><span class="lbl">Código Erro:</span><span class="val">'+(o.codigo_erro||'-')+'</span></div>'+
+      '<div class="row"><span class="lbl">Defeito:</span><span class="val">'+(o.defeito_descricao||'-')+'</span></div>'+
+      '<div class="row"><span class="lbl">Diagnóstico:</span><span class="val">'+(o.diagnostico||'-')+'</span></div>'+
+      '<div class="row"><span class="lbl">Solução:</span><span class="val">'+((o.solucao_tipo||'').replace(/_/g,' '))+'</span></div>'+
+      '<div class="row"><span class="lbl">Serviço:</span><span class="val">'+(o.codigo_servico||'-')+'</span></div>'+
+      '<div class="row"><span class="lbl">Valor:</span><span class="val">'+fmt(o.valor_servico)+'</span></div>'+
+      '<div class="row"><span class="lbl">Data Serviço:</span><span class="val">'+fmtData(o.data_servico)+'</span></div>'+
+    '</div>'+
+    (o.foto_nf||o.foto_equipamento?'<div class="section"><h2>FOTOS</h2><div class="fotos">'+
+      (o.foto_nf?'<img src="'+o.foto_nf+'" alt="NF">':'')+
+      (o.foto_equipamento?'<img src="'+o.foto_equipamento+'" alt="Equipamento">':'')+
+    '</div></div>':'')+
+    '<div class="footer">Stonni — Portal do Parceiro — Emitido em '+new Date().toLocaleDateString('pt-BR')+' '+new Date().toLocaleTimeString('pt-BR')+'</div>'+
+    '</body></html>');
+  w.document.close();
+  setTimeout(function(){w.print()},500);
 }
 
 // ===== MINHAS OS =====
@@ -924,7 +1080,7 @@ async function renderMinhasOS(el){
 var _todasOS=[];
 async function carregarMinhasOS(filtro){
   try{
-    var url=SB_URL+'/rest/v1/prt_ordens_servico?parceiro_id=eq.'+_parceiroId+'&order=criado_em.desc&select=id,protocolo,cliente_nome,produto_linha,produto_modelo,status,data_servico,valor_servico,codigo_erro,defeito_descricao,solucao_tipo,diagnostico,motivo_recusa,codigo_servico';
+    var url=SB_URL+'/rest/v1/prt_ordens_servico?parceiro_id=eq.'+_parceiroId+'&order=criado_em.desc&select=id,protocolo,cliente_nome,cliente_telefone,cliente_cidade,cliente_uf,produto_linha,produto_modelo,numero_serie,numero_nf,data_compra,status,data_servico,valor_servico,codigo_erro,defeito_descricao,solucao_tipo,diagnostico,motivo_recusa,codigo_servico,foto_nf,foto_equipamento';
     var r=await fetch(url,{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
     _todasOS=await r.json();
     if(!Array.isArray(_todasOS)) _todasOS=[];
@@ -947,15 +1103,19 @@ function mostrarListaOS(filtro){
   }
   var html='';
   lista.forEach(function(o){
-    html+='<div class="card" style="cursor:pointer" onclick="abrirDetalheOS('+o.id+')">'+
-      '<div class="flex justify-between items-center mb-8">'+
+    html+='<div class="card">'+
+      '<div class="flex justify-between items-center mb-8" style="cursor:pointer" onclick="abrirDetalheOS('+o.id+')">'+
         '<span class="fw-700">'+(o.protocolo||'OS #'+o.id)+'</span>'+statusBadge(o.status)+
       '</div>'+
-      '<div class="text-sm text-muted">'+o.cliente_nome+' — '+(o.produto_modelo||o.produto_linha)+'</div>'+
+      '<div class="text-sm text-muted" style="cursor:pointer" onclick="abrirDetalheOS('+o.id+')">'+ o.cliente_nome+' — '+(o.produto_modelo||o.produto_linha)+'</div>'+
       (o.codigo_servico?'<div class="text-xs text-primary mt-8">'+o.codigo_servico+'</div>':'')+
       '<div class="flex justify-between items-center mt-8">'+
         '<span class="text-xs text-muted">'+fmtData(o.data_servico)+'</span>'+
         '<span class="text-sm fw-600">'+fmt(o.valor_servico)+'</span>'+
+      '</div>'+
+      '<div class="flex gap-8 mt-8">'+
+        (o.status==='rascunho'?'<button class="btn btn-ghost btn-sm" style="width:auto;padding:6px 12px;font-size:.75rem" onclick="renderNovaOS(document.getElementById(\'mainContent\'),'+o.id+')">✏️ Editar</button>':'')+
+        '<button class="btn btn-ghost btn-sm" style="width:auto;padding:6px 12px;font-size:.75rem" onclick="gerarPdfOS('+o.id+')">🖨️ PDF</button>'+
       '</div>'+
       (o.motivo_recusa?'<div class="text-sm text-danger mt-8">Motivo: '+o.motivo_recusa+'</div>':'')+
     '</div>';
