@@ -571,7 +571,7 @@ async function carregarDashboardKPIs(){
     document.getElementById('kpiPecas').textContent=totalPecas;
 
     // últimas OS
-    var r3=await fetch(SB_URL+'/rest/v1/prt_ordens_servico?parceiro_id=eq.'+_parceiroId+'&order=criado_em.desc&limit=5&select=id,cliente_nome,produto_modelo,status,data_servico,valor_servico',{
+    var r3=await fetch(SB_URL+'/rest/v1/prt_ordens_servico?parceiro_id=eq.'+_parceiroId+'&order=criado_em.desc&limit=5&select=id,protocolo,cliente_nome,produto_modelo,produto_linha,status,data_servico,valor_servico',{
       headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}
     });
     var ultimas=await r3.json();
@@ -580,9 +580,9 @@ async function carregarDashboardKPIs(){
     if(!ultimas.length){
       box.innerHTML='<div class="empty-state"><p>Nenhuma OS registrada ainda</p><button class="btn btn-primary btn-sm" onclick="navegar(\'nova-os\')">Criar primeira OS</button></div>';
     }else{
-      var html='<div class="table-wrap"><table><thead><tr><th>OS</th><th>Cliente</th><th>Produto</th><th>Status</th><th>Valor</th></tr></thead><tbody>';
+      var html='<div class="table-wrap"><table><thead><tr><th>Protocolo</th><th>Cliente</th><th>Produto</th><th>Status</th><th>Valor</th></tr></thead><tbody>';
       ultimas.forEach(function(o){
-        html+='<tr onclick="navegar(\'minhas-os\')" style="cursor:pointer"><td>#'+o.id+'</td><td class="truncate" style="max-width:120px">'+o.cliente_nome+'</td><td>'+o.produto_modelo+'</td><td>'+statusBadge(o.status)+'</td><td>'+fmt(o.valor_servico)+'</td></tr>';
+        html+='<tr onclick="navegar(\'minhas-os\')" style="cursor:pointer"><td class="fw-600">'+(o.protocolo||'#'+o.id)+'</td><td class="truncate" style="max-width:120px">'+o.cliente_nome+'</td><td>'+(o.produto_modelo||o.produto_linha)+'</td><td>'+statusBadge(o.status)+'</td><td>'+fmt(o.valor_servico)+'</td></tr>';
       });
       html+='</tbody></table></div>';
       box.innerHTML=html;
@@ -593,7 +593,7 @@ async function carregarDashboardKPIs(){
 // ===== NOVA OS =====
 var _osStep=1;
 var _osData={};
-var _produtosCache=[];
+var _servicosCache=[];
 
 var LINHAS_PRODUTO={
   'Geladeira':['Stonni ST 18L','Stonni ST 30L','Adventure 25L','Adventure 40L','Adventure 45L Dual Zone','Adventure 55L Dual Zone'],
@@ -601,20 +601,20 @@ var LINHAS_PRODUTO={
   'Gerador':['Gerador Stonni Autom. Inverter 1800W 24V'],
   'Outros':['Air Fryer 24V 3L','Aquecedor Vela 12V']
 };
+var LINHAS_DB={'Geladeira':'geladeira','Ar Condicionado':'ar_condicionado','Gerador':'gerador','Outros':'outros'};
 
 function renderNovaOS(el){
-  _osStep=1;_osData={};
+  _osStep=1;_osData={};_servicosCache=[];
   el.innerHTML=
     '<div class="page-header"><h1>Nova Ordem de Serviço</h1></div>'+
-    '<div class="steps-bar"><div class="step-dot active" id="dot1"></div><div class="step-dot" id="dot2"></div><div class="step-dot" id="dot3"></div><div class="step-dot" id="dot4"></div><div class="step-dot" id="dot5"></div></div>'+
+    '<div class="steps-bar"><div class="step-dot active" id="dot1"></div><div class="step-dot" id="dot2"></div><div class="step-dot" id="dot3"></div><div class="step-dot" id="dot4"></div></div>'+
     '<div class="card" id="osFormArea"></div>';
   renderOsStep();
 }
 
 function renderOsStep(){
   var area=document.getElementById('osFormArea');
-  // update dots
-  for(var i=1;i<=5;i++){
+  for(var i=1;i<=4;i++){
     var d=document.getElementById('dot'+i);
     d.className='step-dot'+(i<_osStep?' done':'')+(i===_osStep?' active':'');
   }
@@ -622,42 +622,38 @@ function renderOsStep(){
     case 1: // Cliente
       area.innerHTML=
         '<div class="card-title">1. Dados do Cliente</div>'+
-        '<div class="form-group"><label>Nome do cliente</label><input type="text" id="osCliNome" value="'+((_osData.cliente_nome)||'')+'" placeholder="Nome completo"></div>'+
+        '<div class="form-group"><label>Nome do cliente</label><input type="text" id="osCliNome" value="'+esc(_osData.cliente_nome)+'" placeholder="Nome completo"></div>'+
         '<div class="form-row cols-2">'+
-          '<div class="form-group"><label>Telefone</label><input type="tel" id="osCliTel" value="'+((_osData.cliente_telefone)||'')+'" placeholder="(00) 00000-0000"></div>'+
+          '<div class="form-group"><label>Telefone</label><input type="tel" id="osCliTel" value="'+esc(_osData.cliente_telefone)+'" placeholder="(00) 00000-0000"></div>'+
           '<div class="form-group"><label>UF</label><select id="osCliUF"><option value="">Selecione</option>'+
-            ['AC','AL','AM','AP','BA','CE','DF','ES','GO','MA','MG','MS','MT','PA','PB','PE','PI','PR','RJ','RN','RO','RR','RS','SC','SE','SP','TO'].map(function(u){return '<option'+((_osData.cliente_uf)===u?' selected':'')+'>'+u+'</option>'}).join('')+
+            ['AC','AL','AM','AP','BA','CE','DF','ES','GO','MA','MG','MS','MT','PA','PB','PE','PI','PR','RJ','RN','RO','RR','RS','SC','SE','SP','TO'].map(function(u){return '<option'+(_osData.cliente_uf===u?' selected':'')+'>'+u+'</option>'}).join('')+
           '</select></div>'+
         '</div>'+
-        '<div class="form-group"><label>Cidade</label><input type="text" id="osCliCidade" value="'+((_osData.cliente_cidade)||'')+'" placeholder="Cidade"></div>'+
+        '<div class="form-group"><label>Cidade</label><input type="text" id="osCliCidade" value="'+esc(_osData.cliente_cidade)+'" placeholder="Cidade"></div>'+
         '<div class="flex justify-between mt-16"><div></div><button class="btn btn-primary btn-sm" onclick="osProximo(1)">Próximo →</button></div>';
       break;
     case 2: // Produto
       var modelos='<option value="">Selecione a linha primeiro</option>';
       if(_osData.produto_linha&&LINHAS_PRODUTO[_osData.produto_linha]){
-        modelos=LINHAS_PRODUTO[_osData.produto_linha].map(function(m){return '<option'+((_osData.produto_modelo)===m?' selected':'')+'>'+m+'</option>'}).join('');
-        modelos='<option value="">Selecione</option>'+modelos;
+        modelos='<option value="">(opcional)</option>'+LINHAS_PRODUTO[_osData.produto_linha].map(function(m){return '<option'+(_osData.produto_modelo===m?' selected':'')+'>'+m+'</option>'}).join('');
       }
       area.innerHTML=
         '<div class="card-title">2. Produto</div>'+
         '<div class="form-group"><label>Linha do produto</label><select id="osProdLinha" onchange="osAtualizarModelos()"><option value="">Selecione</option>'+
-          Object.keys(LINHAS_PRODUTO).map(function(l){return '<option'+((_osData.produto_linha)===l?' selected':'')+'>'+l+'</option>'}).join('')+
+          Object.keys(LINHAS_PRODUTO).map(function(l){return '<option'+(_osData.produto_linha===l?' selected':'')+'>'+l+'</option>'}).join('')+
         '</select></div>'+
-        '<div class="form-group"><label>Modelo</label><select id="osProdModelo">'+modelos+'</select></div>'+
-        '<div class="form-group"><label>Número de série (opcional)</label><input type="text" id="osProdSerie" value="'+((_osData.numero_serie)||'')+'" placeholder="Se disponível"></div>'+
+        '<div class="form-group"><label>Modelo <span class="text-xs text-muted">(opcional)</span></label><select id="osProdModelo">'+modelos+'</select></div>'+
+        '<div class="form-group"><label>Número de série <span class="text-xs text-muted">(opcional)</span></label><input type="text" id="osProdSerie" value="'+esc(_osData.numero_serie)+'" placeholder="Se disponível"></div>'+
         '<div class="flex justify-between mt-16"><button class="btn btn-ghost btn-sm" onclick="osVoltar()">← Voltar</button><button class="btn btn-primary btn-sm" onclick="osProximo(2)">Próximo →</button></div>';
       break;
-    case 3: // Diagnóstico
+    case 3: // Diagnóstico + Solução + Serviço
+      var servHtml='<div class="loading-full" id="servicosLista"><span class="spinner"></span> Carregando serviços...</div>';
+      if(_servicosCache.length){servHtml=renderServicosHtml()}
       area.innerHTML=
-        '<div class="card-title">3. Diagnóstico</div>'+
-        '<div class="form-group"><label>Código de erro (se houver)</label><input type="text" id="osCodErro" value="'+((_osData.codigo_erro)||'')+'" placeholder="Ex: E0, E1, EF..."></div>'+
-        '<div class="form-group"><label>Descrição do defeito</label><textarea id="osDefeito" placeholder="Descreva o problema relatado pelo cliente">'+((_osData.defeito_descricao)||'')+'</textarea></div>'+
-        '<div class="form-group"><label>Diagnóstico técnico</label><textarea id="osDiag" placeholder="O que foi identificado na análise">'+((_osData.diagnostico)||'')+'</textarea></div>'+
-        '<div class="flex justify-between mt-16"><button class="btn btn-ghost btn-sm" onclick="osVoltar()">← Voltar</button><button class="btn btn-primary btn-sm" onclick="osProximo(3)">Próximo →</button></div>';
-      break;
-    case 4: // Solução
-      area.innerHTML=
-        '<div class="card-title">4. Solução Aplicada</div>'+
+        '<div class="card-title">3. Diagnóstico e Serviço</div>'+
+        '<div class="form-group"><label>Código de erro <span class="text-xs text-muted">(se houver)</span></label><input type="text" id="osCodErro" value="'+esc(_osData.codigo_erro)+'" placeholder="Ex: E0, E1, EF..."></div>'+
+        '<div class="form-group"><label>Descrição do defeito</label><textarea id="osDefeito" placeholder="Descreva o problema relatado pelo cliente">'+esc(_osData.defeito_descricao)+'</textarea></div>'+
+        '<div class="form-group"><label>Diagnóstico técnico</label><textarea id="osDiag" placeholder="O que foi identificado na análise">'+esc(_osData.diagnostico)+'</textarea></div>'+
         '<div class="form-group"><label>Tipo de solução</label><select id="osSolTipo">'+
           '<option value="">Selecione</option>'+
           '<option value="reparo_local"'+(_osData.solucao_tipo==='reparo_local'?' selected':'')+'>Reparo local</option>'+
@@ -665,25 +661,31 @@ function renderOsStep(){
           '<option value="envio_stonni"'+(_osData.solucao_tipo==='envio_stonni'?' selected':'')+'>Envio para Stonni</option>'+
           '<option value="sem_defeito"'+(_osData.solucao_tipo==='sem_defeito'?' selected':'')+'>Sem defeito constatado</option>'+
         '</select></div>'+
-        '<div class="form-group"><label>Descrição da solução</label><textarea id="osSolDesc" placeholder="O que foi feito para resolver">'+((_osData.solucao_descricao)||'')+'</textarea></div>'+
-        '<div class="form-group"><label>Data do serviço</label><input type="date" id="osSolData" value="'+((_osData.data_servico)||new Date().toISOString().substring(0,10))+'"></div>'+
-        '<div class="flex justify-between mt-16"><button class="btn btn-ghost btn-sm" onclick="osVoltar()">← Voltar</button><button class="btn btn-primary btn-sm" onclick="osProximo(4)">Revisar →</button></div>';
+        '<div class="form-group"><label>Data do serviço</label><input type="date" id="osSolData" value="'+(_osData.data_servico||new Date().toISOString().substring(0,10))+'"></div>'+
+        '<hr style="border:0;border-top:1px solid var(--border);margin:16px 0">'+
+        '<div class="card-title">Serviço realizado</div>'+
+        '<div id="servicosArea">'+servHtml+'</div>'+
+        '<div class="flex justify-between mt-16"><button class="btn btn-ghost btn-sm" onclick="osVoltar()">← Voltar</button><button class="btn btn-primary btn-sm" onclick="osProximo(3)">Revisar →</button></div>';
+      if(!_servicosCache.length) carregarServicos();
       break;
-    case 5: // Revisão
+    case 4: // Revisão
+      var servSel=_servicosCache.find(function(s){return s.codigo===_osData.codigo_servico});
+      var servTxt=servSel?(servSel.codigo+' — '+servSel.descricao+' ('+fmt(servSel.valor)+')'):'Nenhum selecionado';
       area.innerHTML=
-        '<div class="card-title">5. Revisão</div>'+
-        '<div style="font-size:.88rem;line-height:1.7">'+
-          '<p><strong>Cliente:</strong> '+(_osData.cliente_nome||'-')+' — '+(_osData.cliente_cidade||'')+'/'+(_osData.cliente_uf||'')+'</p>'+
-          '<p><strong>Telefone:</strong> '+(_osData.cliente_telefone||'-')+'</p>'+
-          '<p><strong>Produto:</strong> '+(_osData.produto_linha||'-')+' — '+(_osData.produto_modelo||'-')+'</p>'+
-          '<p><strong>Série:</strong> '+(_osData.numero_serie||'Não informado')+'</p>'+
-          '<p><strong>Erro:</strong> '+(_osData.codigo_erro||'Nenhum')+'</p>'+
-          '<p><strong>Defeito:</strong> '+(_osData.defeito_descricao||'-')+'</p>'+
-          '<p><strong>Diagnóstico:</strong> '+(_osData.diagnostico||'-')+'</p>'+
-          '<p><strong>Solução:</strong> '+(_osData.solucao_tipo||'-').replace('_',' ')+' — '+(_osData.solucao_descricao||'-')+'</p>'+
+        '<div class="card-title">4. Revisão</div>'+
+        '<div style="font-size:.88rem;line-height:1.8">'+
+          '<p><strong>Cliente:</strong> '+esc(_osData.cliente_nome)+' — '+esc(_osData.cliente_cidade)+'/'+esc(_osData.cliente_uf)+'</p>'+
+          '<p><strong>Telefone:</strong> '+esc(_osData.cliente_telefone||'Não informado')+'</p>'+
+          '<p><strong>Produto:</strong> '+esc(_osData.produto_linha)+(_osData.produto_modelo?' — '+esc(_osData.produto_modelo):'')+'</p>'+
+          '<p><strong>Série:</strong> '+esc(_osData.numero_serie||'Não informado')+'</p>'+
+          '<p><strong>Erro:</strong> '+esc(_osData.codigo_erro||'Nenhum')+'</p>'+
+          '<p><strong>Defeito:</strong> '+esc(_osData.defeito_descricao)+'</p>'+
+          '<p><strong>Diagnóstico:</strong> '+esc(_osData.diagnostico||'-')+'</p>'+
+          '<p><strong>Solução:</strong> '+esc((_osData.solucao_tipo||'').replace(/_/g,' '))+'</p>'+
+          '<p><strong>Serviço:</strong> '+servTxt+'</p>'+
           '<p><strong>Data:</strong> '+fmtData(_osData.data_servico)+'</p>'+
         '</div>'+
-        '<div class="flex justify-between mt-24" style="gap:8px">'+
+        '<div class="flex justify-between mt-24" style="gap:8px;flex-wrap:wrap">'+
           '<button class="btn btn-ghost btn-sm" onclick="osVoltar()">← Voltar</button>'+
           '<button class="btn btn-ghost btn-sm" onclick="osSalvar(\'rascunho\')" id="btnRascunho">Salvar rascunho</button>'+
           '<button class="btn btn-primary btn-sm" onclick="osSalvar(\'enviada\')" id="btnEnviar">Enviar para Stonni</button>'+
@@ -692,17 +694,62 @@ function renderOsStep(){
   }
 }
 
+function esc(v){return(v||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
+
+async function carregarServicos(){
+  var linhaDb=LINHAS_DB[_osData.produto_linha]||'';
+  if(!linhaDb){document.getElementById('servicosArea').innerHTML='<p class="text-muted text-sm">Selecione uma linha de produto primeiro</p>';return}
+  try{
+    var r=await fetch(SB_URL+'/rest/v1/prt_tabela_servicos?linha_produto=eq.'+linhaDb+'&ativo=eq.true&order=codigo.asc&select=*',{
+      headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}
+    });
+    _servicosCache=await r.json();
+    if(!Array.isArray(_servicosCache))_servicosCache=[];
+    document.getElementById('servicosArea').innerHTML=renderServicosHtml();
+  }catch(e){console.error(e)}
+}
+
+function renderServicosHtml(){
+  if(!_servicosCache.length) return '<p class="text-muted text-sm">Nenhum serviço cadastrado para esta linha</p>';
+  var cats={};
+  _servicosCache.forEach(function(s){
+    if(!cats[s.categoria])cats[s.categoria]={items:[],teto:s.teto_categoria};
+    cats[s.categoria].items.push(s);
+  });
+  var catNomes={eletrica:'Intervenções Elétricas',frigorifico:'Máquina Frigorífica / Recuperação',outros:'Outras Intervenções',outros_servicos:'Outros Serviços'};
+  var html='';
+  Object.keys(cats).forEach(function(cat){
+    var c=cats[cat];
+    html+='<div class="mb-16"><div class="text-xs fw-700 text-muted mb-8" style="text-transform:uppercase">'+
+      (catNomes[cat]||cat)+' <span class="text-xs" style="font-weight:400">(teto: '+fmt(c.teto)+')</span></div>';
+    c.items.forEach(function(s){
+      var sel=_osData.codigo_servico===s.codigo;
+      html+='<div class="nav-item'+(sel?' active':'')+'" style="margin:2px 0;padding:8px 12px" onclick="selecionarServico(\''+s.codigo+'\')">'+
+        '<div style="flex:1"><span class="fw-600">'+s.codigo+'</span> <span class="text-sm">'+s.descricao+'</span></div>'+
+        '<span class="fw-700 text-primary">'+fmt(s.valor)+'</span></div>';
+    });
+    html+='</div>';
+  });
+  return html;
+}
+
+function selecionarServico(codigo){
+  _osData.codigo_servico=codigo;
+  var s=_servicosCache.find(function(x){return x.codigo===codigo});
+  if(s){_osData.valor_servico=s.valor;_osData.categoria_servico=s.categoria}
+  document.getElementById('servicosArea').innerHTML=renderServicosHtml();
+}
+
 function osAtualizarModelos(){
   var linha=document.getElementById('osProdLinha').value;
   var sel=document.getElementById('osProdModelo');
-  sel.innerHTML='<option value="">Selecione</option>';
+  sel.innerHTML='<option value="">(opcional)</option>';
   if(linha&&LINHAS_PRODUTO[linha]){
     LINHAS_PRODUTO[linha].forEach(function(m){sel.innerHTML+='<option>'+m+'</option>'});
   }
 }
 
 function osProximo(step){
-  // salvar dados do step atual
   switch(step){
     case 1:
       _osData.cliente_nome=document.getElementById('osCliNome').value.trim();
@@ -713,21 +760,20 @@ function osProximo(step){
       break;
     case 2:
       _osData.produto_linha=document.getElementById('osProdLinha').value;
-      _osData.produto_modelo=document.getElementById('osProdModelo').value;
-      _osData.numero_serie=document.getElementById('osProdSerie').value.trim();
-      if(!_osData.produto_linha||!_osData.produto_modelo){toast('Selecione a linha e o modelo','error');return}
+      _osData.produto_modelo=document.getElementById('osProdModelo').value||null;
+      _osData.numero_serie=document.getElementById('osProdSerie').value.trim()||null;
+      if(!_osData.produto_linha){toast('Selecione a linha do produto','error');return}
+      _servicosCache=[];// recarrega serviços ao mudar linha
       break;
     case 3:
-      _osData.codigo_erro=document.getElementById('osCodErro').value.trim();
+      _osData.codigo_erro=document.getElementById('osCodErro').value.trim()||null;
       _osData.defeito_descricao=document.getElementById('osDefeito').value.trim();
-      _osData.diagnostico=document.getElementById('osDiag').value.trim();
-      if(!_osData.defeito_descricao){toast('Descreva o defeito','error');return}
-      break;
-    case 4:
-      _osData.solucao_tipo=document.getElementById('osSolTipo').value;
-      _osData.solucao_descricao=document.getElementById('osSolDesc').value.trim();
+      _osData.diagnostico=document.getElementById('osDiag').value.trim()||null;
+      _osData.solucao_tipo=document.getElementById('osSolTipo').value||null;
       _osData.data_servico=document.getElementById('osSolData').value;
+      if(!_osData.defeito_descricao){toast('Descreva o defeito','error');return}
       if(!_osData.data_servico){toast('Informe a data do serviço','error');return}
+      if(!_osData.codigo_servico){toast('Selecione o serviço realizado','error');return}
       break;
   }
   _osStep=step+1;
@@ -746,13 +792,15 @@ async function osSalvar(status){
     cliente_cidade:_osData.cliente_cidade||null,
     cliente_uf:_osData.cliente_uf||null,
     produto_linha:_osData.produto_linha,
-    produto_modelo:_osData.produto_modelo,
+    produto_modelo:_osData.produto_modelo||null,
     numero_serie:_osData.numero_serie||null,
     codigo_erro:_osData.codigo_erro||null,
     defeito_descricao:_osData.defeito_descricao,
     diagnostico:_osData.diagnostico||null,
     solucao_tipo:_osData.solucao_tipo||null,
-    solucao_descricao:_osData.solucao_descricao||null,
+    codigo_servico:_osData.codigo_servico||null,
+    categoria_servico:_osData.categoria_servico||null,
+    valor_servico:_osData.valor_servico||null,
     data_servico:_osData.data_servico,
     status:status
   };
@@ -765,7 +813,8 @@ async function osSalvar(status){
     });
     var res=await r.json();
     if(!r.ok) throw new Error(JSON.stringify(res));
-    toast(status==='rascunho'?'Rascunho salvo!':'OS enviada para a Stonni!','success');
+    var proto=Array.isArray(res)?res[0].protocolo:res.protocolo;
+    toast(status==='rascunho'?'Rascunho salvo! Protocolo: '+proto:'OS enviada! Protocolo: '+proto,'success');
     navegar('minhas-os');
   }catch(e){
     console.error(e);toast('Erro ao salvar OS','error');
@@ -790,7 +839,7 @@ async function renderMinhasOS(el){
 var _todasOS=[];
 async function carregarMinhasOS(filtro){
   try{
-    var url=SB_URL+'/rest/v1/prt_ordens_servico?parceiro_id=eq.'+_parceiroId+'&order=criado_em.desc&select=id,cliente_nome,produto_linha,produto_modelo,status,data_servico,valor_servico,codigo_erro,defeito_descricao,solucao_tipo,solucao_descricao,diagnostico,motivo_recusa';
+    var url=SB_URL+'/rest/v1/prt_ordens_servico?parceiro_id=eq.'+_parceiroId+'&order=criado_em.desc&select=id,protocolo,cliente_nome,produto_linha,produto_modelo,status,data_servico,valor_servico,codigo_erro,defeito_descricao,solucao_tipo,diagnostico,motivo_recusa,codigo_servico';
     var r=await fetch(url,{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
     _todasOS=await r.json();
     if(!Array.isArray(_todasOS)) _todasOS=[];
@@ -815,9 +864,10 @@ function mostrarListaOS(filtro){
   lista.forEach(function(o){
     html+='<div class="card" style="cursor:pointer" onclick="abrirDetalheOS('+o.id+')">'+
       '<div class="flex justify-between items-center mb-8">'+
-        '<span class="fw-700">OS #'+o.id+'</span>'+statusBadge(o.status)+
+        '<span class="fw-700">'+(o.protocolo||'OS #'+o.id)+'</span>'+statusBadge(o.status)+
       '</div>'+
-      '<div class="text-sm text-muted">'+o.cliente_nome+' — '+o.produto_modelo+'</div>'+
+      '<div class="text-sm text-muted">'+o.cliente_nome+' — '+(o.produto_modelo||o.produto_linha)+'</div>'+
+      (o.codigo_servico?'<div class="text-xs text-primary mt-8">'+o.codigo_servico+'</div>':'')+
       '<div class="flex justify-between items-center mt-8">'+
         '<span class="text-xs text-muted">'+fmtData(o.data_servico)+'</span>'+
         '<span class="text-sm fw-600">'+fmt(o.valor_servico)+'</span>'+
@@ -832,15 +882,16 @@ function abrirDetalheOS(id){
   var o=_todasOS.find(function(x){return x.id===id});
   if(!o) return;
   var html='<div class="modal-overlay show" onclick="if(event.target===this)this.classList.remove(\'show\')"><div class="modal">'+
-    '<div class="modal-title">OS #'+o.id+' '+statusBadge(o.status)+'<button class="modal-close" onclick="this.closest(\'.modal-overlay\').classList.remove(\'show\')">✕</button></div>'+
+    '<div class="modal-title">'+(o.protocolo||'OS #'+o.id)+' '+statusBadge(o.status)+'<button class="modal-close" onclick="this.closest(\'.modal-overlay\').classList.remove(\'show\')">✕</button></div>'+
     '<div style="font-size:.88rem;line-height:1.8">'+
       '<p><strong>Cliente:</strong> '+o.cliente_nome+'</p>'+
-      '<p><strong>Produto:</strong> '+o.produto_linha+' — '+o.produto_modelo+'</p>'+
+      '<p><strong>Produto:</strong> '+o.produto_linha+(o.produto_modelo?' — '+o.produto_modelo:'')+'</p>'+
       '<p><strong>Data:</strong> '+fmtData(o.data_servico)+'</p>'+
       (o.codigo_erro?'<p><strong>Código erro:</strong> '+o.codigo_erro+'</p>':'')+
       '<p><strong>Defeito:</strong> '+o.defeito_descricao+'</p>'+
       (o.diagnostico?'<p><strong>Diagnóstico:</strong> '+o.diagnostico+'</p>':'')+
-      (o.solucao_tipo?'<p><strong>Solução:</strong> '+o.solucao_tipo.replace('_',' ')+' — '+(o.solucao_descricao||'')+'</p>':'')+
+      (o.solucao_tipo?'<p><strong>Solução:</strong> '+o.solucao_tipo.replace(/_/g,' ')+'</p>':'')+
+      (o.codigo_servico?'<p><strong>Serviço:</strong> '+o.codigo_servico+'</p>':'')+
       '<p><strong>Valor:</strong> '+fmt(o.valor_servico)+'</p>'+
       (o.motivo_recusa?'<p class="text-danger"><strong>Recusada:</strong> '+o.motivo_recusa+'</p>':'')+
     '</div>'+
