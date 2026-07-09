@@ -394,7 +394,7 @@ tbody tr:hover{background:var(--primary-bg)}
 <script>
 // ===== SUPABASE =====
 var SB_URL='https://vishxwdxqiygbxmtpfoy.supabase.co';
-var SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZpc2h4d2R4cWl5Z2J4bXRwZm95Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI0Njg2MjIsImV4cCI6MjA4ODA0NDYyMn0.J647m3ieDHahNQYBWMReSl0aPFXsT_zt_7ZcDvyB-SA';
+var SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZpc2h4d2R4cWl5Z2J4bXRwZm95Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI0Njg2MjIsImV4cCI6MjA4ODA0NDYyMn0.J647m3ieDHahNQYBWMRESl0aPFXsT_zt_7ZcDvyB-SA';
 var sb=window.supabase.createClient(SB_URL,SB_KEY);
 
 // ===== ESTADO GLOBAL =====
@@ -430,12 +430,12 @@ async function fazerLogin(){
 }
 
 async function carregarPerfil(){
-  // busca vínculo na prt_usuarios
-  var r=await fetch(SB_URL+'/rest/v1/prt_usuarios?user_id=eq.'+_user.id+'&ativo=eq.true&select=*,assist_parceiros(*)',{
+  // 1. busca vínculo na prt_usuarios
+  var r=await fetch(SB_URL+'/rest/v1/prt_usuarios?user_id=eq.'+_user.id+'&ativo=eq.true&select=id,parceiro_id,perfil',{
     headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}
   });
   var rows=await r.json();
-  if(!rows||!rows.length){
+  if(!Array.isArray(rows)||!rows.length){
     document.getElementById('loginError').textContent='Usuário sem vínculo com parceiro. Contate a Stonni.';
     document.getElementById('loginError').style.display='block';
     return;
@@ -443,7 +443,12 @@ async function carregarPerfil(){
   var row=rows[0];
   _perfil=row.perfil;
   _parceiroId=row.parceiro_id;
-  _parceiro=row.assist_parceiros;
+  // 2. busca dados do parceiro
+  var r2=await fetch(SB_URL+'/rest/v1/assist_parceiros?id=eq.'+_parceiroId+'&select=id,nome,cidade,uf,telefone,email,status',{
+    headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}
+  });
+  var parceiros=await r2.json();
+  _parceiro=(Array.isArray(parceiros)&&parceiros.length)?parceiros[0]:{nome:'Admin Stonni'};
   iniciarApp();
 }
 
