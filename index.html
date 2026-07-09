@@ -357,27 +357,7 @@ tbody tr:hover{background:var(--primary-bg)}
       </div>
     </div>
 
-    <!-- GESTOR -->
-    <div class="sidebar-section hidden" id="navGestor">
-      <div class="sidebar-label">Gestão Stonni</div>
-      <div class="nav-item" onclick="navegar('aprovar-os')">
-        <svg viewBox="0 0 24 24"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-        Aprovar OS
-        <span class="nav-badge hidden" id="badgeAprovar">0</span>
-      </div>
-      <div class="nav-item" onclick="navegar('gerenciar-pecas')">
-        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-        Gerenciar Peças
-      </div>
-      <div class="nav-item" onclick="navegar('pagamentos')">
-        <svg viewBox="0 0 24 24"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
-        Pagamentos
-      </div>
-      <div class="nav-item" onclick="navegar('config')">
-        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-        Configurações
-      </div>
-    </div>
+
   </nav>
 
   <!-- MAIN CONTENT -->
@@ -458,10 +438,6 @@ function iniciarApp(){
   // avatar
   var iniciais=(_parceiro&&_parceiro.nome?_parceiro.nome:'??').split(' ').map(function(p){return p[0]}).join('').substring(0,2).toUpperCase();
   document.getElementById('userAvatar').textContent=iniciais;
-  // mostrar menu gestor se perfil permite
-  if(_perfil==='gestor'||_perfil==='admin'){
-    document.getElementById('navGestor').classList.remove('hidden');
-  }
   navegar('dashboard');
 }
 
@@ -511,10 +487,6 @@ function renderPagina(pagina){
     case 'material': renderMaterial(el);break;
     case 'estoque': renderEstoque(el);break;
     case 'financeiro': renderFinanceiro(el);break;
-    case 'aprovar-os': renderAprovarOS(el);break;
-    case 'gerenciar-pecas': renderGerenciarPecas(el);break;
-    case 'pagamentos': renderPagamentos(el);break;
-    case 'config': renderConfig(el);break;
     default: el.innerHTML='<div class="empty-state"><p>Página não encontrada</p></div>';
   }
 }
@@ -618,16 +590,340 @@ async function carregarDashboardKPIs(){
   }catch(e){console.error('Dashboard KPIs:',e)}
 }
 
-// stubs — serão implementados
-function renderNovaOS(el){el.innerHTML='<div class="page-header"><h1>Nova Ordem de Serviço</h1></div><div class="loading-full"><span class="spinner"></span> Carregando formulário...</div>'}
-function renderMinhasOS(el){el.innerHTML='<div class="page-header"><h1>Minhas OS</h1></div><div class="loading-full"><span class="spinner"></span> Carregando...</div>'}
-function renderMaterial(el){el.innerHTML='<div class="page-header"><h1>Material Técnico</h1></div><div class="empty-state"><p>Em breve — vídeos, manuais e tabelas de erro</p></div>'}
-function renderEstoque(el){el.innerHTML='<div class="page-header"><h1>Meu Estoque de Peças</h1></div><div class="loading-full"><span class="spinner"></span> Carregando...</div>'}
-function renderFinanceiro(el){el.innerHTML='<div class="page-header"><h1>Financeiro</h1></div><div class="loading-full"><span class="spinner"></span> Carregando...</div>'}
-function renderAprovarOS(el){el.innerHTML='<div class="page-header"><h1>Aprovar OS</h1></div><div class="loading-full"><span class="spinner"></span> Carregando...</div>'}
-function renderGerenciarPecas(el){el.innerHTML='<div class="page-header"><h1>Gerenciar Peças</h1></div><div class="loading-full"><span class="spinner"></span> Carregando...</div>'}
-function renderPagamentos(el){el.innerHTML='<div class="page-header"><h1>Pagamentos</h1></div><div class="loading-full"><span class="spinner"></span> Carregando...</div>'}
-function renderConfig(el){el.innerHTML='<div class="page-header"><h1>Configurações</h1></div><div class="loading-full"><span class="spinner"></span> Carregando...</div>'}
+// ===== NOVA OS =====
+var _osStep=1;
+var _osData={};
+var _produtosCache=[];
+
+var LINHAS_PRODUTO={
+  'Geladeira':['Stonni ST 18L','Stonni ST 30L','Adventure 25L','Adventure 40L','Adventure 45L Dual Zone','Adventure 55L Dual Zone'],
+  'Ar Condicionado':['AR Advantage I','AR Advantage II 24V','AR G2 Night Power 24V S2','AR G3 Truck Night Power 24V','AR G3 RV Night Power 12V','AR Compact','AR Slim / Clean'],
+  'Gerador':['Gerador Stonni Autom. Inverter 1800W 24V'],
+  'Outros':['Air Fryer 24V 3L','Aquecedor Vela 12V']
+};
+
+function renderNovaOS(el){
+  _osStep=1;_osData={};
+  el.innerHTML=
+    '<div class="page-header"><h1>Nova Ordem de Serviço</h1></div>'+
+    '<div class="steps-bar"><div class="step-dot active" id="dot1"></div><div class="step-dot" id="dot2"></div><div class="step-dot" id="dot3"></div><div class="step-dot" id="dot4"></div><div class="step-dot" id="dot5"></div></div>'+
+    '<div class="card" id="osFormArea"></div>';
+  renderOsStep();
+}
+
+function renderOsStep(){
+  var area=document.getElementById('osFormArea');
+  // update dots
+  for(var i=1;i<=5;i++){
+    var d=document.getElementById('dot'+i);
+    d.className='step-dot'+(i<_osStep?' done':'')+(i===_osStep?' active':'');
+  }
+  switch(_osStep){
+    case 1: // Cliente
+      area.innerHTML=
+        '<div class="card-title">1. Dados do Cliente</div>'+
+        '<div class="form-group"><label>Nome do cliente</label><input type="text" id="osCliNome" value="'+((_osData.cliente_nome)||'')+'" placeholder="Nome completo"></div>'+
+        '<div class="form-row cols-2">'+
+          '<div class="form-group"><label>Telefone</label><input type="tel" id="osCliTel" value="'+((_osData.cliente_telefone)||'')+'" placeholder="(00) 00000-0000"></div>'+
+          '<div class="form-group"><label>UF</label><select id="osCliUF"><option value="">Selecione</option>'+
+            ['AC','AL','AM','AP','BA','CE','DF','ES','GO','MA','MG','MS','MT','PA','PB','PE','PI','PR','RJ','RN','RO','RR','RS','SC','SE','SP','TO'].map(function(u){return '<option'+((_osData.cliente_uf)===u?' selected':'')+'>'+u+'</option>'}).join('')+
+          '</select></div>'+
+        '</div>'+
+        '<div class="form-group"><label>Cidade</label><input type="text" id="osCliCidade" value="'+((_osData.cliente_cidade)||'')+'" placeholder="Cidade"></div>'+
+        '<div class="flex justify-between mt-16"><div></div><button class="btn btn-primary btn-sm" onclick="osProximo(1)">Próximo →</button></div>';
+      break;
+    case 2: // Produto
+      var modelos='<option value="">Selecione a linha primeiro</option>';
+      if(_osData.produto_linha&&LINHAS_PRODUTO[_osData.produto_linha]){
+        modelos=LINHAS_PRODUTO[_osData.produto_linha].map(function(m){return '<option'+((_osData.produto_modelo)===m?' selected':'')+'>'+m+'</option>'}).join('');
+        modelos='<option value="">Selecione</option>'+modelos;
+      }
+      area.innerHTML=
+        '<div class="card-title">2. Produto</div>'+
+        '<div class="form-group"><label>Linha do produto</label><select id="osProdLinha" onchange="osAtualizarModelos()"><option value="">Selecione</option>'+
+          Object.keys(LINHAS_PRODUTO).map(function(l){return '<option'+((_osData.produto_linha)===l?' selected':'')+'>'+l+'</option>'}).join('')+
+        '</select></div>'+
+        '<div class="form-group"><label>Modelo</label><select id="osProdModelo">'+modelos+'</select></div>'+
+        '<div class="form-group"><label>Número de série (opcional)</label><input type="text" id="osProdSerie" value="'+((_osData.numero_serie)||'')+'" placeholder="Se disponível"></div>'+
+        '<div class="flex justify-between mt-16"><button class="btn btn-ghost btn-sm" onclick="osVoltar()">← Voltar</button><button class="btn btn-primary btn-sm" onclick="osProximo(2)">Próximo →</button></div>';
+      break;
+    case 3: // Diagnóstico
+      area.innerHTML=
+        '<div class="card-title">3. Diagnóstico</div>'+
+        '<div class="form-group"><label>Código de erro (se houver)</label><input type="text" id="osCodErro" value="'+((_osData.codigo_erro)||'')+'" placeholder="Ex: E0, E1, EF..."></div>'+
+        '<div class="form-group"><label>Descrição do defeito</label><textarea id="osDefeito" placeholder="Descreva o problema relatado pelo cliente">'+((_osData.defeito_descricao)||'')+'</textarea></div>'+
+        '<div class="form-group"><label>Diagnóstico técnico</label><textarea id="osDiag" placeholder="O que foi identificado na análise">'+((_osData.diagnostico)||'')+'</textarea></div>'+
+        '<div class="flex justify-between mt-16"><button class="btn btn-ghost btn-sm" onclick="osVoltar()">← Voltar</button><button class="btn btn-primary btn-sm" onclick="osProximo(3)">Próximo →</button></div>';
+      break;
+    case 4: // Solução
+      area.innerHTML=
+        '<div class="card-title">4. Solução Aplicada</div>'+
+        '<div class="form-group"><label>Tipo de solução</label><select id="osSolTipo">'+
+          '<option value="">Selecione</option>'+
+          '<option value="reparo_local"'+(_osData.solucao_tipo==='reparo_local'?' selected':'')+'>Reparo local</option>'+
+          '<option value="troca_peca"'+(_osData.solucao_tipo==='troca_peca'?' selected':'')+'>Troca de peça</option>'+
+          '<option value="envio_stonni"'+(_osData.solucao_tipo==='envio_stonni'?' selected':'')+'>Envio para Stonni</option>'+
+          '<option value="sem_defeito"'+(_osData.solucao_tipo==='sem_defeito'?' selected':'')+'>Sem defeito constatado</option>'+
+        '</select></div>'+
+        '<div class="form-group"><label>Descrição da solução</label><textarea id="osSolDesc" placeholder="O que foi feito para resolver">'+((_osData.solucao_descricao)||'')+'</textarea></div>'+
+        '<div class="form-group"><label>Data do serviço</label><input type="date" id="osSolData" value="'+((_osData.data_servico)||new Date().toISOString().substring(0,10))+'"></div>'+
+        '<div class="flex justify-between mt-16"><button class="btn btn-ghost btn-sm" onclick="osVoltar()">← Voltar</button><button class="btn btn-primary btn-sm" onclick="osProximo(4)">Revisar →</button></div>';
+      break;
+    case 5: // Revisão
+      area.innerHTML=
+        '<div class="card-title">5. Revisão</div>'+
+        '<div style="font-size:.88rem;line-height:1.7">'+
+          '<p><strong>Cliente:</strong> '+(_osData.cliente_nome||'-')+' — '+(_osData.cliente_cidade||'')+'/'+(_osData.cliente_uf||'')+'</p>'+
+          '<p><strong>Telefone:</strong> '+(_osData.cliente_telefone||'-')+'</p>'+
+          '<p><strong>Produto:</strong> '+(_osData.produto_linha||'-')+' — '+(_osData.produto_modelo||'-')+'</p>'+
+          '<p><strong>Série:</strong> '+(_osData.numero_serie||'Não informado')+'</p>'+
+          '<p><strong>Erro:</strong> '+(_osData.codigo_erro||'Nenhum')+'</p>'+
+          '<p><strong>Defeito:</strong> '+(_osData.defeito_descricao||'-')+'</p>'+
+          '<p><strong>Diagnóstico:</strong> '+(_osData.diagnostico||'-')+'</p>'+
+          '<p><strong>Solução:</strong> '+(_osData.solucao_tipo||'-').replace('_',' ')+' — '+(_osData.solucao_descricao||'-')+'</p>'+
+          '<p><strong>Data:</strong> '+fmtData(_osData.data_servico)+'</p>'+
+        '</div>'+
+        '<div class="flex justify-between mt-24" style="gap:8px">'+
+          '<button class="btn btn-ghost btn-sm" onclick="osVoltar()">← Voltar</button>'+
+          '<button class="btn btn-ghost btn-sm" onclick="osSalvar(\'rascunho\')" id="btnRascunho">Salvar rascunho</button>'+
+          '<button class="btn btn-primary btn-sm" onclick="osSalvar(\'enviada\')" id="btnEnviar">Enviar para Stonni</button>'+
+        '</div>';
+      break;
+  }
+}
+
+function osAtualizarModelos(){
+  var linha=document.getElementById('osProdLinha').value;
+  var sel=document.getElementById('osProdModelo');
+  sel.innerHTML='<option value="">Selecione</option>';
+  if(linha&&LINHAS_PRODUTO[linha]){
+    LINHAS_PRODUTO[linha].forEach(function(m){sel.innerHTML+='<option>'+m+'</option>'});
+  }
+}
+
+function osProximo(step){
+  // salvar dados do step atual
+  switch(step){
+    case 1:
+      _osData.cliente_nome=document.getElementById('osCliNome').value.trim();
+      _osData.cliente_telefone=document.getElementById('osCliTel').value.trim();
+      _osData.cliente_uf=document.getElementById('osCliUF').value;
+      _osData.cliente_cidade=document.getElementById('osCliCidade').value.trim();
+      if(!_osData.cliente_nome){toast('Preencha o nome do cliente','error');return}
+      break;
+    case 2:
+      _osData.produto_linha=document.getElementById('osProdLinha').value;
+      _osData.produto_modelo=document.getElementById('osProdModelo').value;
+      _osData.numero_serie=document.getElementById('osProdSerie').value.trim();
+      if(!_osData.produto_linha||!_osData.produto_modelo){toast('Selecione a linha e o modelo','error');return}
+      break;
+    case 3:
+      _osData.codigo_erro=document.getElementById('osCodErro').value.trim();
+      _osData.defeito_descricao=document.getElementById('osDefeito').value.trim();
+      _osData.diagnostico=document.getElementById('osDiag').value.trim();
+      if(!_osData.defeito_descricao){toast('Descreva o defeito','error');return}
+      break;
+    case 4:
+      _osData.solucao_tipo=document.getElementById('osSolTipo').value;
+      _osData.solucao_descricao=document.getElementById('osSolDesc').value.trim();
+      _osData.data_servico=document.getElementById('osSolData').value;
+      if(!_osData.data_servico){toast('Informe a data do serviço','error');return}
+      break;
+  }
+  _osStep=step+1;
+  renderOsStep();
+}
+
+function osVoltar(){_osStep--;renderOsStep()}
+
+async function osSalvar(status){
+  var btn=document.getElementById(status==='rascunho'?'btnRascunho':'btnEnviar');
+  btn.disabled=true;btn.innerHTML='<span class="spinner"></span>';
+  var payload={
+    parceiro_id:_parceiroId,
+    cliente_nome:_osData.cliente_nome,
+    cliente_telefone:_osData.cliente_telefone||null,
+    cliente_cidade:_osData.cliente_cidade||null,
+    cliente_uf:_osData.cliente_uf||null,
+    produto_linha:_osData.produto_linha,
+    produto_modelo:_osData.produto_modelo,
+    numero_serie:_osData.numero_serie||null,
+    codigo_erro:_osData.codigo_erro||null,
+    defeito_descricao:_osData.defeito_descricao,
+    diagnostico:_osData.diagnostico||null,
+    solucao_tipo:_osData.solucao_tipo||null,
+    solucao_descricao:_osData.solucao_descricao||null,
+    data_servico:_osData.data_servico,
+    status:status
+  };
+  if(status==='enviada') payload.data_envio=new Date().toISOString();
+  try{
+    var r=await fetch(SB_URL+'/rest/v1/prt_ordens_servico',{
+      method:'POST',
+      headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json','Prefer':'return=representation'},
+      body:JSON.stringify(payload)
+    });
+    var res=await r.json();
+    if(!r.ok) throw new Error(JSON.stringify(res));
+    toast(status==='rascunho'?'Rascunho salvo!':'OS enviada para a Stonni!','success');
+    navegar('minhas-os');
+  }catch(e){
+    console.error(e);toast('Erro ao salvar OS','error');
+    btn.disabled=false;btn.innerHTML=status==='rascunho'?'Salvar rascunho':'Enviar para Stonni';
+  }
+}
+
+// ===== MINHAS OS =====
+async function renderMinhasOS(el){
+  el.innerHTML='<div class="page-header"><h1>Minhas OS</h1></div>'+
+    '<div class="filters-bar">'+
+      '<div class="filter-chip active" onclick="filtrarOS(this,\'\')">Todas</div>'+
+      '<div class="filter-chip" onclick="filtrarOS(this,\'rascunho\')">Rascunho</div>'+
+      '<div class="filter-chip" onclick="filtrarOS(this,\'enviada\')">Enviadas</div>'+
+      '<div class="filter-chip" onclick="filtrarOS(this,\'aprovada\')">Aprovadas</div>'+
+      '<div class="filter-chip" onclick="filtrarOS(this,\'recusada\')">Recusadas</div>'+
+    '</div>'+
+    '<div id="listaOS"><div class="loading-full"><span class="spinner"></span> Carregando...</div></div>';
+  await carregarMinhasOS('');
+}
+
+var _todasOS=[];
+async function carregarMinhasOS(filtro){
+  try{
+    var url=SB_URL+'/rest/v1/prt_ordens_servico?parceiro_id=eq.'+_parceiroId+'&order=criado_em.desc&select=id,cliente_nome,produto_linha,produto_modelo,status,data_servico,valor_servico,codigo_erro,defeito_descricao,solucao_tipo,solucao_descricao,diagnostico,motivo_recusa';
+    var r=await fetch(url,{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
+    _todasOS=await r.json();
+    if(!Array.isArray(_todasOS)) _todasOS=[];
+    mostrarListaOS(filtro);
+  }catch(e){console.error(e);document.getElementById('listaOS').innerHTML='<div class="empty-state"><p>Erro ao carregar</p></div>'}
+}
+
+function filtrarOS(chip,filtro){
+  document.querySelectorAll('.filter-chip').forEach(function(c){c.classList.remove('active')});
+  chip.classList.add('active');
+  mostrarListaOS(filtro);
+}
+
+function mostrarListaOS(filtro){
+  var lista=filtro?_todasOS.filter(function(o){return o.status===filtro}):_todasOS;
+  var box=document.getElementById('listaOS');
+  if(!lista.length){
+    box.innerHTML='<div class="empty-state"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><p>Nenhuma OS encontrada</p>'+(filtro?'':'<button class="btn btn-primary btn-sm" onclick="navegar(\'nova-os\')">Criar primeira OS</button>')+'</div>';
+    return;
+  }
+  var html='';
+  lista.forEach(function(o){
+    html+='<div class="card" style="cursor:pointer" onclick="abrirDetalheOS('+o.id+')">'+
+      '<div class="flex justify-between items-center mb-8">'+
+        '<span class="fw-700">OS #'+o.id+'</span>'+statusBadge(o.status)+
+      '</div>'+
+      '<div class="text-sm text-muted">'+o.cliente_nome+' — '+o.produto_modelo+'</div>'+
+      '<div class="flex justify-between items-center mt-8">'+
+        '<span class="text-xs text-muted">'+fmtData(o.data_servico)+'</span>'+
+        '<span class="text-sm fw-600">'+fmt(o.valor_servico)+'</span>'+
+      '</div>'+
+      (o.motivo_recusa?'<div class="text-sm text-danger mt-8">Motivo: '+o.motivo_recusa+'</div>':'')+
+    '</div>';
+  });
+  box.innerHTML=html;
+}
+
+function abrirDetalheOS(id){
+  var o=_todasOS.find(function(x){return x.id===id});
+  if(!o) return;
+  var html='<div class="modal-overlay show" onclick="if(event.target===this)this.classList.remove(\'show\')"><div class="modal">'+
+    '<div class="modal-title">OS #'+o.id+' '+statusBadge(o.status)+'<button class="modal-close" onclick="this.closest(\'.modal-overlay\').classList.remove(\'show\')">✕</button></div>'+
+    '<div style="font-size:.88rem;line-height:1.8">'+
+      '<p><strong>Cliente:</strong> '+o.cliente_nome+'</p>'+
+      '<p><strong>Produto:</strong> '+o.produto_linha+' — '+o.produto_modelo+'</p>'+
+      '<p><strong>Data:</strong> '+fmtData(o.data_servico)+'</p>'+
+      (o.codigo_erro?'<p><strong>Código erro:</strong> '+o.codigo_erro+'</p>':'')+
+      '<p><strong>Defeito:</strong> '+o.defeito_descricao+'</p>'+
+      (o.diagnostico?'<p><strong>Diagnóstico:</strong> '+o.diagnostico+'</p>':'')+
+      (o.solucao_tipo?'<p><strong>Solução:</strong> '+o.solucao_tipo.replace('_',' ')+' — '+(o.solucao_descricao||'')+'</p>':'')+
+      '<p><strong>Valor:</strong> '+fmt(o.valor_servico)+'</p>'+
+      (o.motivo_recusa?'<p class="text-danger"><strong>Recusada:</strong> '+o.motivo_recusa+'</p>':'')+
+    '</div>'+
+  '</div></div>';
+  document.body.insertAdjacentHTML('beforeend',html);
+}
+
+// ===== MATERIAL TÉCNICO =====
+async function renderMaterial(el){
+  el.innerHTML='<div class="page-header"><h1>Material Técnico</h1></div>'+
+    '<div id="materialArea"><div class="loading-full"><span class="spinner"></span> Carregando...</div></div>';
+  try{
+    var r=await fetch(SB_URL+'/rest/v1/prt_materiais?ativo=eq.true&order=ordem.asc,criado_em.desc&select=*',{
+      headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}
+    });
+    var mats=await r.json();
+    if(!Array.isArray(mats)) mats=[];
+    var box=document.getElementById('materialArea');
+    if(!mats.length){
+      box.innerHTML='<div class="empty-state"><svg viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg><p>Materiais técnicos ainda estão sendo preparados pela Stonni</p></div>';
+    }else{
+      var html='';
+      mats.forEach(function(m){
+        html+='<div class="card"><div class="card-title">'+m.titulo+'</div>'+
+          (m.descricao?'<p class="text-sm text-muted mb-8">'+m.descricao+'</p>':'')+
+          '<div class="flex items-center gap-8 text-xs text-muted">'+(m.linha_produto||'')+(m.modelo?' — '+m.modelo:'')+'</div>'+
+          '<a href="'+m.url+'" target="_blank" class="btn btn-ghost btn-sm mt-16">Abrir material →</a></div>';
+      });
+      box.innerHTML=html;
+    }
+  }catch(e){console.error(e)}
+}
+
+// ===== ESTOQUE =====
+async function renderEstoque(el){
+  el.innerHTML='<div class="page-header"><h1>Meu Estoque de Peças</h1></div>'+
+    '<div id="estoqueArea"><div class="loading-full"><span class="spinner"></span> Carregando...</div></div>';
+  try{
+    var r=await fetch(SB_URL+'/rest/v1/prt_estoque_parceiro?parceiro_id=eq.'+_parceiroId+'&order=nome_peca.asc&select=*',{
+      headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}
+    });
+    var pecas=await r.json();
+    if(!Array.isArray(pecas)) pecas=[];
+    var box=document.getElementById('estoqueArea');
+    if(!pecas.length){
+      box.innerHTML='<div class="empty-state"><svg viewBox="0 0 24 24"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/></svg><p>Nenhuma peça em estoque ainda</p><p class="text-xs text-muted">A Stonni enviará as peças quando seu credenciamento for concluído</p></div>';
+    }else{
+      var html='<div class="table-wrap"><table><thead><tr><th>Peça</th><th>Ref</th><th>Disponível</th><th>Último envio</th></tr></thead><tbody>';
+      pecas.forEach(function(p){
+        var cor=p.quantidade_disponivel<=0?'text-danger':p.quantidade_disponivel<=3?'text-warning':'text-success';
+        var semaforo=p.quantidade_disponivel<=0?'🔴':p.quantidade_disponivel<=3?'🟡':'🟢';
+        html+='<tr><td>'+p.nome_peca+'</td><td class="text-muted">'+p.referencia+'</td><td class="'+cor+' fw-600">'+semaforo+' '+p.quantidade_disponivel+'</td><td class="text-muted">'+fmtData(p.ultimo_envio)+'</td></tr>';
+      });
+      html+='</tbody></table></div>';
+      box.innerHTML=html;
+    }
+  }catch(e){console.error(e)}
+}
+
+// ===== FINANCEIRO =====
+async function renderFinanceiro(el){
+  el.innerHTML='<div class="page-header"><h1>Financeiro</h1></div>'+
+    '<div id="finArea"><div class="loading-full"><span class="spinner"></span> Carregando...</div></div>';
+  try{
+    var r=await fetch(SB_URL+'/rest/v1/prt_pagamentos?parceiro_id=eq.'+_parceiroId+'&order=mes_referencia.desc&select=*',{
+      headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}
+    });
+    var pags=await r.json();
+    if(!Array.isArray(pags)) pags=[];
+    var box=document.getElementById('finArea');
+    if(!pags.length){
+      box.innerHTML='<div class="empty-state"><svg viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg><p>Nenhum fechamento financeiro ainda</p><p class="text-xs text-muted">Os pagamentos aparecem aqui após o fechamento mensal pela Stonni</p></div>';
+    }else{
+      var html='<div class="table-wrap"><table><thead><tr><th>Mês</th><th>OS</th><th>Serviços</th><th>Peças</th><th>Total</th><th>Status</th></tr></thead><tbody>';
+      pags.forEach(function(p){
+        var st=p.status==='pago'?'badge-paga':p.status==='aprovado'?'badge-aprovada':'badge-enviada';
+        html+='<tr><td class="fw-600">'+p.mes_referencia+'</td><td>'+p.qtd_os+'</td><td>'+fmt(p.valor_servicos)+'</td><td>'+fmt(p.valor_pecas)+'</td><td class="fw-700">'+fmt(p.valor_total)+'</td><td><span class="badge '+st+'">'+p.status+'</span></td></tr>';
+      });
+      html+='</tbody></table></div>';
+      box.innerHTML=html;
+    }
+  }catch(e){console.error(e)}
+}
 
 // enter key no login
 document.getElementById('loginSenha').addEventListener('keydown',function(e){if(e.key==='Enter')fazerLogin()});
