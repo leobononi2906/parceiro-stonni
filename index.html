@@ -229,7 +229,7 @@ tbody tr:hover{background:var(--primary-bg)}
   transition:background .15s;user-select:none;gap:8px;
 }
 .srv-accordion-header:hover{background:var(--primary-bg)}
-.srv-accordion-header.has-selected{background:rgba(79,195,247,.12);border-left:3px solid var(--primary)}
+.srv-accordion-header.has-selected{background:rgba(79,195,247,.12);border-left:3px solid var(--primary);padding-left:13px}
 .srv-accordion-title{font-size:.85rem;font-weight:700;color:var(--text);flex:1}
 .srv-accordion-teto{font-size:.75rem;color:var(--text-m);white-space:nowrap}
 .srv-accordion-arrow{font-size:.7rem;color:var(--text-d);transition:transform .2s;flex-shrink:0}
@@ -645,7 +645,7 @@ var LINHAS_PRODUTO={
 var LINHAS_DB={'Geladeira':'geladeira','Ar Condicionado':'ar_condicionado','Gerador':'gerador','Outros':'outros'};
 
 function renderNovaOS(el,editId){
-  _osStep=1;_osData={};_servicosCache=[];_pecasCatalogo=[];_pecasSelecionadas=[];_editandoOsId=null;
+  _osStep=1;_osData={};_servicosCache=[];_categoriasCache=[];_accordionOpen=null;_pecasCatalogo=[];_pecasSelecionadas=[];_editandoOsId=null;
   if(editId) return carregarOsParaEditar(el,editId);
   el.innerHTML=
     '<div class="page-header"><h1>Nova Ordem de Serviço</h1></div>'+
@@ -897,11 +897,11 @@ async function carregarPecasCatalogo(){
     }else{
       box.innerHTML=
         '<div class="flex gap-8 mb-8" style="flex-wrap:wrap">'+
-          '<select id="selPeca" style="flex:1;min-width:200px;padding:8px 12px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:.85rem">'+
+          '<select id="selPeca" style="flex:1;min-width:160px;padding:8px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:.85rem">'+
             '<option value="">Selecione a peça...</option>'+
             _pecasCatalogo.map(function(p){return '<option value="'+p.id+'">'+p.referencia+' — '+p.nome+'</option>'}).join('')+
           '</select>'+
-          '<input type="number" id="qtdPeca" value="1" min="1" style="width:60px;padding:8px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);text-align:center;font-size:.85rem">'+
+          '<input type="number" id="qtdPeca" value="1" min="1" style="width:56px;padding:8px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);text-align:center;font-size:.85rem">'+
           '<button class="btn btn-primary btn-sm" style="width:auto;padding:8px 16px" onclick="adicionarPeca()">+ Adicionar</button>'+
         '</div>';
     }
@@ -996,7 +996,7 @@ function osProximo(step){
       _osData.numero_nf=document.getElementById('osNF').value.trim()||null;
       _osData.data_compra=document.getElementById('osDataCompra').value||null;
       if(!_osData.produto_linha){toast('Selecione a linha do produto','error');return}
-      _servicosCache=[];
+      _servicosCache=[];_categoriasCache=[];_accordionOpen=null;
       break;
     case 3:
       _osData.codigo_erro=document.getElementById('osCodErro').value.trim()||null;
@@ -1306,4 +1306,5 @@ document.addEventListener('click',function(e){
 </script>
 </body>
 </html>
+
 
