@@ -18,30 +18,30 @@ input,select,textarea{font-family:inherit;font-size:1rem}
 
 /* ===== TOKENS STONNI ===== */
 :root{
-  --bg:        #0B1426;
-  --surface:   #111D33;
-  --surface2:  #162340;
-  --border:    #1E3050;
+  --bg:        #F0F4F8;
+  --surface:   #FFFFFF;
+  --surface2:  #F5F7FA;
+  --border:    #DCE3EB;
   --primary:   #4FC3F7;
   --primary-h: #29B6F6;
-  --primary-bg:rgba(79,195,247,.08);
-  --text:      #E3EAF2;
-  --text-m:    #8DA0B8;
-  --text-d:    #546A80;
+  --primary-bg:rgba(79,195,247,.10);
+  --text:      #1A2B3C;
+  --text-m:    #546A80;
+  --text-d:    #8DA0B8;
   --success:   #4CAF50;
-  --warning:   #FFA726;
-  --danger:    #EF5350;
+  --warning:   #F57C00;
+  --danger:    #E53935;
   --paid:      #AB47BC;
   --radius:    10px;
   --radius-sm: 6px;
-  --shadow:    0 2px 12px rgba(0,0,0,.35);
+  --shadow:    0 2px 12px rgba(0,0,0,.08);
 }
 
 /* ===== LOGIN ===== */
 #loginScreen{
   display:flex;align-items:center;justify-content:center;
   min-height:100dvh;padding:24px;
-  background:linear-gradient(145deg,#060E1A 0%,#0B1426 50%,#0F1A30 100%);
+  background:linear-gradient(145deg,#E8F0FE 0%,#F0F4F8 50%,#E3EDF7 100%);
 }
 .login-box{
   width:100%;max-width:380px;
@@ -49,14 +49,14 @@ input,select,textarea{font-family:inherit;font-size:1rem}
   border-radius:16px;padding:40px 28px 32px;
   box-shadow:var(--shadow);text-align:center;
 }
-.login-logo{width:72px;height:72px;margin:0 auto 20px;border-radius:50%;object-fit:contain;background:var(--surface2);padding:8px}
+.login-logo{width:72px;height:72px;margin:0 auto 20px;border-radius:50%;object-fit:contain;background:var(--primary-bg);padding:8px}
 .login-title{font-size:1.35rem;font-weight:700;margin-bottom:4px}
 .login-sub{font-size:.85rem;color:var(--text-m);margin-bottom:28px}
 .form-group{margin-bottom:16px;text-align:left}
 .form-group label{display:block;font-size:.8rem;font-weight:600;color:var(--text-m);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px}
 .form-group input{
   width:100%;padding:12px 14px;
-  background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);
+  background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);
   color:var(--text);font-size:.95rem;
   transition:border .2s;
 }
@@ -66,7 +66,7 @@ input,select,textarea{font-family:inherit;font-size:1rem}
   padding:12px 24px;border-radius:var(--radius-sm);font-weight:600;
   font-size:.9rem;transition:all .15s;width:100%;
 }
-.btn-primary{background:var(--primary);color:#0B1426}
+.btn-primary{background:var(--primary);color:#FFFFFF}
 .btn-primary:hover{background:var(--primary-h)}
 .btn-primary:disabled{opacity:.5;cursor:not-allowed}
 .btn-ghost{background:transparent;color:var(--primary);border:1px solid var(--border)}
@@ -86,7 +86,7 @@ input,select,textarea{font-family:inherit;font-size:1rem}
   background:var(--surface);border-bottom:1px solid var(--border);
 }
 .topbar-menu{background:none;color:var(--text);font-size:1.4rem;padding:4px}
-.topbar-logo{height:32px;border-radius:50%;background:var(--surface2);padding:2px}
+.topbar-logo{height:32px;border-radius:50%;background:var(--primary-bg);padding:2px}
 .topbar-title{font-size:.95rem;font-weight:600;flex:1}
 .topbar-user{
   display:flex;align-items:center;gap:8px;
@@ -180,7 +180,7 @@ tbody tr:hover{background:var(--primary-bg)}
 
 /* ===== STATUS BADGES ===== */
 .badge{display:inline-block;padding:3px 10px;border-radius:12px;font-size:.72rem;font-weight:600}
-.badge-rascunho{background:rgba(255,255,255,.08);color:var(--text-d)}
+.badge-rascunho{background:rgba(0,0,0,.06);color:var(--text-d)}
 .badge-enviada{background:rgba(79,195,247,.12);color:var(--primary)}
 .badge-em_analise{background:rgba(255,167,38,.12);color:var(--warning)}
 .badge-aprovada{background:rgba(76,175,80,.12);color:var(--success)}
@@ -209,18 +209,40 @@ tbody tr:hover{background:var(--primary-bg)}
 @media(min-width:600px){.form-row.cols-2{grid-template-columns:1fr 1fr}}
 .form-group select{
   width:100%;padding:12px 14px;
-  background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);
+  background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);
   color:var(--text);font-size:.95rem;appearance:none;
-  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238DA0B8' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23546A80' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
   background-repeat:no-repeat;background-position:right 12px center;
 }
 .form-group select:focus{outline:none;border-color:var(--primary)}
 .form-group textarea{
   width:100%;padding:12px 14px;min-height:80px;resize:vertical;
-  background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);
+  background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);
   color:var(--text);font-size:.95rem;
 }
 .form-group textarea:focus{outline:none;border-color:var(--primary)}
+
+/* ===== ACCORDION SERVIÇOS ===== */
+.srv-accordion{border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:8px}
+.srv-accordion-header{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;cursor:pointer;background:var(--surface2);transition:background .15s;user-select:none;gap:8px}
+.srv-accordion-header:hover{background:var(--primary-bg)}
+.srv-accordion-header.has-selected{background:rgba(79,195,247,.12);border-left:3px solid var(--primary);padding-left:13px}
+.srv-accordion-title{font-size:.85rem;font-weight:700;color:var(--text);flex:1}
+.srv-accordion-teto{font-size:.75rem;color:var(--text-m);white-space:nowrap}
+.srv-accordion-arrow{font-size:.7rem;color:var(--text-d);transition:transform .2s;flex-shrink:0}
+.srv-accordion.open .srv-accordion-arrow{transform:rotate(180deg)}
+.srv-accordion-body{display:none;padding:4px 8px 8px;background:var(--surface)}
+.srv-accordion.open .srv-accordion-body{display:block}
+.srv-item{display:flex;align-items:center;gap:8px;padding:10px 12px;margin:3px 0;border-radius:var(--radius-sm);cursor:pointer;transition:all .12s;border:1px solid transparent}
+.srv-item:hover{background:var(--primary-bg);border-color:var(--border)}
+.srv-item.selected{background:rgba(79,195,247,.15);border-color:var(--primary)}
+.srv-item-code{font-size:.78rem;font-weight:700;color:var(--primary);min-width:70px}
+.srv-item-desc{font-size:.84rem;color:var(--text-m);flex:1}
+.srv-item-valor{font-size:.85rem;font-weight:700;color:var(--text);white-space:nowrap}
+.srv-selected-banner{display:flex;align-items:center;gap:10px;padding:10px 14px;margin-top:12px;background:rgba(79,195,247,.1);border:1px solid var(--primary);border-radius:var(--radius)}
+.srv-selected-banner .srv-sel-label{font-size:.72rem;font-weight:600;color:var(--text-d);text-transform:uppercase}
+.srv-selected-banner .srv-sel-info{font-size:.88rem;font-weight:600;color:var(--text)}
+.srv-selected-banner .srv-sel-valor{margin-left:auto;font-size:1rem;font-weight:700;color:var(--primary)}
 
 /* ===== PAGE HEADER ===== */
 .page-header{margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
@@ -356,6 +378,10 @@ tbody tr:hover{background:var(--primary-bg)}
       <div class="nav-item" onclick="navegar('estoque')">
         <svg viewBox="0 0 24 24"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/></svg>
         Meu Estoque
+      </div>
+      <div class="nav-item" onclick="navegar('comprar-pecas')">
+        <svg viewBox="0 0 24 24"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+        Comprar Peças
       </div>
       <div class="nav-item" onclick="navegar('financeiro')">
         <svg viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
@@ -493,6 +519,7 @@ function renderPagina(pagina){
     case 'minhas-os': renderMinhasOS(el);break;
     case 'material': renderMaterial(el);break;
     case 'estoque': renderEstoque(el);break;
+    case 'comprar-pecas': renderComprarPecas(el);break;
     case 'financeiro': renderFinanceiro(el);break;
     default: el.innerHTML='<div class="empty-state"><p>Página não encontrada</p></div>';
   }
@@ -686,25 +713,29 @@ function renderOsStep(){
         '<hr style="border:0;border-top:1px solid var(--border);margin:16px 0">'+
         '<div class="form-row cols-2">'+
           '<div class="form-group"><label>Número da NF de compra <span class="text-xs text-muted">(opcional)</span></label><input type="text" id="osNF" value="'+esc(_osData.numero_nf)+'" placeholder="NF de compra do cliente"></div>'+
-          '<div class="form-group"><label>Data da compra <span class="text-xs text-muted">(opcional)</span></label><input type="date" id="osDataCompra" value="'+esc(_osData.data_compra)+'"></div>'+
+          '<div class="form-group"><label>Data da compra</label><input type="date" id="osDataCompra" value="'+esc(_osData.data_compra)+'"></div>'+
+        '</div>'+
+        '<div class="form-group"><label>Foto da NF de compra</label>'+
+          '<input type="file" id="fotoNF" accept="image/*" capture="environment" onchange="uploadFoto(\'nf\')" style="display:none">'+
+          '<div id="previewNF" class="foto-preview" onclick="document.getElementById(\'fotoNF\').click()">'+
+            (_osData.foto_nf?'<img src="'+_osData.foto_nf+'" style="width:100%;height:100%;object-fit:cover;border-radius:var(--radius-sm)">':'<svg viewBox="0 0 24 24" width="24" height="24" stroke="var(--text-d)" fill="none" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg><span class="text-xs text-muted">Toque para tirar foto da NF</span>')+
+          '</div>'+
         '</div>'+
         '<div class="flex justify-between mt-16"><button class="btn btn-ghost btn-sm" onclick="osVoltar()">← Voltar</button><button class="btn btn-primary btn-sm" onclick="osProximo(2)">Próximo →</button></div>';
       break;
-    case 3: // Diagnóstico + Solução + Serviço + Peças
+    case 3:
       var servHtml='<div class="loading-full" id="servicosLista"><span class="spinner"></span> Carregando serviços...</div>';
       if(_servicosCache.length){servHtml=renderServicosHtml()}
+      var fotosArr=Array.isArray(_osData.fotos_equipamento)?_osData.fotos_equipamento:[];
+      var fotosEquipHtml='';
+      fotosArr.forEach(function(url,i){
+        fotosEquipHtml+='<div style="position:relative;width:100px;height:80px;border-radius:var(--radius-sm);overflow:hidden;border:1px solid var(--border);flex-shrink:0"><img src="'+url+'" style="width:100%;height:100%;object-fit:cover"><button onclick="removerFotoEquip('+i+')" style="position:absolute;top:2px;right:2px;background:var(--danger);color:#fff;border:none;border-radius:50%;width:20px;height:20px;font-size:11px;cursor:pointer;display:flex;align-items:center;justify-content:center">✕</button></div>';
+      });
       area.innerHTML=
         '<div class="card-title">3. Diagnóstico e Serviço</div>'+
         '<div class="form-group"><label>Código de erro <span class="text-xs text-muted">(se houver)</span></label><input type="text" id="osCodErro" value="'+esc(_osData.codigo_erro)+'" placeholder="Ex: E0, E1, EF..."></div>'+
         '<div class="form-group"><label>Descrição do defeito</label><textarea id="osDefeito" placeholder="Descreva o problema relatado pelo cliente">'+esc(_osData.defeito_descricao)+'</textarea></div>'+
         '<div class="form-group"><label>Diagnóstico técnico</label><textarea id="osDiag" placeholder="O que foi identificado na análise">'+esc(_osData.diagnostico)+'</textarea></div>'+
-        '<div class="form-group"><label>Tipo de solução</label><select id="osSolTipo">'+
-          '<option value="">Selecione</option>'+
-          '<option value="reparo_local"'+(_osData.solucao_tipo==='reparo_local'?' selected':'')+'>Reparo local</option>'+
-          '<option value="troca_peca"'+(_osData.solucao_tipo==='troca_peca'?' selected':'')+'>Troca de peça</option>'+
-          '<option value="envio_stonni"'+(_osData.solucao_tipo==='envio_stonni'?' selected':'')+'>Envio para Stonni</option>'+
-          '<option value="sem_defeito"'+(_osData.solucao_tipo==='sem_defeito'?' selected':'')+'>Sem defeito constatado</option>'+
-        '</select></div>'+
         '<div class="form-group"><label>Data do serviço</label><input type="date" id="osSolData" value="'+(_osData.data_servico||new Date().toISOString().substring(0,10))+'"></div>'+
         '<hr style="border:0;border-top:1px solid var(--border);margin:16px 0">'+
         '<div class="card-title">Serviço realizado</div>'+
@@ -714,21 +745,11 @@ function renderOsStep(){
         '<div id="pecasArea"><div class="loading-full"><span class="spinner"></span> Carregando peças...</div></div>'+
         '<div id="pecasSelArea">'+renderPecasSelHtml()+'</div>'+
         '<hr style="border:0;border-top:1px solid var(--border);margin:16px 0">'+
-        '<div class="card-title">Fotos</div>'+
-        '<div class="form-row cols-2">'+
-          '<div class="form-group"><label>Foto da NF</label>'+
-            '<input type="file" id="fotoNF" accept="image/*" capture="environment" onchange="uploadFoto(\'nf\')" style="display:none">'+
-            '<div id="previewNF" class="foto-preview" onclick="document.getElementById(\'fotoNF\').click()">'+
-              (_osData.foto_nf?'<img src="'+_osData.foto_nf+'" style="width:100%;height:100%;object-fit:cover;border-radius:var(--radius-sm)">':'<svg viewBox="0 0 24 24" width="24" height="24" stroke="var(--text-d)" fill="none" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg><span class="text-xs text-muted">Foto da NF</span>')+
-            '</div>'+
-          '</div>'+
-          '<div class="form-group"><label>Foto do equipamento</label>'+
-            '<input type="file" id="fotoEquip" accept="image/*" capture="environment" onchange="uploadFoto(\'equip\')" style="display:none">'+
-            '<div id="previewEquip" class="foto-preview" onclick="document.getElementById(\'fotoEquip\').click()">'+
-              (_osData.foto_equipamento?'<img src="'+_osData.foto_equipamento+'" style="width:100%;height:100%;object-fit:cover;border-radius:var(--radius-sm)">':'<svg viewBox="0 0 24 24" width="24" height="24" stroke="var(--text-d)" fill="none" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg><span class="text-xs text-muted">Equipamento no veículo</span>')+
-            '</div>'+
-          '</div>'+
-        '</div>'+
+        '<div class="card-title">Fotos do equipamento</div>'+
+        '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px" id="fotosEquipGrid">'+fotosEquipHtml+'</div>'+
+        '<input type="file" id="fotoEquipInput" accept="image/*" capture="environment" onchange="uploadFotoEquip()" style="display:none" multiple>'+
+        '<button class="btn btn-ghost btn-sm" style="width:auto" onclick="document.getElementById(\'fotoEquipInput\').click()">📷 Adicionar foto</button>'+
+        '<p class="text-xs text-muted mt-8">Tire fotos do equipamento instalado no veículo. Você pode adicionar várias.</p>'+
         '<div class="flex justify-between mt-16"><button class="btn btn-ghost btn-sm" onclick="osVoltar()">← Voltar</button><button class="btn btn-primary btn-sm" onclick="osProximo(3)">Revisar →</button></div>';
       if(!_servicosCache.length) carregarServicos();
       carregarPecasCatalogo();
@@ -752,11 +773,10 @@ function renderOsStep(){
           '<p><strong>Erro:</strong> '+esc(_osData.codigo_erro||'Nenhum')+'</p>'+
           '<p><strong>Defeito:</strong> '+esc(_osData.defeito_descricao)+'</p>'+
           '<p><strong>Diagnóstico:</strong> '+esc(_osData.diagnostico||'-')+'</p>'+
-          '<p><strong>Solução:</strong> '+esc((_osData.solucao_tipo||'').replace(/_/g,' '))+'</p>'+
           '<p><strong>Serviço:</strong> '+servTxt+'</p>'+
           '<p><strong>Peças:</strong> '+esc(pecasTxt)+'</p>'+
-          '<p><strong>Data:</strong> '+fmtData(_osData.data_servico)+'</p>'+
-          '<p><strong>Fotos:</strong> '+(_osData.foto_nf?'NF ✅ ':'NF ❌ ')+(_osData.foto_equipamento?'Equipamento ✅':'Equipamento ❌')+'</p>'+
+          '<p><strong>Data serviço:</strong> '+fmtData(_osData.data_servico)+'</p>'+
+          '<p><strong>Fotos:</strong> NF '+(_osData.foto_nf?'✅':'❌')+' · Equipamento '+(Array.isArray(_osData.fotos_equipamento)?_osData.fotos_equipamento.length:(_osData.foto_equipamento?1:0))+' foto(s)</p>'+
         '</div>'+
         '<div class="flex justify-between mt-24" style="gap:8px;flex-wrap:wrap">'+
           '<button class="btn btn-ghost btn-sm" onclick="osVoltar()">← Voltar</button>'+
@@ -770,47 +790,49 @@ function renderOsStep(){
 function esc(v){return(v||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
 
 // ===== SERVIÇOS =====
+var _categoriasCache=[];
+var _accordionOpen=null;
+
 async function carregarServicos(){
   var linhaDb=LINHAS_DB[_osData.produto_linha]||'';
   if(!linhaDb){document.getElementById('servicosArea').innerHTML='<p class="text-muted text-sm">Selecione uma linha de produto primeiro</p>';return}
   try{
-    var r=await fetch(SB_URL+'/rest/v1/prt_tabela_servicos?linha_produto=eq.'+linhaDb+'&ativo=eq.true&order=codigo.asc&select=*',{
-      headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}
-    });
-    _servicosCache=await r.json();
-    if(!Array.isArray(_servicosCache))_servicosCache=[];
+    var rc=await fetch(SB_URL+'/rest/v1/prt_categorias_servico?linha_produto=eq.'+linhaDb+'&ativo=eq.true&order=ordem.asc&select=*',{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
+    _categoriasCache=await rc.json();if(!Array.isArray(_categoriasCache))_categoriasCache=[];
+    var r=await fetch(SB_URL+'/rest/v1/prt_tabela_servicos?linha_produto=eq.'+linhaDb+'&ativo=eq.true&order=codigo.asc&select=*',{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
+    _servicosCache=await r.json();if(!Array.isArray(_servicosCache))_servicosCache=[];
     document.getElementById('servicosArea').innerHTML=renderServicosHtml();
   }catch(e){console.error(e)}
 }
 
 function renderServicosHtml(){
-  if(!_servicosCache.length) return '<p class="text-muted text-sm">Nenhum serviço cadastrado para esta linha</p>';
-  var cats={};
-  _servicosCache.forEach(function(s){
-    if(!cats[s.categoria])cats[s.categoria]={items:[],teto:s.teto_categoria};
-    cats[s.categoria].items.push(s);
-  });
-  var catNomes={eletrica:'Intervenções Elétricas',frigorifico:'Máquina Frigorífica / Recuperação',outros:'Outras Intervenções',outros_servicos:'Outros Serviços'};
+  if(!_categoriasCache.length) return '<p class="text-muted text-sm">Nenhum serviço cadastrado para esta linha</p>';
+  var porCat={};_servicosCache.forEach(function(s){var cid=s.categoria_id||0;if(!porCat[cid])porCat[cid]=[];porCat[cid].push(s)});
+  var selServ=_osData.codigo_servico?_servicosCache.find(function(x){return x.codigo===_osData.codigo_servico}):null;
   var html='';
-  Object.keys(cats).forEach(function(cat){
-    var c=cats[cat];
-    html+='<div class="mb-16"><div class="text-xs fw-700 text-muted mb-8" style="text-transform:uppercase">'+
-      (catNomes[cat]||cat)+' <span class="text-xs" style="font-weight:400">(teto: '+fmt(c.teto)+')</span></div>';
-    c.items.forEach(function(s){
-      var sel=_osData.codigo_servico===s.codigo;
-      html+='<div class="nav-item'+(sel?' active':'')+'" style="margin:2px 0;padding:8px 12px" onclick="selecionarServico(\''+s.codigo+'\')">'+
-        '<div style="flex:1"><span class="fw-600">'+s.codigo+'</span> <span class="text-sm">'+s.descricao+'</span></div>'+
-        '<span class="fw-700 text-primary">'+fmt(s.valor)+'</span></div>';
+  _categoriasCache.forEach(function(cat){
+    var items=porCat[cat.id]||[];if(!items.length)return;
+    var catTemSel=selServ&&selServ.categoria_id===cat.id;
+    var isOpen=_accordionOpen===cat.slug||(catTemSel&&!_accordionOpen);
+    html+='<div class="srv-accordion'+(isOpen?' open':'')+'" data-cat="'+cat.slug+'">';
+    html+='<div class="srv-accordion-header'+(catTemSel?' has-selected':'')+'" onclick="toggleAccordion(\''+cat.slug+'\')">';
+    html+='<div class="srv-accordion-title">'+cat.nome+'</div><div class="srv-accordion-teto">teto '+fmt(cat.valor_teto)+'</div><div class="srv-accordion-arrow">▼</div></div>';
+    html+='<div class="srv-accordion-body">';
+    items.forEach(function(s){var sel=_osData.codigo_servico===s.codigo;
+      html+='<div class="srv-item'+(sel?' selected':'')+'" onclick="selecionarServico(\''+s.codigo+'\')"><div class="srv-item-code">'+s.codigo+'</div><div class="srv-item-desc">'+s.descricao+'</div><div class="srv-item-valor">'+fmt(s.valor)+'</div></div>';
     });
-    html+='</div>';
+    html+='</div></div>';
   });
+  if(selServ){html+='<div class="srv-selected-banner"><div><div class="srv-sel-label">Serviço selecionado</div><div class="srv-sel-info">'+selServ.codigo+' — '+selServ.descricao+'</div></div><div class="srv-sel-valor">'+fmt(selServ.valor)+'</div></div>'}
   return html;
 }
+function toggleAccordion(slug){_accordionOpen=(_accordionOpen===slug)?null:slug;document.getElementById('servicosArea').innerHTML=renderServicosHtml()}
 
 function selecionarServico(codigo){
   _osData.codigo_servico=codigo;
   var s=_servicosCache.find(function(x){return x.codigo===codigo});
   if(s){_osData.valor_servico=s.valor;_osData.categoria_servico=s.categoria}
+  _accordionOpen=null;
   document.getElementById('servicosArea').innerHTML=renderServicosHtml();
 }
 
@@ -885,32 +907,47 @@ function osAtualizarModelos(){
 }
 
 async function uploadFoto(tipo){
-  var input=document.getElementById(tipo==='nf'?'fotoNF':'fotoEquip');
-  var preview=document.getElementById(tipo==='nf'?'previewNF':'previewEquip');
+  var input=document.getElementById('fotoNF');
+  var preview=document.getElementById('previewNF');
   var file=input.files[0];
   if(!file)return;
   preview.innerHTML='<span class="spinner"></span><span class="text-xs text-muted">Enviando...</span>';
   try{
     var ext=file.name.split('.').pop().toLowerCase();
-    var path=_parceiroId+'/os-'+Date.now()+'-'+tipo+'.'+ext;
-    // Pegar token da sessão ativa
+    var path=_parceiroId+'/os-'+Date.now()+'-nf.'+ext;
     var sess=await sb.auth.getSession();
     var token=(sess&&sess.data&&sess.data.session)?sess.data.session.access_token:SB_KEY;
     var r=await fetch(SB_URL+'/storage/v1/object/prt-os-fotos/'+path,{
-      method:'POST',
-      headers:{'apikey':SB_KEY,'Authorization':'Bearer '+token,'Content-Type':file.type,'x-upsert':'true'},
-      body:file
+      method:'POST',headers:{'apikey':SB_KEY,'Authorization':'Bearer '+token,'Content-Type':file.type,'x-upsert':'true'},body:file
     });
-    if(!r.ok){var errBody=await r.text();console.error('Upload err:',r.status,errBody);throw new Error('Upload falhou: '+r.status)}
+    if(!r.ok) throw new Error('Upload falhou');
     var url=SB_URL+'/storage/v1/object/public/prt-os-fotos/'+path;
-    if(tipo==='nf'){_osData.foto_nf=url}else{_osData.foto_equipamento=url}
+    _osData.foto_nf=url;
     preview.innerHTML='<img src="'+url+'" style="width:100%;height:100%;object-fit:cover;border-radius:var(--radius-sm)">';
     toast('Foto enviada!','success');
-  }catch(e){
-    console.error(e);toast('Erro no upload da foto','error');
-    preview.innerHTML='<span class="text-xs text-danger">Erro — toque para tentar novamente</span>';
-  }
+  }catch(e){console.error(e);toast('Erro no upload','error');preview.innerHTML='<span class="text-xs text-danger">Erro — toque novamente</span>'}
 }
+
+async function uploadFotoEquip(){
+  var input=document.getElementById('fotoEquipInput');
+  if(!input||!input.files||!input.files.length)return;
+  if(!Array.isArray(_osData.fotos_equipamento))_osData.fotos_equipamento=[];
+  for(var i=0;i<input.files.length;i++){
+    try{
+      var file=input.files[i];var ext=file.name.split('.').pop().toLowerCase();
+      var path=_parceiroId+'/os-'+Date.now()+'-equip'+i+'.'+ext;
+      var sess=await sb.auth.getSession();
+      var token=(sess&&sess.data&&sess.data.session)?sess.data.session.access_token:SB_KEY;
+      var r=await fetch(SB_URL+'/storage/v1/object/prt-os-fotos/'+path,{
+        method:'POST',headers:{'apikey':SB_KEY,'Authorization':'Bearer '+token,'Content-Type':file.type,'x-upsert':'true'},body:file
+      });
+      if(!r.ok)throw new Error('Upload falhou');
+      _osData.fotos_equipamento.push(SB_URL+'/storage/v1/object/public/prt-os-fotos/'+path);
+    }catch(e){console.error(e);toast('Erro ao enviar foto','error')}
+  }
+  input.value='';toast(_osData.fotos_equipamento.length+' foto(s) do equipamento','success');renderOsStep();
+}
+function removerFotoEquip(idx){if(!Array.isArray(_osData.fotos_equipamento))return;_osData.fotos_equipamento.splice(idx,1);renderOsStep()}
 
 function osProximo(step){
   switch(step){
@@ -928,13 +965,13 @@ function osProximo(step){
       _osData.numero_nf=document.getElementById('osNF').value.trim()||null;
       _osData.data_compra=document.getElementById('osDataCompra').value||null;
       if(!_osData.produto_linha){toast('Selecione a linha do produto','error');return}
-      _servicosCache=[];
+      if(!_osData.data_compra){toast('Informe a data da compra','error');return}
+      _servicosCache=[];_categoriasCache=[];_accordionOpen=null;
       break;
     case 3:
       _osData.codigo_erro=document.getElementById('osCodErro').value.trim()||null;
       _osData.defeito_descricao=document.getElementById('osDefeito').value.trim();
       _osData.diagnostico=document.getElementById('osDiag').value.trim()||null;
-      _osData.solucao_tipo=document.getElementById('osSolTipo').value||null;
       _osData.data_servico=document.getElementById('osSolData').value;
       if(!_osData.defeito_descricao){toast('Descreva o defeito','error');return}
       if(!_osData.data_servico){toast('Informe a data do serviço','error');return}
@@ -964,13 +1001,13 @@ async function osSalvar(status){
     codigo_erro:_osData.codigo_erro||null,
     defeito_descricao:_osData.defeito_descricao,
     diagnostico:_osData.diagnostico||null,
-    solucao_tipo:_osData.solucao_tipo||null,
     codigo_servico:_osData.codigo_servico||null,
     categoria_servico:_osData.categoria_servico||null,
     valor_servico:_osData.valor_servico||null,
     data_servico:_osData.data_servico,
     foto_nf:_osData.foto_nf||null,
-    foto_equipamento:_osData.foto_equipamento||null,
+    foto_equipamento:Array.isArray(_osData.fotos_equipamento)&&_osData.fotos_equipamento.length?_osData.fotos_equipamento[0]:(_osData.foto_equipamento||null),
+    fotos_equipamento:Array.isArray(_osData.fotos_equipamento)?_osData.fotos_equipamento:[],
     status:status,
     atualizado_em:new Date().toISOString()
   };
@@ -1010,7 +1047,11 @@ async function osSalvar(status){
       });
     }
     var proto=osRow.protocolo||'';
-    toast((_editandoOsId?'OS atualizada':'OS '+(status==='rascunho'?'salva':'enviada'))+'! '+proto,'success');
+    if(status==='enviada'){
+      toast('OS '+proto+' enviada com sucesso! Nossa equipe analisará e retornará em até 3 dias úteis.','success');
+    }else{
+      toast((_editandoOsId?'OS atualizada':'Rascunho salvo')+'! '+proto,'success');
+    }
     bononiLog('ACAO','os',_editandoOsId?'EDITAR_OS':('CRIAR_OS_'+status.toUpperCase()),String(osId),proto);
     _editandoOsId=null;
     navegar('minhas-os');
@@ -1201,30 +1242,39 @@ async function renderEstoque(el){
   }catch(e){console.error(e)}
 }
 
-// ===== FINANCEIRO =====
+// ===== FINANCEIRO (melhorado) =====
 async function renderFinanceiro(el){
   el.innerHTML='<div class="page-header"><h1>Financeiro</h1></div>'+
+    '<div class="card" style="margin-bottom:16px;background:var(--primary-bg);border-color:var(--primary)"><p class="text-sm" style="color:var(--text)">Os pagamentos são realizados <strong>até o dia 10 do mês seguinte</strong>. Após o fechamento, envie sua NF para liberação do pagamento.</p></div>'+
     '<div id="finArea"><div class="loading-full"><span class="spinner"></span> Carregando...</div></div>';
   try{
-    var r=await fetch(SB_URL+'/rest/v1/prt_pagamentos?parceiro_id=eq.'+_parceiroId+'&order=mes_referencia.desc&select=*',{
-      headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}
-    });
-    var pags=await r.json();
-    if(!Array.isArray(pags)) pags=[];
+    var r=await fetch(SB_URL+'/rest/v1/prt_pagamentos?parceiro_id=eq.'+_parceiroId+'&order=mes_referencia.desc&select=*',{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
+    var pags=await r.json();if(!Array.isArray(pags))pags=[];
     var box=document.getElementById('finArea');
-    if(!pags.length){
-      box.innerHTML='<div class="empty-state"><svg viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg><p>Nenhum fechamento financeiro ainda</p><p class="text-xs text-muted">Os pagamentos aparecem aqui após o fechamento mensal pela Stonni</p></div>';
-    }else{
-      var html='<div class="table-wrap"><table><thead><tr><th>Mês</th><th>OS</th><th>Serviços</th><th>Peças</th><th>Total</th><th>Status</th></tr></thead><tbody>';
-      pags.forEach(function(p){
-        var st=p.status==='pago'?'badge-paga':p.status==='aprovado'?'badge-aprovada':'badge-enviada';
-        html+='<tr><td class="fw-600">'+p.mes_referencia+'</td><td>'+p.qtd_os+'</td><td>'+fmt(p.valor_servicos)+'</td><td>'+fmt(p.valor_pecas)+'</td><td class="fw-700">'+fmt(p.valor_total)+'</td><td><span class="badge '+st+'">'+p.status+'</span></td></tr>';
-      });
-      html+='</tbody></table></div>';
-      box.innerHTML=html;
-    }
+    if(!pags.length){box.innerHTML='<div class="empty-state"><p>Nenhum fechamento financeiro ainda</p><p class="text-xs text-muted">Os pagamentos aparecem aqui após o fechamento mensal pela Stonni</p></div>';return}
+    var html='';
+    pags.forEach(function(p){
+      var st=p.status==='pago'?'badge-paga':p.status==='aprovado'?'badge-aprovada':'badge-enviada';
+      var needNF=!p.nf_parceiro&&p.status==='pendente';
+      html+='<div class="card" style="margin-bottom:10px"><div class="flex justify-between items-center mb-8"><span class="fw-700" style="font-size:1rem">'+p.mes_referencia+'</span><span class="badge '+st+'">'+p.status+'</span></div>'+
+        '<div class="flex justify-between text-sm mb-8"><span class="text-muted">'+p.qtd_os+' OS</span><span class="text-muted">Serviços: '+fmt(p.valor_servicos)+'</span><span class="fw-700 text-primary" style="font-size:1.1rem">'+fmt(p.valor_total)+'</span></div>'+
+        (p.nf_parceiro?'<div class="text-sm text-success">NF informada: '+esc(p.nf_parceiro)+'</div>':'')+
+        (needNF?'<div class="flex gap-8 mt-8" style="flex-wrap:wrap"><input type="text" id="finNF'+p.id+'" placeholder="Nº da NF emitida" style="flex:1;min-width:140px;padding:8px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:.85rem"><button class="btn btn-primary btn-sm" style="width:auto" onclick="enviarNFParceiro('+p.id+')">Enviar NF</button></div>':'')+
+      '</div>';
+    });box.innerHTML=html;
   }catch(e){console.error(e)}
 }
+async function enviarNFParceiro(pagId){var nf=document.getElementById('finNF'+pagId).value.trim();if(!nf){toast('Informe o número da NF','error');return}try{await fetch(SB_URL+'/rest/v1/prt_pagamentos?id=eq.'+pagId,{method:'PATCH',headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'},body:JSON.stringify({nf_parceiro:nf})});toast('NF informada!','success');navegar('financeiro')}catch(e){toast('Erro','error')}}
+
+// ===== COMPRAR PEÇAS =====
+var _carrinhoCompra=[],_pecasCompra=[],_descontoAutorizada=15;
+async function renderComprarPecas(el){el.innerHTML='<div class="page-header"><h1>Comprar Peças</h1></div><div id="compraPecasArea"><div class="loading-full"><span class="spinner"></span> Carregando...</div></div>';try{var cfgR=await fetch(SB_URL+'/rest/v1/prt_configuracoes?chave=eq.desconto_autorizada_perc&select=valor',{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});var cfgArr=await cfgR.json();if(Array.isArray(cfgArr)&&cfgArr.length)_descontoAutorizada=parseFloat(cfgArr[0].valor)||15;var r=await fetch(SB_URL+'/rest/v1/prt_pecas_catalogo?ativo=eq.true&order=nome.asc&select=id,referencia,nome,linha_produto,preco_venda,ipi_perc',{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});_pecasCompra=await r.json();if(!Array.isArray(_pecasCompra))_pecasCompra=[];renderCatalogoCompra()}catch(e){console.error(e);document.getElementById('compraPecasArea').innerHTML='<div class="empty-state"><p>Erro ao carregar</p></div>'}}
+function renderCatalogoCompra(){var box=document.getElementById('compraPecasArea');var pecas=_pecasCompra.filter(function(p){return p.preco_venda>0});if(!pecas.length){box.innerHTML='<div class="empty-state"><p>Nenhuma peça disponível para compra ainda</p></div>';return}var lnm={geladeira:'Geladeira',ar_condicionado:'AR Condicionado',gerador:'Gerador'};var html='<div class="card" style="margin-bottom:12px;background:var(--primary-bg);border-color:var(--primary)"><p class="text-sm">Desconto especial autorizadas: <strong>'+_descontoAutorizada+'%</strong></p></div><div class="card mb-16"><div class="card-title">Catálogo</div><div style="margin-bottom:12px"><input type="text" id="buscaPecaCompra" placeholder="Buscar..." oninput="filtrarPecasCompra()" style="width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text)"></div><div id="listaPecasCompra" style="max-height:300px;overflow-y:auto">';pecas.forEach(function(p){var pd=p.preco_venda*(1-_descontoAutorizada/100);html+='<div class="flex justify-between items-center" style="padding:8px 0;border-bottom:1px solid var(--border);cursor:pointer" onclick="adicionarCompra('+p.id+')"><div><div class="text-sm fw-600">'+p.referencia+' — '+p.nome+'</div><div class="text-xs text-muted">'+(lnm[p.linha_produto]||'')+(p.ipi_perc?' · IPI '+p.ipi_perc+'%':'')+'</div></div><div style="text-align:right"><div class="text-xs text-muted" style="text-decoration:line-through">'+fmt(p.preco_venda)+'</div><div class="text-sm fw-700 text-primary">'+fmt(pd)+'</div></div></div>'});html+='</div></div><div class="card"><div class="card-title">Carrinho</div>';if(!_carrinhoCompra.length){html+='<p class="text-sm text-muted">Toque em uma peça para adicionar.</p>'}else{var tt=0,ti=0;_carrinhoCompra.forEach(function(item,i){var sub=item.pf*item.q;var ipi=sub*(item.ip||0)/100;tt+=sub;ti+=ipi;html+='<div class="flex justify-between items-center" style="padding:6px 0;border-bottom:1px solid var(--border)"><div><span class="text-sm fw-600">'+item.ref+'</span> <span class="text-sm text-muted">'+item.nm+'</span></div><div class="flex items-center gap-8"><input type="number" value="'+item.q+'" min="1" style="width:50px;padding:4px;text-align:center;background:var(--surface2);border:1px solid var(--border);border-radius:4px;color:var(--text)" onchange="updQC('+i+',this.value)"><span class="text-sm fw-600">'+fmt(sub)+'</span><button style="background:none;color:var(--danger);padding:4px" onclick="rmC('+i+')">✕</button></div></div>'});html+='<div class="flex justify-between mt-16"><span>Subtotal</span><span class="fw-600">'+fmt(tt)+'</span></div>';if(ti>0)html+='<div class="flex justify-between"><span>IPI</span><span>'+fmt(ti)+'</span></div>';html+='<div class="flex justify-between mt-8" style="font-size:1.1rem"><span class="fw-700">Total</span><span class="fw-700 text-primary">'+fmt(tt+ti)+'</span></div><button class="btn btn-primary mt-16" onclick="enviarPC()">Enviar pedido</button>'}html+='</div>';box.innerHTML=html}
+function filtrarPecasCompra(){var q=(document.getElementById('buscaPecaCompra')?.value||'').toLowerCase();var it=document.getElementById('listaPecasCompra')?.children;if(!it)return;for(var i=0;i<it.length;i++)it[i].style.display=it[i].textContent.toLowerCase().indexOf(q)>-1?'':'none'}
+function adicionarCompra(id){var p=_pecasCompra.find(function(x){return x.id===id});if(!p)return;var e=_carrinhoCompra.find(function(x){return x.id===id});if(e){e.q++;renderCatalogoCompra();return}_carrinhoCompra.push({id:p.id,ref:p.referencia,nm:p.nome,pt:p.preco_venda,pf:p.preco_venda*(1-_descontoAutorizada/100),ip:p.ipi_perc||0,q:1});renderCatalogoCompra()}
+function updQC(i,v){_carrinhoCompra[i].q=Math.max(1,parseInt(v)||1);renderCatalogoCompra()}
+function rmC(i){_carrinhoCompra.splice(i,1);renderCatalogoCompra()}
+async function enviarPC(){if(!_carrinhoCompra.length){toast('Carrinho vazio','error');return}var tt=0,ti=0;_carrinhoCompra.forEach(function(x){var s=x.pf*x.q;tt+=s;ti+=s*(x.ip||0)/100});try{var r=await fetch(SB_URL+'/rest/v1/prt_compras_pecas',{method:'POST',headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json','Prefer':'return=representation'},body:JSON.stringify({parceiro_id:_parceiroId,valor_total:tt,ipi_total:ti,desconto_perc:_descontoAutorizada,valor_final:tt+ti,status:'pendente'})});var res=await r.json();if(!r.ok)throw new Error('Erro');var c=Array.isArray(res)?res[0]:res;var itens=_carrinhoCompra.map(function(x){return{compra_id:c.id,peca_catalogo_id:x.id,referencia:x.ref,nome:x.nm,quantidade:x.q,preco_unitario:x.pt,ipi_perc:x.ip,desconto_perc:_descontoAutorizada,preco_final:x.pf}});await fetch(SB_URL+'/rest/v1/prt_compras_pecas_itens',{method:'POST',headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'},body:JSON.stringify(itens)});toast('Pedido '+(c.codigo||'#'+c.id)+' enviado!','success');_carrinhoCompra=[];navegar('comprar-pecas')}catch(e){console.error(e);toast('Erro ao enviar','error')}}
 
 // enter key no login
 document.getElementById('loginSenha').addEventListener('keydown',function(e){if(e.key==='Enter')fazerLogin()});
