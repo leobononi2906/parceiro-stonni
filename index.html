@@ -548,7 +548,7 @@ function toast(msg,tipo){
 
 // ===== HELPERS =====
 function fmt(v){return(v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}
-function fmtData(d){if(!d)return'-';return new Date(d).toLocaleDateString('pt-BR')}
+function fmtData(d){if(!d)return'-';var m=/^(\d{4})-(\d{2})-(\d{2})/.exec(d);if(m)return m[3]+'/'+m[2]+'/'+m[1];return new Date(d).toLocaleDateString('pt-BR')}
 function statusBadge(s){return '<span class="badge badge-'+(s||'rascunho')+'">'+(s||'rascunho').replace('_',' ')+'</span>'}
 
 // ===== PÁGINAS — STUBS (serão implementadas em parceiro.js / gestao.js) =====
@@ -639,10 +639,9 @@ var _pecasSelecionadas=[];
 var LINHAS_PRODUTO={
   'Geladeira':['Stonni ST 18L','Stonni ST 30L','Adventure 25L','Adventure 40L','Adventure 45L Dual Zone','Adventure 55L Dual Zone'],
   'Ar Condicionado':['AR Advantage I','AR Advantage II 24V','AR G2 Night Power 24V S2','AR G3 Truck Night Power 24V','AR G3 RV Night Power 12V','AR Compact','AR Slim / Clean'],
-  'Gerador':['Gerador Stonni Autom. Inverter 1800W 24V'],
-  'Outros':['Air Fryer 24V 3L','Aquecedor Vela 12V']
+  'Gerador':['Gerador Stonni Autom. Inverter 1800W 24V']
 };
-var LINHAS_DB={'Geladeira':'geladeira','Ar Condicionado':'ar_condicionado','Gerador':'gerador','Outros':'outros'};
+var LINHAS_DB={'Geladeira':'geladeira','Ar Condicionado':'ar_condicionado','Gerador':'gerador'};
 
 function renderNovaOS(el,editId){
   _osStep=1;_osData={};_servicosCache=[];_categoriasCache=[];_accordionOpen=null;_pecasCatalogo=[];_pecasSelecionadas=[];_editandoOsId=null;
@@ -1049,10 +1048,6 @@ async function osSalvar(status){
       // PATCH — editar OS existente
       url=SB_URL+'/rest/v1/prt_ordens_servico?id=eq.'+_editandoOsId;
       method='PATCH';
-      // deletar peças antigas antes de reinserir
-      await fetch(SB_URL+'/rest/v1/prt_os_pecas?os_id=eq.'+_editandoOsId,{
-        method:'DELETE',headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}
-      });
     }else{
       url=SB_URL+'/rest/v1/prt_ordens_servico';
       method='POST';
@@ -1066,6 +1061,12 @@ async function osSalvar(status){
     if(!r.ok) throw new Error(JSON.stringify(res));
     var osRow=Array.isArray(res)?res[0]:res;
     var osId=_editandoOsId||osRow.id;
+    // ao editar: substituir peças antigas somente após o update dar certo
+    if(_editandoOsId){
+      await fetch(SB_URL+'/rest/v1/prt_os_pecas?os_id=eq.'+_editandoOsId,{
+        method:'DELETE',headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}
+      });
+    }
     // salvar peças utilizadas
     if(_pecasSelecionadas.length&&osId){
       var pecasPayload=_pecasSelecionadas.map(function(p){
