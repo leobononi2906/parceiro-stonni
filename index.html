@@ -668,7 +668,8 @@ async function carregarOsParaEditar(el,id){
       codigo_erro:o.codigo_erro,defeito_descricao:o.defeito_descricao,diagnostico:o.diagnostico,
       solucao_tipo:o.solucao_tipo,data_servico:o.data_servico,
       codigo_servico:o.codigo_servico,categoria_servico:o.categoria_servico,valor_servico:o.valor_servico,
-      foto_nf:o.foto_nf,foto_equipamento:o.foto_equipamento};
+      foto_nf:o.foto_nf,foto_equipamento:o.foto_equipamento,
+      fotos_equipamento:Array.isArray(o.fotos_equipamento)?o.fotos_equipamento:(o.foto_equipamento?[o.foto_equipamento]:[])};
     // carregar peças da OS
     var r2=await fetch(SB_URL+'/rest/v1/prt_os_pecas?os_id=eq.'+id+'&select=*',{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
     var pecas=await r2.json();
@@ -717,25 +718,32 @@ function renderOsStep(){
         '<hr style="border:0;border-top:1px solid var(--border);margin:16px 0">'+
         '<div class="form-row cols-2">'+
           '<div class="form-group"><label>Número da NF de compra <span class="text-xs text-muted">(opcional)</span></label><input type="text" id="osNF" value="'+esc(_osData.numero_nf)+'" placeholder="NF de compra do cliente"></div>'+
-          '<div class="form-group"><label>Data da compra <span class="text-xs text-muted">(opcional)</span></label><input type="date" id="osDataCompra" value="'+esc(_osData.data_compra)+'"></div>'+
+          '<div class="form-group"><label>Data da compra</label><input type="date" id="osDataCompra" value="'+esc(_osData.data_compra)+'"></div>'+
+        '</div>'+
+        '<div class="form-group"><label>Foto da NF de compra</label>'+
+          '<input type="file" id="fotoNF" accept="image/*" capture="environment" onchange="uploadFoto(\'nf\')" style="display:none">'+
+          '<div id="previewNF" class="foto-preview" onclick="document.getElementById(\'fotoNF\').click()">'+
+            (_osData.foto_nf?'<img src="'+_osData.foto_nf+'" style="width:100%;height:100%;object-fit:cover;border-radius:var(--radius-sm)">':'<svg viewBox="0 0 24 24" width="24" height="24" stroke="var(--text-d)" fill="none" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg><span class="text-xs text-muted">Toque para tirar foto da NF</span>')+
+          '</div>'+
         '</div>'+
         '<div class="flex justify-between mt-16"><button class="btn btn-ghost btn-sm" onclick="osVoltar()">← Voltar</button><button class="btn btn-primary btn-sm" onclick="osProximo(2)">Próximo →</button></div>';
       break;
-    case 3: // Diagnóstico + Solução + Serviço + Peças
+    case 3: // Diagnóstico + Serviço + Peças + Fotos equipamento
       var servHtml='<div class="loading-full" id="servicosLista"><span class="spinner"></span> Carregando serviços...</div>';
       if(_servicosCache.length){servHtml=renderServicosHtml()}
+      // fotos do equipamento (múltiplas)
+      var fotosEquipHtml='';
+      var fotosArr=Array.isArray(_osData.fotos_equipamento)?_osData.fotos_equipamento:[];
+      fotosArr.forEach(function(url,i){
+        fotosEquipHtml+='<div style="position:relative;width:100px;height:80px;border-radius:var(--radius-sm);overflow:hidden;border:1px solid var(--border);flex-shrink:0">'+
+          '<img src="'+url+'" style="width:100%;height:100%;object-fit:cover">'+
+          '<button onclick="removerFotoEquip('+i+')" style="position:absolute;top:2px;right:2px;background:var(--danger);color:#fff;border:none;border-radius:50%;width:20px;height:20px;font-size:11px;cursor:pointer;display:flex;align-items:center;justify-content:center">✕</button></div>';
+      });
       area.innerHTML=
         '<div class="card-title">3. Diagnóstico e Serviço</div>'+
         '<div class="form-group"><label>Código de erro <span class="text-xs text-muted">(se houver)</span></label><input type="text" id="osCodErro" value="'+esc(_osData.codigo_erro)+'" placeholder="Ex: E0, E1, EF..."></div>'+
         '<div class="form-group"><label>Descrição do defeito</label><textarea id="osDefeito" placeholder="Descreva o problema relatado pelo cliente">'+esc(_osData.defeito_descricao)+'</textarea></div>'+
         '<div class="form-group"><label>Diagnóstico técnico</label><textarea id="osDiag" placeholder="O que foi identificado na análise">'+esc(_osData.diagnostico)+'</textarea></div>'+
-        '<div class="form-group"><label>Tipo de solução</label><select id="osSolTipo">'+
-          '<option value="">Selecione</option>'+
-          '<option value="reparo_local"'+(_osData.solucao_tipo==='reparo_local'?' selected':'')+'>Reparo local</option>'+
-          '<option value="troca_peca"'+(_osData.solucao_tipo==='troca_peca'?' selected':'')+'>Troca de peça</option>'+
-          '<option value="envio_stonni"'+(_osData.solucao_tipo==='envio_stonni'?' selected':'')+'>Envio para Stonni</option>'+
-          '<option value="sem_defeito"'+(_osData.solucao_tipo==='sem_defeito'?' selected':'')+'>Sem defeito constatado</option>'+
-        '</select></div>'+
         '<div class="form-group"><label>Data do serviço</label><input type="date" id="osSolData" value="'+(_osData.data_servico||new Date().toISOString().substring(0,10))+'"></div>'+
         '<hr style="border:0;border-top:1px solid var(--border);margin:16px 0">'+
         '<div class="card-title">Serviço realizado</div>'+
@@ -745,21 +753,11 @@ function renderOsStep(){
         '<div id="pecasArea"><div class="loading-full"><span class="spinner"></span> Carregando peças...</div></div>'+
         '<div id="pecasSelArea">'+renderPecasSelHtml()+'</div>'+
         '<hr style="border:0;border-top:1px solid var(--border);margin:16px 0">'+
-        '<div class="card-title">Fotos</div>'+
-        '<div class="form-row cols-2">'+
-          '<div class="form-group"><label>Foto da NF</label>'+
-            '<input type="file" id="fotoNF" accept="image/*" capture="environment" onchange="uploadFoto(\'nf\')" style="display:none">'+
-            '<div id="previewNF" class="foto-preview" onclick="document.getElementById(\'fotoNF\').click()">'+
-              (_osData.foto_nf?'<img src="'+_osData.foto_nf+'" style="width:100%;height:100%;object-fit:cover;border-radius:var(--radius-sm)">':'<svg viewBox="0 0 24 24" width="24" height="24" stroke="var(--text-d)" fill="none" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg><span class="text-xs text-muted">Foto da NF</span>')+
-            '</div>'+
-          '</div>'+
-          '<div class="form-group"><label>Foto do equipamento</label>'+
-            '<input type="file" id="fotoEquip" accept="image/*" capture="environment" onchange="uploadFoto(\'equip\')" style="display:none">'+
-            '<div id="previewEquip" class="foto-preview" onclick="document.getElementById(\'fotoEquip\').click()">'+
-              (_osData.foto_equipamento?'<img src="'+_osData.foto_equipamento+'" style="width:100%;height:100%;object-fit:cover;border-radius:var(--radius-sm)">':'<svg viewBox="0 0 24 24" width="24" height="24" stroke="var(--text-d)" fill="none" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg><span class="text-xs text-muted">Equipamento no veículo</span>')+
-            '</div>'+
-          '</div>'+
-        '</div>'+
+        '<div class="card-title">Fotos do equipamento</div>'+
+        '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px" id="fotosEquipGrid">'+fotosEquipHtml+'</div>'+
+        '<input type="file" id="fotoEquipInput" accept="image/*" capture="environment" onchange="uploadFotoEquip()" style="display:none" multiple>'+
+        '<button class="btn btn-ghost btn-sm" style="width:auto" onclick="document.getElementById(\'fotoEquipInput\').click()">📷 Adicionar foto</button>'+
+        '<p class="text-xs text-muted mt-8">Tire fotos do equipamento instalado no veículo. Você pode adicionar várias.</p>'+
         '<div class="flex justify-between mt-16"><button class="btn btn-ghost btn-sm" onclick="osVoltar()">← Voltar</button><button class="btn btn-primary btn-sm" onclick="osProximo(3)">Revisar →</button></div>';
       if(!_servicosCache.length) carregarServicos();
       carregarPecasCatalogo();
@@ -771,6 +769,7 @@ function renderOsStep(){
       if(_pecasSelecionadas.length){
         pecasTxt=_pecasSelecionadas.map(function(p){return p.nome+' x'+p.quantidade}).join(', ');
       }else{pecasTxt='Nenhuma'}
+      var fotosEquipArr=Array.isArray(_osData.fotos_equipamento)?_osData.fotos_equipamento:[];
       area.innerHTML=
         '<div class="card-title">4. Revisão</div>'+
         '<div style="font-size:.88rem;line-height:1.8">'+
@@ -778,16 +777,14 @@ function renderOsStep(){
           '<p><strong>Telefone:</strong> '+esc(_osData.cliente_telefone||'Não informado')+'</p>'+
           '<p><strong>Produto:</strong> '+esc(_osData.produto_linha)+(_osData.produto_modelo?' — '+esc(_osData.produto_modelo):'')+'</p>'+
           '<p><strong>Série:</strong> '+esc(_osData.numero_serie||'Não informado')+'</p>'+
-          (_osData.numero_nf?'<p><strong>NF Compra:</strong> '+esc(_osData.numero_nf)+'</p>':'')+
-          (_osData.data_compra?'<p><strong>Data Compra:</strong> '+fmtData(_osData.data_compra)+'</p>':'')+
+          '<p><strong>NF Compra:</strong> '+esc(_osData.numero_nf||'-')+' — '+fmtData(_osData.data_compra)+'</p>'+
           '<p><strong>Erro:</strong> '+esc(_osData.codigo_erro||'Nenhum')+'</p>'+
           '<p><strong>Defeito:</strong> '+esc(_osData.defeito_descricao)+'</p>'+
           '<p><strong>Diagnóstico:</strong> '+esc(_osData.diagnostico||'-')+'</p>'+
-          '<p><strong>Solução:</strong> '+esc((_osData.solucao_tipo||'').replace(/_/g,' '))+'</p>'+
           '<p><strong>Serviço:</strong> '+servTxt+'</p>'+
           '<p><strong>Peças:</strong> '+esc(pecasTxt)+'</p>'+
-          '<p><strong>Data:</strong> '+fmtData(_osData.data_servico)+'</p>'+
-          '<p><strong>Fotos:</strong> '+(_osData.foto_nf?'NF ✅ ':'NF ❌ ')+(_osData.foto_equipamento?'Equipamento ✅':'Equipamento ❌')+'</p>'+
+          '<p><strong>Data serviço:</strong> '+fmtData(_osData.data_servico)+'</p>'+
+          '<p><strong>Fotos:</strong> NF '+(_osData.foto_nf?'✅':'❌')+' · Equipamento '+fotosEquipArr.length+' foto(s)'+'</p>'+
         '</div>'+
         '<div class="flex justify-between mt-24" style="gap:8px;flex-wrap:wrap">'+
           '<button class="btn btn-ghost btn-sm" onclick="osVoltar()">← Voltar</button>'+
@@ -960,7 +957,6 @@ async function uploadFoto(tipo){
   try{
     var ext=file.name.split('.').pop().toLowerCase();
     var path=_parceiroId+'/os-'+Date.now()+'-'+tipo+'.'+ext;
-    // Pegar token da sessão ativa
     var sess=await sb.auth.getSession();
     var token=(sess&&sess.data&&sess.data.session)?sess.data.session.access_token:SB_KEY;
     var r=await fetch(SB_URL+'/storage/v1/object/prt-os-fotos/'+path,{
@@ -970,13 +966,48 @@ async function uploadFoto(tipo){
     });
     if(!r.ok){var errBody=await r.text();console.error('Upload err:',r.status,errBody);throw new Error('Upload falhou: '+r.status)}
     var url=SB_URL+'/storage/v1/object/public/prt-os-fotos/'+path;
-    if(tipo==='nf'){_osData.foto_nf=url}else{_osData.foto_equipamento=url}
+    _osData.foto_nf=url;
     preview.innerHTML='<img src="'+url+'" style="width:100%;height:100%;object-fit:cover;border-radius:var(--radius-sm)">';
     toast('Foto enviada!','success');
   }catch(e){
     console.error(e);toast('Erro no upload da foto','error');
     preview.innerHTML='<span class="text-xs text-danger">Erro — toque para tentar novamente</span>';
   }
+}
+
+// Upload múltiplo de fotos do equipamento
+async function uploadFotoEquip(){
+  var input=document.getElementById('fotoEquipInput');
+  var files=input.files;
+  if(!files||!files.length)return;
+  if(!Array.isArray(_osData.fotos_equipamento))_osData.fotos_equipamento=[];
+  for(var i=0;i<files.length;i++){
+    var file=files[i];
+    try{
+      var ext=file.name.split('.').pop().toLowerCase();
+      var path=_parceiroId+'/os-'+Date.now()+'-equip'+i+'.'+ext;
+      var sess=await sb.auth.getSession();
+      var token=(sess&&sess.data&&sess.data.session)?sess.data.session.access_token:SB_KEY;
+      var r=await fetch(SB_URL+'/storage/v1/object/prt-os-fotos/'+path,{
+        method:'POST',
+        headers:{'apikey':SB_KEY,'Authorization':'Bearer '+token,'Content-Type':file.type,'x-upsert':'true'},
+        body:file
+      });
+      if(!r.ok) throw new Error('Upload falhou');
+      var url=SB_URL+'/storage/v1/object/public/prt-os-fotos/'+path;
+      _osData.fotos_equipamento.push(url);
+    }catch(e){console.error(e);toast('Erro ao enviar foto','error')}
+  }
+  input.value='';
+  toast(_osData.fotos_equipamento.length+' foto(s) do equipamento','success');
+  // re-render step 3 to show thumbnails
+  renderOsStep();
+}
+
+function removerFotoEquip(idx){
+  if(!Array.isArray(_osData.fotos_equipamento))return;
+  _osData.fotos_equipamento.splice(idx,1);
+  renderOsStep();
 }
 
 function osProximo(step){
@@ -995,13 +1026,13 @@ function osProximo(step){
       _osData.numero_nf=document.getElementById('osNF').value.trim()||null;
       _osData.data_compra=document.getElementById('osDataCompra').value||null;
       if(!_osData.produto_linha){toast('Selecione a linha do produto','error');return}
+      if(!_osData.data_compra){toast('Informe a data da compra','error');return}
       _servicosCache=[];_categoriasCache=[];_accordionOpen=null;
       break;
     case 3:
       _osData.codigo_erro=document.getElementById('osCodErro').value.trim()||null;
       _osData.defeito_descricao=document.getElementById('osDefeito').value.trim();
       _osData.diagnostico=document.getElementById('osDiag').value.trim()||null;
-      _osData.solucao_tipo=document.getElementById('osSolTipo').value||null;
       _osData.data_servico=document.getElementById('osSolData').value;
       if(!_osData.defeito_descricao){toast('Descreva o defeito','error');return}
       if(!_osData.data_servico){toast('Informe a data do serviço','error');return}
@@ -1031,13 +1062,13 @@ async function osSalvar(status){
     codigo_erro:_osData.codigo_erro||null,
     defeito_descricao:_osData.defeito_descricao,
     diagnostico:_osData.diagnostico||null,
-    solucao_tipo:_osData.solucao_tipo||null,
     codigo_servico:_osData.codigo_servico||null,
     categoria_servico:_osData.categoria_servico||null,
     valor_servico:_osData.valor_servico||null,
     data_servico:_osData.data_servico,
     foto_nf:_osData.foto_nf||null,
-    foto_equipamento:_osData.foto_equipamento||null,
+    foto_equipamento:Array.isArray(_osData.fotos_equipamento)&&_osData.fotos_equipamento.length?_osData.fotos_equipamento[0]:(_osData.foto_equipamento||null),
+    fotos_equipamento:Array.isArray(_osData.fotos_equipamento)?_osData.fotos_equipamento:[],
     status:status,
     atualizado_em:new Date().toISOString()
   };
@@ -1079,7 +1110,11 @@ async function osSalvar(status){
       });
     }
     var proto=osRow.protocolo||'';
-    toast((_editandoOsId?'OS atualizada':'OS '+(status==='rascunho'?'salva':'enviada'))+'! '+proto,'success');
+    if(status==='enviada'){
+      toast('OS '+proto+' enviada com sucesso! Nossa equipe analisará e retornará em até 3 dias úteis.','success');
+    }else{
+      toast((_editandoOsId?'OS atualizada':'Rascunho salvo')+'! '+proto,'success');
+    }
     _editandoOsId=null;
     navegar('minhas-os');
   }catch(e){
@@ -1153,7 +1188,7 @@ async function renderMinhasOS(el){
 var _todasOS=[];
 async function carregarMinhasOS(filtro){
   try{
-    var url=SB_URL+'/rest/v1/prt_ordens_servico?parceiro_id=eq.'+_parceiroId+'&order=criado_em.desc&select=id,protocolo,cliente_nome,cliente_telefone,cliente_cidade,cliente_uf,produto_linha,produto_modelo,numero_serie,numero_nf,data_compra,status,data_servico,valor_servico,codigo_erro,defeito_descricao,solucao_tipo,diagnostico,motivo_recusa,codigo_servico,foto_nf,foto_equipamento';
+    var url=SB_URL+'/rest/v1/prt_ordens_servico?parceiro_id=eq.'+_parceiroId+'&order=criado_em.desc&select=id,protocolo,cliente_nome,cliente_telefone,cliente_cidade,cliente_uf,produto_linha,produto_modelo,numero_serie,numero_nf,data_compra,status,data_servico,valor_servico,codigo_erro,defeito_descricao,diagnostico,motivo_recusa,codigo_servico,foto_nf,foto_equipamento,fotos_equipamento';
     var r=await fetch(url,{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
     _todasOS=await r.json();
     if(!Array.isArray(_todasOS)) _todasOS=[];
@@ -1208,7 +1243,6 @@ function abrirDetalheOS(id){
       (o.codigo_erro?'<p><strong>Código erro:</strong> '+o.codigo_erro+'</p>':'')+
       '<p><strong>Defeito:</strong> '+o.defeito_descricao+'</p>'+
       (o.diagnostico?'<p><strong>Diagnóstico:</strong> '+o.diagnostico+'</p>':'')+
-      (o.solucao_tipo?'<p><strong>Solução:</strong> '+o.solucao_tipo.replace(/_/g,' ')+'</p>':'')+
       (o.codigo_servico?'<p><strong>Serviço:</strong> '+o.codigo_servico+'</p>':'')+
       '<p><strong>Valor:</strong> '+fmt(o.valor_servico)+'</p>'+
       (o.motivo_recusa?'<p class="text-danger"><strong>Recusada:</strong> '+o.motivo_recusa+'</p>':'')+
@@ -1307,5 +1341,6 @@ document.addEventListener('click',function(e){
 </script>
 </body>
 </html>
+
 
 
