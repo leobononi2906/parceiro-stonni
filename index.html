@@ -239,10 +239,21 @@ tbody tr:hover{background:var(--primary-bg)}
 .srv-item-code{font-size:.78rem;font-weight:700;color:var(--primary);min-width:70px}
 .srv-item-desc{font-size:.84rem;color:var(--text-m);flex:1}
 .srv-item-valor{font-size:.85rem;font-weight:700;color:var(--text);white-space:nowrap}
-.srv-selected-banner{display:flex;align-items:center;gap:10px;padding:10px 14px;margin-top:12px;background:rgba(79,195,247,.1);border:1px solid var(--primary);border-radius:var(--radius)}
+.srv-selected-banner{display:flex;align-items:center;gap:10px;padding:10px 14px;margin-top:8px;background:rgba(79,195,247,.08);border:1px solid var(--primary);border-radius:var(--radius)}
 .srv-selected-banner .srv-sel-label{font-size:.72rem;font-weight:600;color:var(--text-d);text-transform:uppercase}
-.srv-selected-banner .srv-sel-info{font-size:.88rem;font-weight:600;color:var(--text)}
-.srv-selected-banner .srv-sel-valor{margin-left:auto;font-size:1rem;font-weight:700;color:var(--primary)}
+.srv-selected-banner .srv-sel-info{font-size:.84rem;font-weight:600;color:var(--text)}
+.srv-selected-banner .srv-sel-valor{margin-left:auto;font-size:.9rem;font-weight:700;color:var(--primary);white-space:nowrap}
+.srv-selected-banner .srv-remove{background:none;color:var(--danger);font-size:.8rem;padding:2px 6px;border-radius:4px;flex-shrink:0}
+.srv-selected-banner .srv-remove:hover{background:rgba(229,57,53,.1)}
+.srv-total-bar{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;margin-top:12px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius)}
+.srv-total-bar .srv-total-label{font-size:.82rem;font-weight:600;color:var(--text-m)}
+.srv-total-bar .srv-total-valor{font-size:1.1rem;font-weight:700;color:var(--primary)}
+.srv-total-bar .srv-total-warn{font-size:.72rem;color:var(--warning);font-weight:600}
+.srv-add-btn{display:inline-flex;align-items:center;gap:4px;padding:6px 14px;margin-top:8px;background:var(--primary-bg);color:var(--primary);border:1px dashed var(--primary);border-radius:var(--radius-sm);font-size:.82rem;font-weight:600;cursor:pointer;transition:all .15s}
+.srv-add-btn:hover{background:rgba(79,195,247,.2)}
+.compra-filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.compra-filter-chip{padding:5px 12px;border-radius:16px;font-size:.78rem;font-weight:500;background:var(--surface2);color:var(--text-m);border:1px solid var(--border);cursor:pointer;transition:all .12s}
+.compra-filter-chip.active{background:var(--primary-bg);color:var(--primary);border-color:var(--primary)}
 
 /* ===== PAGE HEADER ===== */
 .page-header{margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
@@ -614,11 +625,14 @@ async function carregarDashboardKPIs(){
     if(!ultimas.length){
       box.innerHTML='<div class="empty-state"><p>Nenhuma OS registrada ainda</p><button class="btn btn-primary btn-sm" onclick="navegar(\'nova-os\')">Criar primeira OS</button></div>';
     }else{
-      var html='<div class="table-wrap"><table><thead><tr><th>Protocolo</th><th>Cliente</th><th>Produto</th><th>Status</th><th>Valor</th></tr></thead><tbody>';
+      var html='';
       ultimas.forEach(function(o){
-        html+='<tr onclick="navegar(\'minhas-os\')" style="cursor:pointer"><td class="fw-600">'+(o.protocolo||'#'+o.id)+'</td><td class="truncate" style="max-width:120px">'+o.cliente_nome+'</td><td>'+(o.produto_modelo||o.produto_linha)+'</td><td>'+statusBadge(o.status)+'</td><td>'+fmt(o.valor_servico)+'</td></tr>';
+        html+='<div class="card" style="padding:14px;margin-bottom:10px;cursor:pointer" onclick="navegar(\'minhas-os\')">'+
+          '<div class="flex justify-between items-center mb-8"><span class="fw-700 text-sm">'+(o.protocolo||'#'+o.id)+'</span>'+statusBadge(o.status)+'</div>'+
+          '<div class="text-sm text-muted" style="margin-bottom:4px">'+o.cliente_nome+'</div>'+
+          '<div class="flex justify-between items-center"><span class="text-xs text-muted">'+(o.produto_modelo||o.produto_linha)+'</span><span class="text-sm fw-600">'+fmt(o.valor_servico)+'</span></div>'+
+        '</div>';
       });
-      html+='</tbody></table></div>';
       box.innerHTML=html;
     }
   }catch(e){console.error('Dashboard KPIs:',e)}
@@ -635,12 +649,11 @@ var LINHAS_PRODUTO={
   'Geladeira':['Stonni ST 18L','Stonni ST 30L','Adventure 25L','Adventure 40L','Adventure 45L Dual Zone','Adventure 55L Dual Zone'],
   'Ar Condicionado':['AR Advantage I','AR Advantage II 24V','AR G2 Night Power 24V S2','AR G3 Truck Night Power 24V','AR G3 RV Night Power 12V','AR Compact','AR Slim / Clean'],
   'Gerador':['Gerador Stonni Autom. Inverter 1800W 24V'],
-  'Outros':['Air Fryer 24V 3L','Aquecedor Vela 12V']
 };
-var LINHAS_DB={'Geladeira':'geladeira','Ar Condicionado':'ar_condicionado','Gerador':'gerador','Outros':'outros'};
+var LINHAS_DB={'Geladeira':'geladeira','Ar Condicionado':'ar_condicionado','Gerador':'gerador'};
 
 function renderNovaOS(el,editId){
-  _osStep=1;_osData={};_servicosCache=[];_pecasCatalogo=[];_pecasSelecionadas=[];_editandoOsId=null;
+  _osStep=1;_osData={};_servicosCache=[];_pecasCatalogo=[];_pecasSelecionadas=[];_editandoOsId=null;_servicosSelecionados=[];_showAccordionPicker=false;_tetoProduto=null;
   if(editId) return carregarOsParaEditar(el,editId);
   el.innerHTML=
     '<div class="page-header"><h1>Nova Ordem de Serviço</h1></div>'+
@@ -669,6 +682,12 @@ async function carregarOsParaEditar(el,id){
     var r2=await fetch(SB_URL+'/rest/v1/prt_os_pecas?os_id=eq.'+id+'&select=*',{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
     var pecas=await r2.json();
     if(Array.isArray(pecas))_pecasSelecionadas=pecas.map(function(p){return{id:p.id,referencia:p.referencia,nome:p.nome_peca,quantidade:p.quantidade,custo_unitario:p.custo_unitario,osOrigId:p.id}});
+    // carregar serviços da OS (multi)
+    _servicosSelecionados=[];_showAccordionPicker=false;
+    var r3s=await fetch(SB_URL+'/rest/v1/prt_os_servicos?os_id=eq.'+id+'&select=*',{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
+    var svArr=await r3s.json();
+    if(Array.isArray(svArr)&&svArr.length){_servicosSelecionados=svArr.map(function(sv){return{codigo:sv.codigo,descricao:sv.descricao,valor:parseFloat(sv.valor)||0,categoria_id:sv.categoria_id,categoria_nome:sv.categoria_nome||''}})}
+    else if(o.codigo_servico){_servicosSelecionados=[{codigo:o.codigo_servico,descricao:o.codigo_servico,valor:parseFloat(o.valor_servico)||0,categoria_id:null,categoria_nome:o.categoria_servico||''}]}
     _osStep=1;
     el.innerHTML=
       '<div class="page-header"><h1>Editar OS #'+o.protocolo+'</h1></div>'+
@@ -755,8 +774,8 @@ function renderOsStep(){
       carregarPecasCatalogo();
       break;
     case 4: // Revisão
-      var servSel=_servicosCache.find(function(s){return s.codigo===_osData.codigo_servico});
-      var servTxt=servSel?(servSel.codigo+' — '+servSel.descricao+' ('+fmt(servSel.valor)+')'):'Nenhum selecionado';
+      var servTxt='Nenhum selecionado';
+      if(_servicosSelecionados.length){servTxt=_servicosSelecionados.map(function(sv){return sv.codigo+' — '+sv.descricao+' ('+fmt(sv.valor)+')'}).join('<br>')}
       var pecasTxt='';
       if(_pecasSelecionadas.length){
         pecasTxt=_pecasSelecionadas.map(function(p){return p.nome+' x'+p.quantidade}).join(', ');
@@ -789,9 +808,12 @@ function renderOsStep(){
 
 function esc(v){return(v||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
 
-// ===== SERVIÇOS =====
+// ===== SERVIÇOS (MULTI) =====
 var _categoriasCache=[];
 var _accordionOpen=null;
+var _servicosSelecionados=[]; // [{codigo,descricao,valor,categoria_id,categoria_nome}]
+var _tetoProduto=null;
+var _showAccordionPicker=false;
 
 async function carregarServicos(){
   var linhaDb=LINHAS_DB[_osData.produto_linha]||'';
@@ -801,38 +823,89 @@ async function carregarServicos(){
     _categoriasCache=await rc.json();if(!Array.isArray(_categoriasCache))_categoriasCache=[];
     var r=await fetch(SB_URL+'/rest/v1/prt_tabela_servicos?linha_produto=eq.'+linhaDb+'&ativo=eq.true&order=codigo.asc&select=*',{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
     _servicosCache=await r.json();if(!Array.isArray(_servicosCache))_servicosCache=[];
+    // buscar teto do produto
+    var rt=await fetch(SB_URL+'/rest/v1/prt_teto_produto?linha_produto=eq.'+linhaDb+'&ativo=eq.true&select=valor_maximo',{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
+    var tArr=await rt.json();_tetoProduto=(Array.isArray(tArr)&&tArr.length)?parseFloat(tArr[0].valor_maximo):null;
     document.getElementById('servicosArea').innerHTML=renderServicosHtml();
   }catch(e){console.error(e)}
 }
 
+function totalServicos(){return _servicosSelecionados.reduce(function(s,x){return s+x.valor},0)}
+function totalCategoria(catId){return _servicosSelecionados.filter(function(x){return x.categoria_id===catId}).reduce(function(s,x){return s+x.valor},0)}
+
 function renderServicosHtml(){
-  if(!_categoriasCache.length) return '<p class="text-muted text-sm">Nenhum serviço cadastrado para esta linha</p>';
-  var porCat={};_servicosCache.forEach(function(s){var cid=s.categoria_id||0;if(!porCat[cid])porCat[cid]=[];porCat[cid].push(s)});
-  var selServ=_osData.codigo_servico?_servicosCache.find(function(x){return x.codigo===_osData.codigo_servico}):null;
   var html='';
+  // lista de serviços já adicionados
+  if(_servicosSelecionados.length){
+    _servicosSelecionados.forEach(function(sv,i){
+      html+='<div class="srv-selected-banner"><div style="flex:1;min-width:0"><div class="srv-sel-label">'+esc(sv.categoria_nome||'')+'</div><div class="srv-sel-info" style="word-break:break-word">'+sv.codigo+' — '+sv.descricao+'</div></div><div class="srv-sel-valor">'+fmt(sv.valor)+'</div><button class="srv-remove" onclick="removerServico('+i+')" title="Remover">✕</button></div>';
+    });
+    var tt=totalServicos();
+    var warn='';
+    if(_tetoProduto&&tt>_tetoProduto) warn='<div class="srv-total-warn">⚠ Excede o teto da linha ('+fmt(_tetoProduto)+')</div>';
+    html+='<div class="srv-total-bar"><div><div class="srv-total-label">Total serviços ('+_servicosSelecionados.length+')</div>'+warn+'</div><div class="srv-total-valor">'+fmt(tt)+'</div></div>';
+  }
+  // botão adicionar
+  html+='<button class="srv-add-btn" onclick="abrirPickerServico()">＋ Adicionar serviço</button>';
+  // picker (accordion) — só mostra se aberto
+  if(_showAccordionPicker){
+    html+=renderAccordionPicker();
+  }
+  return html;
+}
+
+function renderAccordionPicker(){
+  if(!_categoriasCache.length) return '<p class="text-muted text-sm mt-8">Nenhum serviço cadastrado para esta linha</p>';
+  var porCat={};_servicosCache.forEach(function(s){var cid=s.categoria_id||0;if(!porCat[cid])porCat[cid]=[];porCat[cid].push(s)});
+  var html='<div style="margin-top:8px">';
   _categoriasCache.forEach(function(cat){
     var items=porCat[cat.id]||[];if(!items.length)return;
-    var catTemSel=selServ&&selServ.categoria_id===cat.id;
-    var isOpen=_accordionOpen===cat.slug||(catTemSel&&!_accordionOpen);
+    var catTotal=totalCategoria(cat.id);
+    var catTemSel=_servicosSelecionados.some(function(x){return x.categoria_id===cat.id});
+    var isOpen=_accordionOpen===cat.slug;
     html+='<div class="srv-accordion'+(isOpen?' open':'')+'" data-cat="'+cat.slug+'">';
     html+='<div class="srv-accordion-header'+(catTemSel?' has-selected':'')+'" onclick="toggleAccordion(\''+cat.slug+'\')">';
-    html+='<div class="srv-accordion-title">'+cat.nome+'</div><div class="srv-accordion-teto">teto '+fmt(cat.valor_teto)+'</div><div class="srv-accordion-arrow">▼</div></div>';
+    html+='<div class="srv-accordion-title">'+cat.nome+(catTotal>0?' ('+fmt(catTotal)+')':'')+'</div><div class="srv-accordion-teto">teto '+fmt(cat.valor_teto)+'</div><div class="srv-accordion-arrow">▼</div></div>';
     html+='<div class="srv-accordion-body">';
-    items.forEach(function(s){var sel=_osData.codigo_servico===s.codigo;
-      html+='<div class="srv-item'+(sel?' selected':'')+'" onclick="selecionarServico(\''+s.codigo+'\')"><div class="srv-item-code">'+s.codigo+'</div><div class="srv-item-desc">'+s.descricao+'</div><div class="srv-item-valor">'+fmt(s.valor)+'</div></div>';
+    items.forEach(function(s){
+      var jaSel=_servicosSelecionados.some(function(x){return x.codigo===s.codigo});
+      var novoTotal=catTotal+s.valor;
+      var excedeCat=novoTotal>cat.valor_teto;
+      var excedeProd=_tetoProduto&&(totalServicos()+s.valor)>_tetoProduto;
+      var disabled=jaSel||excedeCat||excedeProd;
+      html+='<div class="srv-item'+(jaSel?' selected':'')+(disabled&&!jaSel?' disabled':'')+'" '+(disabled?'':'onclick="adicionarServico(\''+s.codigo+'\','+cat.id+',\''+esc(cat.nome)+'\')"')+' style="'+(disabled&&!jaSel?'opacity:.5;cursor:not-allowed':'')+'"><div class="srv-item-code">'+s.codigo+'</div><div class="srv-item-desc">'+s.descricao+(jaSel?' ✓':'')+'</div><div class="srv-item-valor">'+fmt(s.valor)+'</div></div>';
     });
     html+='</div></div>';
   });
-  if(selServ){html+='<div class="srv-selected-banner"><div><div class="srv-sel-label">Serviço selecionado</div><div class="srv-sel-info">'+selServ.codigo+' — '+selServ.descricao+'</div></div><div class="srv-sel-valor">'+fmt(selServ.valor)+'</div></div>'}
+  html+='</div>';
   return html;
 }
+
+function abrirPickerServico(){_showAccordionPicker=!_showAccordionPicker;_accordionOpen=null;document.getElementById('servicosArea').innerHTML=renderServicosHtml()}
 function toggleAccordion(slug){_accordionOpen=(_accordionOpen===slug)?null:slug;document.getElementById('servicosArea').innerHTML=renderServicosHtml()}
 
-function selecionarServico(codigo){
-  _osData.codigo_servico=codigo;
-  var s=_servicosCache.find(function(x){return x.codigo===codigo});
-  if(s){_osData.valor_servico=s.valor;_osData.categoria_servico=s.categoria}
-  _accordionOpen=null;
+function adicionarServico(codigo,catId,catNome){
+  if(_servicosSelecionados.some(function(x){return x.codigo===codigo}))return;
+  var s=_servicosCache.find(function(x){return x.codigo===codigo});if(!s)return;
+  // validar teto categoria
+  var cat=_categoriasCache.find(function(c){return c.id===catId});
+  if(cat){var ct=totalCategoria(catId)+s.valor;if(ct>cat.valor_teto){toast('Excede o teto da categoria '+cat.nome+' ('+fmt(cat.valor_teto)+')','error');return}}
+  // validar teto produto
+  if(_tetoProduto&&totalServicos()+s.valor>_tetoProduto){toast('Excede o teto da linha de produto ('+fmt(_tetoProduto)+')','error');return}
+  _servicosSelecionados.push({codigo:s.codigo,descricao:s.descricao,valor:s.valor,categoria_id:catId,categoria_nome:catNome});
+  _showAccordionPicker=false;_accordionOpen=null;
+  // sync com _osData (manter compatibilidade)
+  _osData.codigo_servico=_servicosSelecionados.map(function(x){return x.codigo}).join(', ');
+  _osData.valor_servico=totalServicos();
+  _osData.categoria_servico=_servicosSelecionados.map(function(x){return x.categoria_nome}).join(', ');
+  document.getElementById('servicosArea').innerHTML=renderServicosHtml();
+}
+
+function removerServico(idx){
+  _servicosSelecionados.splice(idx,1);
+  _osData.codigo_servico=_servicosSelecionados.map(function(x){return x.codigo}).join(', ');
+  _osData.valor_servico=totalServicos();
+  _osData.categoria_servico=_servicosSelecionados.map(function(x){return x.categoria_nome}).join(', ');
   document.getElementById('servicosArea').innerHTML=renderServicosHtml();
 }
 
@@ -851,7 +924,7 @@ async function carregarPecasCatalogo(){
     }else{
       box.innerHTML=
         '<div class="flex gap-8 mb-8" style="flex-wrap:wrap">'+
-          '<select id="selPeca" style="flex:1;min-width:200px;padding:8px 12px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:.85rem">'+
+          '<select id="selPeca" style="flex:1;min-width:0;padding:8px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:.85rem">'+
             '<option value="">Selecione a peça...</option>'+
             _pecasCatalogo.map(function(p){return '<option value="'+p.id+'">'+p.referencia+' — '+p.nome+'</option>'}).join('')+
           '</select>'+
@@ -966,7 +1039,7 @@ function osProximo(step){
       _osData.data_compra=document.getElementById('osDataCompra').value||null;
       if(!_osData.produto_linha){toast('Selecione a linha do produto','error');return}
       if(!_osData.data_compra){toast('Informe a data da compra','error');return}
-      _servicosCache=[];_categoriasCache=[];_accordionOpen=null;
+      _servicosCache=[];_categoriasCache=[];_accordionOpen=null;_servicosSelecionados=[];_showAccordionPicker=false;_tetoProduto=null;
       break;
     case 3:
       _osData.codigo_erro=document.getElementById('osCodErro').value.trim()||null;
@@ -975,7 +1048,10 @@ function osProximo(step){
       _osData.data_servico=document.getElementById('osSolData').value;
       if(!_osData.defeito_descricao){toast('Descreva o defeito','error');return}
       if(!_osData.data_servico){toast('Informe a data do serviço','error');return}
-      if(!_osData.codigo_servico){toast('Selecione o serviço realizado','error');return}
+      if(!_servicosSelecionados.length){toast('Adicione ao menos um serviço realizado','error');return}
+      _osData.codigo_servico=_servicosSelecionados.map(function(x){return x.codigo}).join(', ');
+      _osData.valor_servico=totalServicos();
+      _osData.categoria_servico=_servicosSelecionados.map(function(x){return x.categoria_nome}).join(', ');
       break;
   }
   _osStep=step+1;
@@ -1035,6 +1111,15 @@ async function osSalvar(status){
     if(!r.ok) throw new Error(JSON.stringify(res));
     var osRow=Array.isArray(res)?res[0]:res;
     var osId=_editandoOsId||osRow.id;
+    // salvar serviços da OS (multi)
+    if(osId){
+      // deletar serviços antigos
+      await fetch(SB_URL+'/rest/v1/prt_os_servicos?os_id=eq.'+osId,{method:'DELETE',headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
+      if(_servicosSelecionados.length){
+        var svPayload=_servicosSelecionados.map(function(sv){return{os_id:osId,codigo:sv.codigo,descricao:sv.descricao,valor:sv.valor,categoria_id:sv.categoria_id||null,categoria_nome:sv.categoria_nome||null}});
+        await fetch(SB_URL+'/rest/v1/prt_os_servicos',{method:'POST',headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'},body:JSON.stringify(svPayload)});
+      }
+    }
     // salvar peças utilizadas
     if(_pecasSelecionadas.length&&osId){
       var pecasPayload=_pecasSelecionadas.map(function(p){
@@ -1268,8 +1353,66 @@ async function enviarNFParceiro(pagId){var nf=document.getElementById('finNF'+pa
 
 // ===== COMPRAR PEÇAS =====
 var _carrinhoCompra=[],_pecasCompra=[],_descontoAutorizada=15;
-async function renderComprarPecas(el){el.innerHTML='<div class="page-header"><h1>Comprar Peças</h1></div><div id="compraPecasArea"><div class="loading-full"><span class="spinner"></span> Carregando...</div></div>';try{var cfgR=await fetch(SB_URL+'/rest/v1/prt_configuracoes?chave=eq.desconto_autorizada_perc&select=valor',{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});var cfgArr=await cfgR.json();if(Array.isArray(cfgArr)&&cfgArr.length)_descontoAutorizada=parseFloat(cfgArr[0].valor)||15;var r=await fetch(SB_URL+'/rest/v1/prt_pecas_catalogo?ativo=eq.true&order=nome.asc&select=id,referencia,nome,linha_produto,preco_venda,ipi_perc',{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});_pecasCompra=await r.json();if(!Array.isArray(_pecasCompra))_pecasCompra=[];renderCatalogoCompra()}catch(e){console.error(e);document.getElementById('compraPecasArea').innerHTML='<div class="empty-state"><p>Erro ao carregar</p></div>'}}
-function renderCatalogoCompra(){var box=document.getElementById('compraPecasArea');var pecas=_pecasCompra.filter(function(p){return p.preco_venda>0});if(!pecas.length){box.innerHTML='<div class="empty-state"><p>Nenhuma peça disponível para compra ainda</p></div>';return}var lnm={geladeira:'Geladeira',ar_condicionado:'AR Condicionado',gerador:'Gerador'};var html='<div class="card" style="margin-bottom:12px;background:var(--primary-bg);border-color:var(--primary)"><p class="text-sm">Desconto especial autorizadas: <strong>'+_descontoAutorizada+'%</strong></p></div><div class="card mb-16"><div class="card-title">Catálogo</div><div style="margin-bottom:12px"><input type="text" id="buscaPecaCompra" placeholder="Buscar..." oninput="filtrarPecasCompra()" style="width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text)"></div><div id="listaPecasCompra" style="max-height:300px;overflow-y:auto">';pecas.forEach(function(p){var pd=p.preco_venda*(1-_descontoAutorizada/100);html+='<div class="flex justify-between items-center" style="padding:8px 0;border-bottom:1px solid var(--border);cursor:pointer" onclick="adicionarCompra('+p.id+')"><div><div class="text-sm fw-600">'+p.referencia+' — '+p.nome+'</div><div class="text-xs text-muted">'+(lnm[p.linha_produto]||'')+(p.ipi_perc?' · IPI '+p.ipi_perc+'%':'')+'</div></div><div style="text-align:right"><div class="text-xs text-muted" style="text-decoration:line-through">'+fmt(p.preco_venda)+'</div><div class="text-sm fw-700 text-primary">'+fmt(pd)+'</div></div></div>'});html+='</div></div><div class="card"><div class="card-title">Carrinho</div>';if(!_carrinhoCompra.length){html+='<p class="text-sm text-muted">Toque em uma peça para adicionar.</p>'}else{var tt=0,ti=0;_carrinhoCompra.forEach(function(item,i){var sub=item.pf*item.q;var ipi=sub*(item.ip||0)/100;tt+=sub;ti+=ipi;html+='<div class="flex justify-between items-center" style="padding:6px 0;border-bottom:1px solid var(--border)"><div><span class="text-sm fw-600">'+item.ref+'</span> <span class="text-sm text-muted">'+item.nm+'</span></div><div class="flex items-center gap-8"><input type="number" value="'+item.q+'" min="1" style="width:50px;padding:4px;text-align:center;background:var(--surface2);border:1px solid var(--border);border-radius:4px;color:var(--text)" onchange="updQC('+i+',this.value)"><span class="text-sm fw-600">'+fmt(sub)+'</span><button style="background:none;color:var(--danger);padding:4px" onclick="rmC('+i+')">✕</button></div></div>'});html+='<div class="flex justify-between mt-16"><span>Subtotal</span><span class="fw-600">'+fmt(tt)+'</span></div>';if(ti>0)html+='<div class="flex justify-between"><span>IPI</span><span>'+fmt(ti)+'</span></div>';html+='<div class="flex justify-between mt-8" style="font-size:1.1rem"><span class="fw-700">Total</span><span class="fw-700 text-primary">'+fmt(tt+ti)+'</span></div><button class="btn btn-primary mt-16" onclick="enviarPC()">Enviar pedido</button>'}html+='</div>';box.innerHTML=html}
+var _compraLinhas=[];var _compraFiltroLinha='';var _compraFiltroModelo='';
+async function renderComprarPecas(el){
+  el.innerHTML='<div class="page-header"><h1>Comprar Peças</h1></div><div id="compraPecasArea"><div class="loading-full"><span class="spinner"></span> Carregando...</div></div>';
+  try{
+    var cfgR=await fetch(SB_URL+'/rest/v1/prt_configuracoes?chave=eq.desconto_autorizada_perc&select=valor',{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
+    var cfgArr=await cfgR.json();if(Array.isArray(cfgArr)&&cfgArr.length)_descontoAutorizada=parseFloat(cfgArr[0].valor)||15;
+    var r=await fetch(SB_URL+'/rest/v1/prt_pecas_catalogo?ativo=eq.true&order=nome.asc&select=id,referencia,nome,linha_produto,aplicacao,preco_venda,ipi_perc',{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
+    _pecasCompra=await r.json();if(!Array.isArray(_pecasCompra))_pecasCompra=[];
+    // buscar linhas e modelos do banco
+    var rl=await fetch(SB_URL+'/rest/v1/prt_linhas_produto?ativo=eq.true&order=ordem.asc&select=id,slug,nome',{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
+    _compraLinhas=await rl.json();if(!Array.isArray(_compraLinhas))_compraLinhas=[];
+    var rm=await fetch(SB_URL+'/rest/v1/prt_modelos_produto?ativo=eq.true&order=ordem.asc&select=id,linha_id,nome',{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
+    var modelos=await rm.json();if(!Array.isArray(modelos))modelos=[];
+    _compraLinhas.forEach(function(l){l.modelos=modelos.filter(function(m){return m.linha_id===l.id})});
+    _compraFiltroLinha='';_compraFiltroModelo='';
+    renderCatalogoCompra();
+  }catch(e){console.error(e);document.getElementById('compraPecasArea').innerHTML='<div class="empty-state"><p>Erro ao carregar</p></div>'}
+}
+function renderCatalogoCompra(){
+  var box=document.getElementById('compraPecasArea');
+  var pecas=_pecasCompra.filter(function(p){return p.preco_venda>0});
+  if(!pecas.length){box.innerHTML='<div class="empty-state"><p>Nenhuma peça disponível para compra ainda</p></div>';return}
+  // filtrar por linha
+  if(_compraFiltroLinha){pecas=pecas.filter(function(p){return p.linha_produto===_compraFiltroLinha})}
+  // filtrar por modelo (checar no array aplicacao)
+  if(_compraFiltroModelo){pecas=pecas.filter(function(p){return Array.isArray(p.aplicacao)&&p.aplicacao.indexOf(_compraFiltroModelo)>-1})}
+  var lnm={geladeira:'Geladeira',ar_condicionado:'AR Condicionado',gerador:'Gerador'};
+  // montar filtros
+  var fHtml='<div class="card" style="margin-bottom:12px;background:var(--primary-bg);border-color:var(--primary)"><p class="text-sm">Desconto especial autorizadas: <strong>'+_descontoAutorizada+'%</strong></p></div>';
+  // filtro por linha
+  fHtml+='<div class="compra-filters"><div class="compra-filter-chip'+(!_compraFiltroLinha?' active':'')+'" onclick="setCompraFiltroLinha(\'\')">Todas</div>';
+  _compraLinhas.forEach(function(l){fHtml+='<div class="compra-filter-chip'+(_compraFiltroLinha===l.slug?' active':'')+'" onclick="setCompraFiltroLinha(\''+l.slug+'\')">'+l.nome+'</div>'});
+  fHtml+='</div>';
+  // filtro por modelo (só se tiver linha selecionada)
+  if(_compraFiltroLinha){
+    var linhaObj=_compraLinhas.find(function(l){return l.slug===_compraFiltroLinha});
+    if(linhaObj&&linhaObj.modelos&&linhaObj.modelos.length){
+      fHtml+='<div class="compra-filters" style="margin-top:0"><div class="compra-filter-chip'+(!_compraFiltroModelo?' active':'')+'" onclick="setCompraFiltroModelo(\'\')">Todos</div>';
+      linhaObj.modelos.forEach(function(m){fHtml+='<div class="compra-filter-chip'+(_compraFiltroModelo===m.nome?' active':'')+'" onclick="setCompraFiltroModelo(\''+esc(m.nome)+'\')">'+m.nome+'</div>'});
+      fHtml+='</div>';
+    }
+  }
+  fHtml+='<div class="card mb-16"><div class="card-title">Catálogo <span class="text-xs text-muted fw-600">('+pecas.length+' peças)</span></div>';
+  fHtml+='<div style="margin-bottom:12px"><input type="text" id="buscaPecaCompra" placeholder="Buscar por ref. ou nome..." oninput="filtrarPecasCompra()" style="width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text)"></div>';
+  fHtml+='<div id="listaPecasCompra" style="max-height:400px;overflow-y:auto">';
+  pecas.forEach(function(p){var pd=p.preco_venda*(1-_descontoAutorizada/100);
+    fHtml+='<div class="flex justify-between items-center" style="padding:8px 0;border-bottom:1px solid var(--border);cursor:pointer;gap:8px" onclick="adicionarCompra('+p.id+')"><div style="flex:1;min-width:0"><div class="text-sm fw-600" style="word-break:break-word">'+p.referencia+' — '+p.nome+'</div><div class="text-xs text-muted">'+(lnm[p.linha_produto]||'')+(Array.isArray(p.aplicacao)&&p.aplicacao.length?' · '+p.aplicacao.join(', '):'')+(p.ipi_perc?' · IPI '+p.ipi_perc+'%':'')+'</div></div><div style="text-align:right;flex-shrink:0"><div class="text-xs text-muted" style="text-decoration:line-through">'+fmt(p.preco_venda)+'</div><div class="text-sm fw-700 text-primary">'+fmt(pd)+'</div></div></div>'});
+  fHtml+='</div></div>';
+  // carrinho
+  fHtml+='<div class="card"><div class="card-title">Carrinho</div>';
+  if(!_carrinhoCompra.length){fHtml+='<p class="text-sm text-muted">Toque em uma peça para adicionar.</p>'}
+  else{var tt=0,ti=0;_carrinhoCompra.forEach(function(item,i){var sub=item.pf*item.q;var ipi=sub*(item.ip||0)/100;tt+=sub;ti+=ipi;
+    fHtml+='<div class="flex justify-between items-center" style="padding:6px 0;border-bottom:1px solid var(--border);gap:8px"><div style="flex:1;min-width:0"><div class="text-sm fw-600">'+item.ref+'</div><div class="text-xs text-muted">'+item.nm+'</div></div><div class="flex items-center gap-8" style="flex-shrink:0"><input type="number" value="'+item.q+'" min="1" style="width:50px;padding:4px;text-align:center;background:var(--surface2);border:1px solid var(--border);border-radius:4px;color:var(--text)" onchange="updQC('+i+',this.value)"><span class="text-sm fw-600">'+fmt(sub)+'</span><button style="background:none;color:var(--danger);padding:4px" onclick="rmC('+i+')">✕</button></div></div>'});
+    fHtml+='<div class="flex justify-between mt-16"><span>Subtotal</span><span class="fw-600">'+fmt(tt)+'</span></div>';
+    if(ti>0)fHtml+='<div class="flex justify-between"><span>IPI</span><span>'+fmt(ti)+'</span></div>';
+    fHtml+='<div class="flex justify-between mt-8" style="font-size:1.1rem"><span class="fw-700">Total</span><span class="fw-700 text-primary">'+fmt(tt+ti)+'</span></div><button class="btn btn-primary mt-16" onclick="enviarPC()">Enviar pedido</button>'}
+  fHtml+='</div>';box.innerHTML=fHtml;
+}
+function setCompraFiltroLinha(slug){_compraFiltroLinha=slug;_compraFiltroModelo='';renderCatalogoCompra()}
+function setCompraFiltroModelo(nome){_compraFiltroModelo=nome;renderCatalogoCompra()}
 function filtrarPecasCompra(){var q=(document.getElementById('buscaPecaCompra')?.value||'').toLowerCase();var it=document.getElementById('listaPecasCompra')?.children;if(!it)return;for(var i=0;i<it.length;i++)it[i].style.display=it[i].textContent.toLowerCase().indexOf(q)>-1?'':'none'}
 function adicionarCompra(id){var p=_pecasCompra.find(function(x){return x.id===id});if(!p)return;var e=_carrinhoCompra.find(function(x){return x.id===id});if(e){e.q++;renderCatalogoCompra();return}_carrinhoCompra.push({id:p.id,ref:p.referencia,nm:p.nome,pt:p.preco_venda,pf:p.preco_venda*(1-_descontoAutorizada/100),ip:p.ipi_perc||0,q:1});renderCatalogoCompra()}
 function updQC(i,v){_carrinhoCompra[i].q=Math.max(1,parseInt(v)||1);renderCatalogoCompra()}
@@ -1313,3 +1456,4 @@ document.addEventListener('click',function(e){
 </script>
 </body>
 </html>
+
