@@ -390,6 +390,10 @@ tbody tr:hover{background:var(--primary-bg)}
         <svg viewBox="0 0 24 24"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/></svg>
         Meu Estoque
       </div>
+      <div class="nav-item" onclick="navegar('comprar-pecas')">
+        <svg viewBox="0 0 24 24"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+        Comprar Peças
+      </div>
       <div class="nav-item" onclick="navegar('financeiro')">
         <svg viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
         Financeiro
@@ -525,6 +529,7 @@ function renderPagina(pagina){
     case 'minhas-os': renderMinhasOS(el);break;
     case 'material': renderMaterial(el);break;
     case 'estoque': renderEstoque(el);break;
+    case 'comprar-pecas': renderComprarPecas(el);break;
     case 'financeiro': renderFinanceiro(el);break;
     default: el.innerHTML='<div class="empty-state"><p>Página não encontrada</p></div>';
   }
@@ -1303,9 +1308,12 @@ async function renderEstoque(el){
   }catch(e){console.error(e)}
 }
 
-// ===== FINANCEIRO =====
+// ===== FINANCEIRO (melhorado) =====
 async function renderFinanceiro(el){
   el.innerHTML='<div class="page-header"><h1>Financeiro</h1></div>'+
+    '<div class="card" style="margin-bottom:16px;background:var(--primary-bg);border-color:var(--primary)">'+
+      '<p class="text-sm" style="color:var(--text)">Os pagamentos são realizados <strong>até o dia 10 do mês seguinte</strong>. Após o fechamento, envie sua NF para liberação do pagamento.</p>'+
+    '</div>'+
     '<div id="finArea"><div class="loading-full"><span class="spinner"></span> Carregando...</div></div>';
   try{
     var r=await fetch(SB_URL+'/rest/v1/prt_pagamentos?parceiro_id=eq.'+_parceiroId+'&order=mes_referencia.desc&select=*',{
@@ -1317,15 +1325,160 @@ async function renderFinanceiro(el){
     if(!pags.length){
       box.innerHTML='<div class="empty-state"><svg viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg><p>Nenhum fechamento financeiro ainda</p><p class="text-xs text-muted">Os pagamentos aparecem aqui após o fechamento mensal pela Stonni</p></div>';
     }else{
-      var html='<div class="table-wrap"><table><thead><tr><th>Mês</th><th>OS</th><th>Serviços</th><th>Peças</th><th>Total</th><th>Status</th></tr></thead><tbody>';
+      var html='';
       pags.forEach(function(p){
         var st=p.status==='pago'?'badge-paga':p.status==='aprovado'?'badge-aprovada':'badge-enviada';
-        html+='<tr><td class="fw-600">'+p.mes_referencia+'</td><td>'+p.qtd_os+'</td><td>'+fmt(p.valor_servicos)+'</td><td>'+fmt(p.valor_pecas)+'</td><td class="fw-700">'+fmt(p.valor_total)+'</td><td><span class="badge '+st+'">'+p.status+'</span></td></tr>';
+        var needNF=!p.nf_parceiro&&p.status==='pendente';
+        html+='<div class="card" style="margin-bottom:10px">'+
+          '<div class="flex justify-between items-center mb-8">'+
+            '<span class="fw-700" style="font-size:1rem">'+p.mes_referencia+'</span>'+
+            '<span class="badge '+st+'">'+p.status+'</span>'+
+          '</div>'+
+          '<div class="flex justify-between text-sm mb-8">'+
+            '<span class="text-muted">'+p.qtd_os+' OS</span>'+
+            '<span class="text-muted">Serviços: '+fmt(p.valor_servicos)+'</span>'+
+            '<span class="fw-700 text-primary" style="font-size:1.1rem">'+fmt(p.valor_total)+'</span>'+
+          '</div>'+
+          (p.nf_parceiro?'<div class="text-sm text-success">NF informada: '+esc(p.nf_parceiro)+'</div>':'')+
+          (needNF?'<div class="flex gap-8 mt-8" style="flex-wrap:wrap"><input type="text" id="finNF'+p.id+'" placeholder="Nº da NF emitida" style="flex:1;min-width:140px;padding:8px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:.85rem"><button class="btn btn-primary btn-sm" style="width:auto" onclick="enviarNFParceiro('+p.id+')">Enviar NF</button></div>':'')+
+          (p.prazo_pagamento?'<div class="text-xs text-muted mt-8">Previsão pagamento: '+fmtData(p.prazo_pagamento)+'</div>':'')+
+        '</div>';
       });
-      html+='</tbody></table></div>';
       box.innerHTML=html;
     }
   }catch(e){console.error(e)}
+}
+
+async function enviarNFParceiro(pagId){
+  var nf=document.getElementById('finNF'+pagId).value.trim();
+  if(!nf){toast('Informe o número da NF','error');return}
+  try{
+    await fetch(SB_URL+'/rest/v1/prt_pagamentos?id=eq.'+pagId,{
+      method:'PATCH',
+      headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'},
+      body:JSON.stringify({nf_parceiro:nf})
+    });
+    toast('NF informada com sucesso!','success');
+    navegar('financeiro');
+  }catch(e){toast('Erro ao enviar NF','error')}
+}
+
+// ===== COMPRAR PEÇAS =====
+var _carrinhoCompra=[];
+var _pecasCompra=[];
+var _descontoAutorizada=15;
+
+async function renderComprarPecas(el){
+  el.innerHTML='<div class="page-header"><h1>Comprar Peças</h1></div>'+
+    '<div id="compraPecasArea"><div class="loading-full"><span class="spinner"></span> Carregando catálogo...</div></div>';
+  try{
+    // buscar desconto configurado
+    var cfgR=await fetch(SB_URL+'/rest/v1/prt_configuracoes?chave=eq.desconto_autorizada_perc&select=valor',{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
+    var cfgArr=await cfgR.json();
+    if(Array.isArray(cfgArr)&&cfgArr.length)_descontoAutorizada=parseFloat(cfgArr[0].valor)||15;
+    // buscar peças do catálogo com preço
+    var r=await fetch(SB_URL+'/rest/v1/prt_pecas_catalogo?ativo=eq.true&order=nome.asc&select=id,referencia,nome,linha_produto,preco_venda,ipi_perc,custo_unitario',{
+      headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}
+    });
+    _pecasCompra=await r.json();
+    if(!Array.isArray(_pecasCompra))_pecasCompra=[];
+    renderCatalogoCompra();
+  }catch(e){console.error(e);document.getElementById('compraPecasArea').innerHTML='<div class="empty-state"><p>Erro ao carregar catálogo</p></div>'}
+}
+
+function renderCatalogoCompra(){
+  var box=document.getElementById('compraPecasArea');
+  var pecasComPreco=_pecasCompra.filter(function(p){return p.preco_venda>0});
+  if(!pecasComPreco.length){
+    box.innerHTML='<div class="empty-state"><p>Nenhuma peça disponível para compra ainda</p><p class="text-xs text-muted">O catálogo será populado pela Stonni.</p></div>';
+    return;
+  }
+  var lnm={geladeira:'Geladeira',ar_condicionado:'AR Condicionado',gerador:'Gerador'};
+  var html='<div class="card" style="margin-bottom:12px;background:var(--primary-bg);border-color:var(--primary)">'+
+    '<p class="text-sm">Desconto especial para autorizadas: <strong>'+_descontoAutorizada+'%</strong> sobre preço de tabela. IPI quando aplicável.</p></div>';
+  html+='<div class="card mb-16"><div class="card-title">Catálogo de peças</div>';
+  html+='<div style="margin-bottom:12px"><input type="text" id="buscaPecaCompra" placeholder="Buscar peça..." oninput="filtrarPecasCompra()" style="width:100%;padding:10px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:.9rem"></div>';
+  html+='<div id="listaPecasCompra" style="max-height:300px;overflow-y:auto">';
+  pecasComPreco.forEach(function(p){
+    var precoDesc=p.preco_venda*(1-_descontoAutorizada/100);
+    html+='<div class="flex justify-between items-center" style="padding:8px 0;border-bottom:1px solid var(--border);cursor:pointer" onclick="adicionarCompra('+p.id+')">'+
+      '<div><div class="text-sm fw-600">'+p.referencia+' — '+p.nome+'</div><div class="text-xs text-muted">'+(lnm[p.linha_produto]||p.linha_produto)+(p.ipi_perc?' · IPI '+p.ipi_perc+'%':'')+'</div></div>'+
+      '<div style="text-align:right"><div class="text-xs text-muted" style="text-decoration:line-through">'+fmt(p.preco_venda)+'</div><div class="text-sm fw-700 text-primary">'+fmt(precoDesc)+'</div></div></div>';
+  });
+  html+='</div></div>';
+  // carrinho
+  html+='<div class="card"><div class="card-title">Carrinho</div>';
+  if(!_carrinhoCompra.length){
+    html+='<p class="text-sm text-muted">Toque em uma peça acima para adicionar ao carrinho.</p>';
+  }else{
+    var totalItens=0,totalIPI=0;
+    _carrinhoCompra.forEach(function(item,i){
+      var sub=item.preco_final*item.quantidade;
+      var ipi=sub*(item.ipi_perc||0)/100;
+      totalItens+=sub;totalIPI+=ipi;
+      html+='<div class="flex justify-between items-center" style="padding:6px 0;border-bottom:1px solid var(--border)">'+
+        '<div><span class="text-sm fw-600">'+item.referencia+'</span> <span class="text-sm text-muted">'+item.nome+'</span></div>'+
+        '<div class="flex items-center gap-8">'+
+          '<input type="number" value="'+item.quantidade+'" min="1" style="width:50px;padding:4px;text-align:center;background:var(--surface2);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:.85rem" onchange="atualizarQtdCompra('+i+',this.value)">'+
+          '<span class="text-sm fw-600">'+fmt(sub)+'</span>'+
+          '<button class="text-danger text-sm" style="background:none;padding:4px" onclick="removerCompra('+i+')">✕</button>'+
+        '</div></div>';
+    });
+    html+='<div class="flex justify-between mt-16" style="font-size:.9rem"><span>Subtotal</span><span class="fw-600">'+fmt(totalItens)+'</span></div>';
+    if(totalIPI>0) html+='<div class="flex justify-between" style="font-size:.9rem"><span>IPI</span><span>'+fmt(totalIPI)+'</span></div>';
+    html+='<div class="flex justify-between mt-8" style="font-size:1.1rem"><span class="fw-700">Total</span><span class="fw-700 text-primary">'+fmt(totalItens+totalIPI)+'</span></div>';
+    html+='<button class="btn btn-primary mt-16" onclick="enviarPedidoCompra()">Enviar pedido de compra</button>';
+  }
+  html+='</div>';
+  box.innerHTML=html;
+}
+
+function filtrarPecasCompra(){
+  var q=(document.getElementById('buscaPecaCompra')?.value||'').toLowerCase();
+  var items=document.getElementById('listaPecasCompra')?.children;
+  if(!items)return;
+  for(var i=0;i<items.length;i++){
+    items[i].style.display=items[i].textContent.toLowerCase().indexOf(q)>-1?'':'none';
+  }
+}
+
+function adicionarCompra(pecaId){
+  var p=_pecasCompra.find(function(x){return x.id===pecaId});
+  if(!p)return;
+  var existe=_carrinhoCompra.find(function(x){return x.id===pecaId});
+  if(existe){existe.quantidade++;renderCatalogoCompra();return}
+  _carrinhoCompra.push({id:p.id,referencia:p.referencia,nome:p.nome,preco_tabela:p.preco_venda,preco_final:p.preco_venda*(1-_descontoAutorizada/100),ipi_perc:p.ipi_perc||0,quantidade:1});
+  renderCatalogoCompra();
+}
+
+function atualizarQtdCompra(idx,val){_carrinhoCompra[idx].quantidade=Math.max(1,parseInt(val)||1);renderCatalogoCompra()}
+function removerCompra(idx){_carrinhoCompra.splice(idx,1);renderCatalogoCompra()}
+
+async function enviarPedidoCompra(){
+  if(!_carrinhoCompra.length){toast('Carrinho vazio','error');return}
+  var totalItens=0,totalIPI=0;
+  _carrinhoCompra.forEach(function(item){
+    var sub=item.preco_final*item.quantidade;totalItens+=sub;totalIPI+=sub*(item.ipi_perc||0)/100;
+  });
+  try{
+    var r=await fetch(SB_URL+'/rest/v1/prt_compras_pecas',{
+      method:'POST',
+      headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json','Prefer':'return=representation'},
+      body:JSON.stringify({parceiro_id:_parceiroId,valor_total:totalItens,ipi_total:totalIPI,desconto_perc:_descontoAutorizada,valor_final:totalItens+totalIPI,status:'pendente'})
+    });
+    var res=await r.json();if(!r.ok)throw new Error(JSON.stringify(res));
+    var compra=Array.isArray(res)?res[0]:res;
+    // inserir itens
+    var itensPayload=_carrinhoCompra.map(function(item){
+      return{compra_id:compra.id,peca_catalogo_id:item.id,referencia:item.referencia,nome:item.nome,quantidade:item.quantidade,preco_unitario:item.preco_tabela,ipi_perc:item.ipi_perc,desconto_perc:_descontoAutorizada,preco_final:item.preco_final}
+    });
+    await fetch(SB_URL+'/rest/v1/prt_compras_pecas_itens',{
+      method:'POST',headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'},body:JSON.stringify(itensPayload)
+    });
+    toast('Pedido '+(compra.codigo||'#'+compra.id)+' enviado! Aguarde aprovação da Stonni.','success');
+    _carrinhoCompra=[];
+    navegar('comprar-pecas');
+  }catch(e){console.error(e);toast('Erro ao enviar pedido','error')}
 }
 
 // enter key no login
@@ -1341,6 +1494,7 @@ document.addEventListener('click',function(e){
 </script>
 </body>
 </html>
+
 
 
 
