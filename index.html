@@ -870,8 +870,9 @@ function renderAccordionPicker(){
     items.forEach(function(s){
       var jaSel=_servicosSelecionados.some(function(x){return x.codigo===s.codigo});
       var novoTotal=catTotal+s.valor;
+      var excedeCat=!jaSel&&(catTotal+s.valor)>cat.valor_teto;
       var excedeProd=_tetoProduto&&(totalServicos()+s.valor)>_tetoProduto;
-      var disabled=jaSel||excedeProd;
+      var disabled=jaSel||excedeCat||excedeProd;
       html+='<div class="srv-item'+(jaSel?' selected':'')+(disabled&&!jaSel?' disabled':'')+'" '+(disabled?'':'onclick="adicionarServico(\''+s.codigo+'\','+cat.id+',\''+esc(cat.nome)+'\')"')+' style="'+(disabled&&!jaSel?'opacity:.5;cursor:not-allowed':'')+'"><div class="srv-item-code">'+s.codigo+'</div><div class="srv-item-desc">'+s.descricao+(jaSel?' ✓':'')+'</div><div class="srv-item-valor">'+fmt(s.valor)+'</div></div>';
     });
     html+='</div></div>';
@@ -886,6 +887,9 @@ function toggleAccordion(slug){_accordionOpen=(_accordionOpen===slug)?null:slug;
 function adicionarServico(codigo,catId,catNome){
   if(_servicosSelecionados.some(function(x){return x.codigo===codigo}))return;
   var s=_servicosCache.find(function(x){return x.codigo===codigo});if(!s)return;
+  // validar teto categoria
+  var cat=_categoriasCache.find(function(c){return c.id===catId});
+  if(cat){var ct=totalCategoria(catId)+s.valor;if(ct>cat.valor_teto){toast('Excede o teto da categoria '+cat.nome+' ('+fmt(cat.valor_teto)+')','error');return}}
   // validar teto produto
   if(_tetoProduto&&totalServicos()+s.valor>_tetoProduto){toast('Excede o teto da linha de produto ('+fmt(_tetoProduto)+')','error');return}
   _servicosSelecionados.push({codigo:s.codigo,descricao:s.descricao,valor:s.valor,categoria_id:catId,categoria_nome:catNome});
