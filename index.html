@@ -1303,8 +1303,6 @@ function abrirDetalheOS(id){
 }
 
 // ===== MATERIAL TÉCNICO =====
-var _materiaisCache=[],_matFiltroLinha='',_matFiltroModelo='';
-var _matLinhaNames={geladeira:'Geladeira',ar_condicionado:'AR Condicionado',gerador:'Gerador'};
 async function renderMaterial(el){
   el.innerHTML='<div class="page-header"><h1>Material Técnico</h1></div>'+
     '<div id="materialArea"><div class="loading-full"><span class="spinner"></span> Carregando...</div></div>';
@@ -1312,60 +1310,22 @@ async function renderMaterial(el){
     var r=await fetch(SB_URL+'/rest/v1/prt_materiais?ativo=eq.true&order=ordem.asc,criado_em.desc&select=*',{
       headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}
     });
-    _materiaisCache=await r.json();
-    if(!Array.isArray(_materiaisCache)) _materiaisCache=[];
-    _matFiltroLinha='';_matFiltroModelo='';
-    renderMateriaisFiltrados();
-  }catch(e){console.error(e)}
-}
-function setMatFiltroLinha(slug){_matFiltroLinha=slug;_matFiltroModelo='';renderMateriaisFiltrados()}
-function setMatFiltroModelo(nome){_matFiltroModelo=(_matFiltroModelo===nome)?'':nome;renderMateriaisFiltrados()}
-function renderMateriaisFiltrados(){
-  var box=document.getElementById('materialArea');
-  if(!_materiaisCache.length){
-    box.innerHTML='<div class="empty-state"><svg viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg><p>Materiais técnicos ainda estão sendo preparados pela Stonni</p></div>';
-    return;
-  }
-  // extrair linhas existentes nos materiais
-  var linhasSet={};_materiaisCache.forEach(function(m){if(m.linha_produto)linhasSet[m.linha_produto]=true});
-  var linhas=Object.keys(linhasSet).sort();
-  // filtros de linha
-  var html='<div class="filters-bar"><div class="filter-chip'+(!_matFiltroLinha?' active':'')+'" onclick="setMatFiltroLinha(\'\')">Todas</div>';
-  linhas.forEach(function(l){html+='<div class="filter-chip'+(_matFiltroLinha===l?' active':'')+'" onclick="setMatFiltroLinha(\''+l+'\')">'+(_matLinhaNames[l]||l)+'</div>'});
-  html+='</div>';
-  // se tem linha selecionada, extrair modelos dessa linha
-  if(_matFiltroLinha){
-    var modelosSet={};
-    _materiaisCache.filter(function(m){return m.linha_produto===_matFiltroLinha&&m.modelo}).forEach(function(m){
-      m.modelo.split(',').forEach(function(mod){var t=mod.trim();if(t)modelosSet[t]=true});
-    });
-    var modelos=Object.keys(modelosSet).sort();
-    if(modelos.length){
-      html+='<div class="filters-bar" style="margin-top:-8px">';
-      modelos.forEach(function(mod){html+='<div class="filter-chip'+(_matFiltroModelo===mod?' active':'')+'" onclick="setMatFiltroModelo(\''+esc(mod)+'\')">'+mod+'</div>'});
-      html+='</div>';
+    var mats=await r.json();
+    if(!Array.isArray(mats)) mats=[];
+    var box=document.getElementById('materialArea');
+    if(!mats.length){
+      box.innerHTML='<div class="empty-state"><svg viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg><p>Materiais técnicos ainda estão sendo preparados pela Stonni</p></div>';
+    }else{
+      var html='';
+      mats.forEach(function(m){
+        html+='<div class="card"><div class="card-title">'+m.titulo+'</div>'+
+          (m.descricao?'<p class="text-sm text-muted mb-8">'+m.descricao+'</p>':'')+
+          '<div class="flex items-center gap-8 text-xs text-muted">'+(m.linha_produto||'')+(m.modelo?' — '+m.modelo:'')+'</div>'+
+          '<a href="'+m.url+'" target="_blank" class="btn btn-ghost btn-sm mt-16">Abrir material →</a></div>';
+      });
+      box.innerHTML=html;
     }
-  }
-  // filtrar materiais
-  var filtered=_materiaisCache;
-  if(_matFiltroLinha){filtered=filtered.filter(function(m){return m.linha_produto===_matFiltroLinha})}
-  if(_matFiltroModelo){filtered=filtered.filter(function(m){return m.modelo&&m.modelo.indexOf(_matFiltroModelo)>-1})}
-  if(!filtered.length){
-    html+='<div class="empty-state"><p>Nenhum material para este filtro</p></div>';
-  }else{
-    filtered.forEach(function(m){
-      var tipoIcon=m.tipo==='video'?'▶️':m.tipo==='pdf'?'📄':'🔗';
-      html+='<div class="card"><div class="card-title">'+tipoIcon+' '+esc(m.titulo)+'</div>'+
-        (m.descricao?'<p class="text-sm text-muted mb-8">'+esc(m.descricao)+'</p>':'')+
-        '<div class="flex items-center gap-8 text-xs text-muted" style="flex-wrap:wrap">'+
-          '<span style="background:var(--primary-bg);color:var(--primary);padding:2px 8px;border-radius:10px;font-weight:600">'+(_matLinhaNames[m.linha_produto]||m.linha_produto||'Geral')+'</span>'+
-          (m.modelo?'<span>'+esc(m.modelo)+'</span>':'')+
-        '</div>'+
-        '<a href="'+m.url+'" target="_blank" class="btn btn-ghost btn-sm mt-16" style="width:auto">Abrir material →</a></div>';
-    });
-  }
-  html+='<p class="text-xs text-muted" style="text-align:center;margin-top:8px">'+filtered.length+' de '+_materiaisCache.length+' materiais</p>';
-  box.innerHTML=html;
+  }catch(e){console.error(e)}
 }
 
 // ===== ESTOQUE =====
@@ -1426,9 +1386,30 @@ async function renderComprarPecas(el){
   try{
     var cfgR=await fetch(SB_URL+'/rest/v1/prt_configuracoes?chave=eq.desconto_autorizada_perc&select=valor',{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
     var cfgArr=await cfgR.json();if(Array.isArray(cfgArr)&&cfgArr.length)_descontoAutorizada=parseFloat(cfgArr[0].valor)||15;
-    // Somente catálogo curado (gestão) com preço > 0
-    var r=await fetch(SB_URL+'/rest/v1/prt_pecas_catalogo?ativo=eq.true&preco_venda=gt.0&order=nome.asc&select=id,referencia,nome,linha_produto,aplicacao,preco_venda,ipi_perc',{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
-    _pecasCompra=await r.json();if(!Array.isArray(_pecasCompra))_pecasCompra=[];
+    // Fonte principal: view geral_pecas_preco_bononi_sc (preço Bononi SC)
+    // Itens sem preço ficam com valor 0 (não filtra mais preco_venda>0)
+    var rv=await fetch(SB_URL+'/rest/v1/geral_pecas_preco_bononi_sc?order=nome.asc&select=referencia,nome,preco_venda,ipi_saida,subgrupo',{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
+    var viewData=await rv.json();if(!Array.isArray(viewData))viewData=[];
+    var subToLinha={'REPARO AR STONNI':'ar_condicionado','RP. GELADEIRA':'geladeira','REPOSICAO GERADOR':'gerador'};
+    _pecasCompra=viewData.filter(function(v){return parseFloat(v.preco_venda||0)>0}).map(function(v,i){return{id:i+1,referencia:v.referencia||'',nome:v.nome||'',linha_produto:subToLinha[v.subgrupo]||'',aplicacao:[],preco_venda:parseFloat(v.preco_venda)||0,ipi_perc:parseFloat(v.ipi_saida)||0,estoque_geral:null,_fromView:true}});
+    // Buscar estoque geral de todas as empresas (comp_produtos_consolidado)
+    if(_pecasCompra.length){
+      try{
+        var refs=_pecasCompra.map(function(p){return p.referencia});
+        // Buscar em lotes de 30
+        for(var bi=0;bi<refs.length;bi+=30){
+          var batch=refs.slice(bi,bi+30);
+          var re=await fetch(SB_URL+'/rest/v1/comp_produtos_consolidado?referencia=in.('+batch.join(',')+ ')&select=referencia,estoque_total',{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
+          var estData=await re.json();
+          if(Array.isArray(estData)){
+            estData.forEach(function(e){
+              var p=_pecasCompra.find(function(x){return x.referencia===e.referencia});
+              if(p)p.estoque_geral=parseFloat(e.estoque_total)||0;
+            });
+          }
+        }
+      }catch(e){console.error('Estoque geral:',e)}
+    }
     // buscar linhas e modelos do banco
     var rl=await fetch(SB_URL+'/rest/v1/prt_linhas_produto?ativo=eq.true&order=ordem.asc&select=id,slug,nome',{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
     _compraLinhas=await rl.json();if(!Array.isArray(_compraLinhas))_compraLinhas=[];
@@ -1467,7 +1448,8 @@ function renderCatalogoCompra(){
   fHtml+='<div style="margin-bottom:12px"><input type="text" id="buscaPecaCompra" placeholder="Buscar por ref. ou nome..." oninput="filtrarPecasCompra()" style="width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text)"></div>';
   fHtml+='<div id="listaPecasCompra" style="max-height:400px;overflow-y:auto">';
   pecas.forEach(function(p){var pd=p.preco_venda*(1-_descontoAutorizada/100);
-    fHtml+='<div class="flex justify-between items-center" style="padding:8px 0;border-bottom:1px solid var(--border);cursor:pointer;gap:8px" onclick="adicionarCompra('+p.id+')"><div style="flex:1;min-width:0"><div class="text-sm fw-600" style="word-break:break-word">'+p.referencia+' — '+p.nome+'</div><div class="text-xs text-muted">'+(lnm[p.linha_produto]||'')+(Array.isArray(p.aplicacao)&&p.aplicacao.length?' · '+p.aplicacao.join(', '):'')+(p.ipi_perc?' · IPI '+p.ipi_perc+'%':'')+'</div></div><div style="text-align:right;flex-shrink:0"><div class="text-xs text-muted" style="text-decoration:line-through">'+fmt(p.preco_venda)+'</div><div class="text-sm fw-700 text-primary">'+fmt(pd)+'</div></div></div>'});
+    var estHtml=p.estoque_geral!==null?'<span style="color:'+(p.estoque_geral>0?'var(--green)':'var(--red)')+'">Estoque: '+p.estoque_geral+'</span>':'';
+    fHtml+='<div class="flex justify-between items-center" style="padding:8px 0;border-bottom:1px solid var(--border);cursor:pointer;gap:8px" onclick="adicionarCompra('+p.id+')"><div style="flex:1;min-width:0"><div class="text-sm fw-600" style="word-break:break-word">'+p.referencia+' — '+p.nome+'</div><div class="text-xs text-muted">'+(lnm[p.linha_produto]||'')+(p.ipi_perc?' · IPI '+p.ipi_perc+'%':'')+(estHtml?' · '+estHtml:'')+'</div></div><div style="text-align:right;flex-shrink:0"><div class="text-xs text-muted" style="text-decoration:line-through">'+fmt(p.preco_venda)+'</div><div class="text-sm fw-700 text-primary">'+fmt(pd)+'</div></div></div>'});
   fHtml+='</div></div>';
   // carrinho
   fHtml+='<div class="card"><div class="card-title">Carrinho</div>';
@@ -1482,10 +1464,10 @@ function renderCatalogoCompra(){
 function setCompraFiltroLinha(slug){_compraFiltroLinha=slug;_compraFiltroModelo='';renderCatalogoCompra()}
 function setCompraFiltroModelo(nome){_compraFiltroModelo=nome;renderCatalogoCompra()}
 function filtrarPecasCompra(){var q=(document.getElementById('buscaPecaCompra')?.value||'').toLowerCase();var it=document.getElementById('listaPecasCompra')?.children;if(!it)return;for(var i=0;i<it.length;i++)it[i].style.display=it[i].textContent.toLowerCase().indexOf(q)>-1?'':'none'}
-function adicionarCompra(id){var p=_pecasCompra.find(function(x){return x.id===id});if(!p)return;var e=_carrinhoCompra.find(function(x){return x.id===id});if(e){e.q++;renderCatalogoCompra();return}_carrinhoCompra.push({id:p.id,ref:p.referencia,nm:p.nome,pt:p.preco_venda,pf:p.preco_venda*(1-_descontoAutorizada/100),ip:p.ipi_perc||0,q:1});renderCatalogoCompra()}
+function adicionarCompra(id){var p=_pecasCompra.find(function(x){return x.id===id});if(!p)return;var e=_carrinhoCompra.find(function(x){return x.id===id});if(e){e.q++;renderCatalogoCompra();return}_carrinhoCompra.push({id:p.id,ref:p.referencia,nm:p.nome,pt:p.preco_venda,pf:p.preco_venda*(1-_descontoAutorizada/100),ip:p.ipi_perc||0,q:1,_fromView:!!p._fromView});renderCatalogoCompra()}
 function updQC(i,v){_carrinhoCompra[i].q=Math.max(1,parseInt(v)||1);renderCatalogoCompra()}
 function rmC(i){_carrinhoCompra.splice(i,1);renderCatalogoCompra()}
-async function enviarPC(){if(!_carrinhoCompra.length){toast('Carrinho vazio','error');return}var tt=0,ti=0;_carrinhoCompra.forEach(function(x){var s=x.pf*x.q;tt+=s;ti+=s*(x.ip||0)/100});try{var r=await fetch(SB_URL+'/rest/v1/prt_compras_pecas',{method:'POST',headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json','Prefer':'return=representation'},body:JSON.stringify({parceiro_id:_parceiroId,valor_total:tt,ipi_total:ti,desconto_perc:_descontoAutorizada,valor_final:tt+ti,status:'pendente'})});var res=await r.json();if(!r.ok)throw new Error('Erro');var c=Array.isArray(res)?res[0]:res;var itens=_carrinhoCompra.map(function(x){return{compra_id:c.id,peca_catalogo_id:x.id,referencia:x.ref,nome:x.nm,quantidade:x.q,preco_unitario:x.pt,ipi_perc:x.ip,desconto_perc:_descontoAutorizada,preco_final:x.pf}});await fetch(SB_URL+'/rest/v1/prt_compras_pecas_itens',{method:'POST',headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'},body:JSON.stringify(itens)});toast('Pedido '+(c.codigo||'#'+c.id)+' enviado!','success');_carrinhoCompra=[];navegar('comprar-pecas')}catch(e){console.error(e);toast('Erro ao enviar','error')}}
+async function enviarPC(){if(!_carrinhoCompra.length){toast('Carrinho vazio','error');return}var tt=0,ti=0;_carrinhoCompra.forEach(function(x){var s=x.pf*x.q;tt+=s;ti+=s*(x.ip||0)/100});try{var r=await fetch(SB_URL+'/rest/v1/prt_compras_pecas',{method:'POST',headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json','Prefer':'return=representation'},body:JSON.stringify({parceiro_id:_parceiroId,valor_total:tt,ipi_total:ti,desconto_perc:_descontoAutorizada,valor_final:tt+ti,status:'pendente'})});var res=await r.json();if(!r.ok)throw new Error('Erro');var c=Array.isArray(res)?res[0]:res;var itens=_carrinhoCompra.map(function(x){return{compra_id:c.id,peca_catalogo_id:x._fromView?null:x.id,referencia:x.ref,nome:x.nm,quantidade:x.q,preco_unitario:x.pt,ipi_perc:x.ip,desconto_perc:_descontoAutorizada,preco_final:x.pf}});await fetch(SB_URL+'/rest/v1/prt_compras_pecas_itens',{method:'POST',headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'},body:JSON.stringify(itens)});toast('Pedido '+(c.codigo||'#'+c.id)+' enviado!','success');_carrinhoCompra=[];navegar('comprar-pecas')}catch(e){console.error(e);toast('Erro ao enviar','error')}}
 
 // enter key no login
 document.getElementById('loginSenha').addEventListener('keydown',function(e){if(e.key==='Enter')fazerLogin()});
