@@ -1386,17 +1386,14 @@ async function renderComprarPecas(el){
   try{
     var cfgR=await fetch(SB_URL+'/rest/v1/prt_configuracoes?chave=eq.desconto_autorizada_perc&select=valor',{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
     var cfgArr=await cfgR.json();if(Array.isArray(cfgArr)&&cfgArr.length)_descontoAutorizada=parseFloat(cfgArr[0].valor)||15;
-    // Fonte principal: view geral_pecas_preco_bononi_sc (preço Bononi SC)
-    // Itens sem preço ficam com valor 0 (não filtra mais preco_venda>0)
-    var rv=await fetch(SB_URL+'/rest/v1/geral_pecas_preco_bononi_sc?order=nome.asc&select=referencia,nome,preco_venda,ipi_saida,subgrupo',{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
-    var viewData=await rv.json();if(!Array.isArray(viewData))viewData=[];
-    var subToLinha={'REPARO AR STONNI':'ar_condicionado','RP. GELADEIRA':'geladeira','REPOSICAO GERADOR':'gerador'};
-    _pecasCompra=viewData.filter(function(v){return parseFloat(v.preco_venda||0)>0}).map(function(v,i){return{id:i+1,referencia:v.referencia||'',nome:v.nome||'',linha_produto:subToLinha[v.subgrupo]||'',aplicacao:[],preco_venda:parseFloat(v.preco_venda)||0,ipi_perc:parseFloat(v.ipi_saida)||0,estoque_geral:null,_fromView:true}});
-    // Buscar estoque geral de todas as empresas (comp_produtos_consolidado)
+    // Fonte principal: prt_pecas_catalogo (catálogo curado pela gestão)
+    var r=await fetch(SB_URL+'/rest/v1/prt_pecas_catalogo?ativo=eq.true&order=nome.asc&select=id,referencia,nome,linha_produto,aplicacao,preco_venda,ipi_perc',{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
+    _pecasCompra=await r.json();if(!Array.isArray(_pecasCompra))_pecasCompra=[];
+    _pecasCompra=_pecasCompra.filter(function(p){return parseFloat(p.preco_venda||0)>0});
+    // Buscar estoque geral (comp_produtos_consolidado) para cada peça
     if(_pecasCompra.length){
       try{
         var refs=_pecasCompra.map(function(p){return p.referencia});
-        // Buscar em lotes de 30
         for(var bi=0;bi<refs.length;bi+=30){
           var batch=refs.slice(bi,bi+30);
           var re=await fetch(SB_URL+'/rest/v1/comp_produtos_consolidado?referencia=in.('+batch.join(',')+ ')&select=referencia,estoque_total',{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
