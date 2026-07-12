@@ -1426,16 +1426,9 @@ async function renderComprarPecas(el){
   try{
     var cfgR=await fetch(SB_URL+'/rest/v1/prt_configuracoes?chave=eq.desconto_autorizada_perc&select=valor',{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
     var cfgArr=await cfgR.json();if(Array.isArray(cfgArr)&&cfgArr.length)_descontoAutorizada=parseFloat(cfgArr[0].valor)||15;
-    // Primeiro tenta catálogo curado; se vazio, puxa da view ERP com preços Bononi SC
+    // Somente catálogo curado (gestão) com preço > 0
     var r=await fetch(SB_URL+'/rest/v1/prt_pecas_catalogo?ativo=eq.true&preco_venda=gt.0&order=nome.asc&select=id,referencia,nome,linha_produto,aplicacao,preco_venda,ipi_perc',{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
     _pecasCompra=await r.json();if(!Array.isArray(_pecasCompra))_pecasCompra=[];
-    if(!_pecasCompra.length){
-      var rv=await fetch(SB_URL+'/rest/v1/geral_pecas_preco_bononi_sc?preco_venda=gt.0&order=nome.asc&select=referencia,nome,preco_venda,ipi_saida,subgrupo',{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
-      var viewData=await rv.json();if(Array.isArray(viewData)){
-        var subToLinha={'REPARO AR STONNI':'ar_condicionado','RP. GELADEIRA':'geladeira','REPOSICAO GERADOR':'gerador'};
-        _pecasCompra=viewData.filter(function(v){return v.preco_venda&&v.preco_venda>0}).map(function(v,i){return{id:i+1,referencia:v.referencia||'',nome:v.nome||'',linha_produto:subToLinha[v.subgrupo]||'',aplicacao:[],preco_venda:parseFloat(v.preco_venda)||0,ipi_perc:parseFloat(v.ipi_saida)||0,_fromView:true}});
-      }
-    }
     // buscar linhas e modelos do banco
     var rl=await fetch(SB_URL+'/rest/v1/prt_linhas_produto?ativo=eq.true&order=ordem.asc&select=id,slug,nome',{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
     _compraLinhas=await rl.json();if(!Array.isArray(_compraLinhas))_compraLinhas=[];
@@ -1489,10 +1482,10 @@ function renderCatalogoCompra(){
 function setCompraFiltroLinha(slug){_compraFiltroLinha=slug;_compraFiltroModelo='';renderCatalogoCompra()}
 function setCompraFiltroModelo(nome){_compraFiltroModelo=nome;renderCatalogoCompra()}
 function filtrarPecasCompra(){var q=(document.getElementById('buscaPecaCompra')?.value||'').toLowerCase();var it=document.getElementById('listaPecasCompra')?.children;if(!it)return;for(var i=0;i<it.length;i++)it[i].style.display=it[i].textContent.toLowerCase().indexOf(q)>-1?'':'none'}
-function adicionarCompra(id){var p=_pecasCompra.find(function(x){return x.id===id});if(!p)return;var e=_carrinhoCompra.find(function(x){return x.id===id});if(e){e.q++;renderCatalogoCompra();return}_carrinhoCompra.push({id:p.id,ref:p.referencia,nm:p.nome,pt:p.preco_venda,pf:p.preco_venda*(1-_descontoAutorizada/100),ip:p.ipi_perc||0,q:1,_fromView:!!p._fromView});renderCatalogoCompra()}
+function adicionarCompra(id){var p=_pecasCompra.find(function(x){return x.id===id});if(!p)return;var e=_carrinhoCompra.find(function(x){return x.id===id});if(e){e.q++;renderCatalogoCompra();return}_carrinhoCompra.push({id:p.id,ref:p.referencia,nm:p.nome,pt:p.preco_venda,pf:p.preco_venda*(1-_descontoAutorizada/100),ip:p.ipi_perc||0,q:1});renderCatalogoCompra()}
 function updQC(i,v){_carrinhoCompra[i].q=Math.max(1,parseInt(v)||1);renderCatalogoCompra()}
 function rmC(i){_carrinhoCompra.splice(i,1);renderCatalogoCompra()}
-async function enviarPC(){if(!_carrinhoCompra.length){toast('Carrinho vazio','error');return}var tt=0,ti=0;_carrinhoCompra.forEach(function(x){var s=x.pf*x.q;tt+=s;ti+=s*(x.ip||0)/100});try{var r=await fetch(SB_URL+'/rest/v1/prt_compras_pecas',{method:'POST',headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json','Prefer':'return=representation'},body:JSON.stringify({parceiro_id:_parceiroId,valor_total:tt,ipi_total:ti,desconto_perc:_descontoAutorizada,valor_final:tt+ti,status:'pendente'})});var res=await r.json();if(!r.ok)throw new Error('Erro');var c=Array.isArray(res)?res[0]:res;var itens=_carrinhoCompra.map(function(x){return{compra_id:c.id,peca_catalogo_id:x._fromView?null:x.id,referencia:x.ref,nome:x.nm,quantidade:x.q,preco_unitario:x.pt,ipi_perc:x.ip,desconto_perc:_descontoAutorizada,preco_final:x.pf}});await fetch(SB_URL+'/rest/v1/prt_compras_pecas_itens',{method:'POST',headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'},body:JSON.stringify(itens)});toast('Pedido '+(c.codigo||'#'+c.id)+' enviado!','success');_carrinhoCompra=[];navegar('comprar-pecas')}catch(e){console.error(e);toast('Erro ao enviar','error')}}
+async function enviarPC(){if(!_carrinhoCompra.length){toast('Carrinho vazio','error');return}var tt=0,ti=0;_carrinhoCompra.forEach(function(x){var s=x.pf*x.q;tt+=s;ti+=s*(x.ip||0)/100});try{var r=await fetch(SB_URL+'/rest/v1/prt_compras_pecas',{method:'POST',headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json','Prefer':'return=representation'},body:JSON.stringify({parceiro_id:_parceiroId,valor_total:tt,ipi_total:ti,desconto_perc:_descontoAutorizada,valor_final:tt+ti,status:'pendente'})});var res=await r.json();if(!r.ok)throw new Error('Erro');var c=Array.isArray(res)?res[0]:res;var itens=_carrinhoCompra.map(function(x){return{compra_id:c.id,peca_catalogo_id:x.id,referencia:x.ref,nome:x.nm,quantidade:x.q,preco_unitario:x.pt,ipi_perc:x.ip,desconto_perc:_descontoAutorizada,preco_final:x.pf}});await fetch(SB_URL+'/rest/v1/prt_compras_pecas_itens',{method:'POST',headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'},body:JSON.stringify(itens)});toast('Pedido '+(c.codigo||'#'+c.id)+' enviado!','success');_carrinhoCompra=[];navegar('comprar-pecas')}catch(e){console.error(e);toast('Erro ao enviar','error')}}
 
 // enter key no login
 document.getElementById('loginSenha').addEventListener('keydown',function(e){if(e.key==='Enter')fazerLogin()});
