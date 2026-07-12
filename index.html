@@ -1303,6 +1303,8 @@ function abrirDetalheOS(id){
 }
 
 // ===== MATERIAL TÉCNICO =====
+var _materiaisCache=[],_matFiltroLinha='',_matFiltroModelo='';
+var _matLinhaNames={geladeira:'Geladeira',ar_condicionado:'AR Condicionado',gerador:'Gerador'};
 async function renderMaterial(el){
   el.innerHTML='<div class="page-header"><h1>Material Técnico</h1></div>'+
     '<div id="materialArea"><div class="loading-full"><span class="spinner"></span> Carregando...</div></div>';
@@ -1310,22 +1312,60 @@ async function renderMaterial(el){
     var r=await fetch(SB_URL+'/rest/v1/prt_materiais?ativo=eq.true&order=ordem.asc,criado_em.desc&select=*',{
       headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}
     });
-    var mats=await r.json();
-    if(!Array.isArray(mats)) mats=[];
-    var box=document.getElementById('materialArea');
-    if(!mats.length){
-      box.innerHTML='<div class="empty-state"><svg viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg><p>Materiais técnicos ainda estão sendo preparados pela Stonni</p></div>';
-    }else{
-      var html='';
-      mats.forEach(function(m){
-        html+='<div class="card"><div class="card-title">'+m.titulo+'</div>'+
-          (m.descricao?'<p class="text-sm text-muted mb-8">'+m.descricao+'</p>':'')+
-          '<div class="flex items-center gap-8 text-xs text-muted">'+(m.linha_produto||'')+(m.modelo?' — '+m.modelo:'')+'</div>'+
-          '<a href="'+m.url+'" target="_blank" class="btn btn-ghost btn-sm mt-16">Abrir material →</a></div>';
-      });
-      box.innerHTML=html;
-    }
+    _materiaisCache=await r.json();
+    if(!Array.isArray(_materiaisCache)) _materiaisCache=[];
+    _matFiltroLinha='';_matFiltroModelo='';
+    renderMateriaisFiltrados();
   }catch(e){console.error(e)}
+}
+function setMatFiltroLinha(slug){_matFiltroLinha=slug;_matFiltroModelo='';renderMateriaisFiltrados()}
+function setMatFiltroModelo(nome){_matFiltroModelo=(_matFiltroModelo===nome)?'':nome;renderMateriaisFiltrados()}
+function renderMateriaisFiltrados(){
+  var box=document.getElementById('materialArea');
+  if(!_materiaisCache.length){
+    box.innerHTML='<div class="empty-state"><svg viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg><p>Materiais técnicos ainda estão sendo preparados pela Stonni</p></div>';
+    return;
+  }
+  // extrair linhas existentes nos materiais
+  var linhasSet={};_materiaisCache.forEach(function(m){if(m.linha_produto)linhasSet[m.linha_produto]=true});
+  var linhas=Object.keys(linhasSet).sort();
+  // filtros de linha
+  var html='<div class="filters-bar"><div class="filter-chip'+(!_matFiltroLinha?' active':'')+'" onclick="setMatFiltroLinha(\'\')">Todas</div>';
+  linhas.forEach(function(l){html+='<div class="filter-chip'+(_matFiltroLinha===l?' active':'')+'" onclick="setMatFiltroLinha(\''+l+'\')">'+(_matLinhaNames[l]||l)+'</div>'});
+  html+='</div>';
+  // se tem linha selecionada, extrair modelos dessa linha
+  if(_matFiltroLinha){
+    var modelosSet={};
+    _materiaisCache.filter(function(m){return m.linha_produto===_matFiltroLinha&&m.modelo}).forEach(function(m){
+      m.modelo.split(',').forEach(function(mod){var t=mod.trim();if(t)modelosSet[t]=true});
+    });
+    var modelos=Object.keys(modelosSet).sort();
+    if(modelos.length){
+      html+='<div class="filters-bar" style="margin-top:-8px">';
+      modelos.forEach(function(mod){html+='<div class="filter-chip'+(_matFiltroModelo===mod?' active':'')+'" onclick="setMatFiltroModelo(\''+esc(mod)+'\')">'+mod+'</div>'});
+      html+='</div>';
+    }
+  }
+  // filtrar materiais
+  var filtered=_materiaisCache;
+  if(_matFiltroLinha){filtered=filtered.filter(function(m){return m.linha_produto===_matFiltroLinha})}
+  if(_matFiltroModelo){filtered=filtered.filter(function(m){return m.modelo&&m.modelo.indexOf(_matFiltroModelo)>-1})}
+  if(!filtered.length){
+    html+='<div class="empty-state"><p>Nenhum material para este filtro</p></div>';
+  }else{
+    filtered.forEach(function(m){
+      var tipoIcon=m.tipo==='video'?'▶️':m.tipo==='pdf'?'📄':'🔗';
+      html+='<div class="card"><div class="card-title">'+tipoIcon+' '+esc(m.titulo)+'</div>'+
+        (m.descricao?'<p class="text-sm text-muted mb-8">'+esc(m.descricao)+'</p>':'')+
+        '<div class="flex items-center gap-8 text-xs text-muted" style="flex-wrap:wrap">'+
+          '<span style="background:var(--primary-bg);color:var(--primary);padding:2px 8px;border-radius:10px;font-weight:600">'+(_matLinhaNames[m.linha_produto]||m.linha_produto||'Geral')+'</span>'+
+          (m.modelo?'<span>'+esc(m.modelo)+'</span>':'')+
+        '</div>'+
+        '<a href="'+m.url+'" target="_blank" class="btn btn-ghost btn-sm mt-16" style="width:auto">Abrir material →</a></div>';
+    });
+  }
+  html+='<p class="text-xs text-muted" style="text-align:center;margin-top:8px">'+filtered.length+' de '+_materiaisCache.length+' materiais</p>';
+  box.innerHTML=html;
 }
 
 // ===== ESTOQUE =====
