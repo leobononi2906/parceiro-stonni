@@ -449,6 +449,26 @@ async function fazerLogin(){
   btn.disabled=false;btn.innerHTML='Entrar';
 }
 
+// ===== TEXTOS E PRAZOS CONFIGURÁVEIS (gerenciados na gestão → Configurações) =====
+var _cfgTextos=null;
+async function carregarCfgTextos(){
+  if(_cfgTextos)return _cfgTextos;
+  _cfgTextos={};
+  try{
+    var r=await fetch(SB_URL+'/rest/v1/prt_configuracoes?select=chave,valor',{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
+    var rows=await r.json();
+    if(Array.isArray(rows))rows.forEach(function(c){_cfgTextos[c.chave]=c.valor});
+  }catch(e){console.error('cfg textos',e)}
+  return _cfgTextos;
+}
+var _CFG_PADRAO={prazo_resposta_os_dias:'3',prazo_envio_peca_dias:'5',prazo_pagamento_dia:'10'};
+function cfgTexto(chave,fallback){
+  var t=(_cfgTextos&&_cfgTextos[chave])?_cfgTextos[chave]:fallback;
+  return String(t).replace(/\{([a-z_]+)\}/g,function(m,k){
+    return (_cfgTextos&&_cfgTextos[k])?_cfgTextos[k]:(_CFG_PADRAO[k]||m);
+  });
+}
+
 async function carregarPerfil(){
   // 1. busca vínculo na prt_usuarios
   var r=await fetch(SB_URL+'/rest/v1/prt_usuarios?user_id=eq.'+_user.id+'&ativo=eq.true&select=id,parceiro_id,perfil',{
@@ -473,6 +493,7 @@ async function carregarPerfil(){
 }
 
 function iniciarApp(){
+  carregarCfgTextos();
   document.getElementById('loginScreen').style.display='none';
   document.getElementById('appShell').style.display='block';
   // avatar
@@ -773,7 +794,7 @@ function renderOsStep(){
           '<p><strong>Produto:</strong> '+esc(_osData.produto_linha)+(_osData.produto_modelo?' — '+esc(_osData.produto_modelo):'')+'</p>'+
           '<p><strong>Série:</strong> '+esc(_osData.numero_serie||'Não informado')+'</p>'+
           (_osData.numero_nf?'<p><strong>NF Compra:</strong> '+esc(_osData.numero_nf)+'</p>':'')+
-          (_osData.data_compra?'<p><strong>Data Compra:</strong> '+fmtData(_osData.data_compra)+'</p>':'')+
+          (_osData.data_compra?'<p><strong>Data Compra:</strong> '+fmtData(_osData.data_compra)+' <span id="garantiaInfo"></span></p>':'')+
           '<p><strong>Erro:</strong> '+esc(_osData.codigo_erro||'Nenhum')+'</p>'+
           '<p><strong>Defeito:</strong> '+esc(_osData.defeito_descricao)+'</p>'+
           '<p><strong>Diagnóstico:</strong> '+esc(_osData.diagnostico||'-')+'</p>'+
@@ -787,6 +808,12 @@ function renderOsStep(){
           '<button class="btn btn-ghost btn-sm" onclick="osSalvar(\'rascunho\')" id="btnRascunho">Salvar rascunho</button>'+
           '<button class="btn btn-primary btn-sm" onclick="osSalvar(\'enviada\')" id="btnEnviar">Enviar para Stonni</button>'+
         '</div>';
+      verificarGarantia().then(function(g){
+        var gi=document.getElementById('garantiaInfo');if(!gi||!g)return;
+        gi.innerHTML=g.dentro
+          ?'<span style="background:#E8F8F3;color:#0F9D6E;font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px;margin-left:6px">✅ DENTRO DA GARANTIA ('+g.prazo+' meses)</span>'
+          :'<span style="background:#FEF0EF;color:#D93025;font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px;margin-left:6px">⚠️ FORA DA GARANTIA (expirou '+g.limite.toLocaleDateString('pt-BR')+')</span>';
+      });
       break;
   }
 }
@@ -806,13 +833,31 @@ async function carregarServicos(){
   try{
     var rc=await fetch(SB_URL+'/rest/v1/prt_categorias_servico?linha_produto=eq.'+linhaDb+'&ativo=eq.true&order=ordem.asc&select=*',{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
     _categoriasCache=await rc.json();if(!Array.isArray(_categoriasCache))_categoriasCache=[];
-    var r=await fetch(SB_URL+'/rest/v1/prt_tabela_servicos?linha_produto=eq.'+linhaDb+'&ativo=eq.true&order=codigo.asc&select=*',{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
+    var r=await fetch(SB_URL+'/rest/v1/prt_tabela_servicos?linha_produto=eq.'+linhaDb+'&ativo=eq.true&limit=10000&order=codigo.asc&select=*',{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
     _servicosCache=await r.json();if(!Array.isArray(_servicosCache))_servicosCache=[];
     // buscar teto do produto
     var rt=await fetch(SB_URL+'/rest/v1/prt_teto_produto?linha_produto=eq.'+linhaDb+'&ativo=eq.true&select=valor_maximo',{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
     var tArr=await rt.json();_tetoProduto=(Array.isArray(tArr)&&tArr.length)?parseFloat(tArr[0].valor_maximo):null;
     document.getElementById('servicosArea').innerHTML=renderServicosHtml();
   }catch(e){console.error(e)}
+}
+
+// Verifica garantia via prt_garantia: regra de modelo específico tem prioridade sobre a da linha
+async function verificarGarantia(){
+  if(!_osData.data_compra)return null;
+  try{
+    var r=await fetch(SB_URL+'/rest/v1/prt_garantia?ativo=eq.true&linha_produto=eq.'+encodeURIComponent(_osData.produto_linha)+'&select=modelo,prazo_meses',{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
+    var rows=await r.json();
+    if(!Array.isArray(rows)||!rows.length)return null;
+    var g=rows.find(function(x){return x.modelo&&_osData.produto_modelo&&x.modelo===_osData.produto_modelo})||rows.find(function(x){return !x.modelo})||rows[0];
+    if(!g||!g.prazo_meses)return null;
+    var dc=_osData.data_compra.split('-').map(Number);
+    var limite=new Date(dc[0],dc[1]-1+g.prazo_meses,dc[2]);
+    var ref;
+    if(_osData.data_servico){var ds=_osData.data_servico.split('-').map(Number);ref=new Date(ds[0],ds[1]-1,ds[2])}
+    else ref=new Date();
+    return{dentro:ref<=limite,prazo:g.prazo_meses,limite:limite};
+  }catch(e){return null}
 }
 
 function totalServicosRaw(){return _servicosSelecionados.reduce(function(s,x){return s+x.valor},0)}
@@ -925,7 +970,7 @@ function removerServico(idx){
 async function carregarPecasCatalogo(){
   var linhaDb=LINHAS_DB[_osData.produto_linha]||'';
   try{
-    var url=SB_URL+'/rest/v1/prt_pecas_catalogo?ativo=eq.true&order=nome.asc&select=id,referencia,nome,linha_produto,aplicacao,custo_unitario';
+    var url=SB_URL+'/rest/v1/prt_pecas_catalogo?ativo=eq.true&limit=10000&order=nome.asc&select=id,referencia,nome,linha_produto,aplicacao,custo_unitario';
     if(linhaDb) url+='&linha_produto=eq.'+linhaDb;
     var r=await fetch(url,{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
     _pecasCatalogo=await r.json();
@@ -1100,52 +1145,53 @@ async function osSalvar(status){
     atualizado_em:new Date().toISOString()
   };
   if(status==='enviada') payload.data_envio=new Date().toISOString();
+  if(status==='enviada') payload.motivo_recusa=null; // reenvio de OS recusada volta pra análise limpa
   try{
     var r,url,method;
     if(_editandoOsId){
-      // PATCH — editar OS existente
       url=SB_URL+'/rest/v1/prt_ordens_servico?id=eq.'+_editandoOsId;
       method='PATCH';
-      // deletar peças antigas antes de reinserir
-      await fetch(SB_URL+'/rest/v1/prt_os_pecas?os_id=eq.'+_editandoOsId,{
-        method:'DELETE',headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}
-      });
     }else{
       url=SB_URL+'/rest/v1/prt_ordens_servico';
       method='POST';
     }
+    // 1º passo: salvar a OS. Só depois de confirmada é que serviços/peças são substituídos.
     r=await fetch(url,{
       method:method,
       headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json','Prefer':'return=representation'},
       body:JSON.stringify(payload)
     });
     var res=await r.json();
-    if(!r.ok) throw new Error(JSON.stringify(res));
+    if(!r.ok) throw new Error('Falha ao salvar a OS: '+JSON.stringify(res));
     var osRow=Array.isArray(res)?res[0]:res;
-    var osId=_editandoOsId||osRow.id;
-    // salvar serviços da OS (multi)
-    if(osId){
-      // deletar serviços antigos
-      await fetch(SB_URL+'/rest/v1/prt_os_servicos?os_id=eq.'+osId,{method:'DELETE',headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
-      if(_servicosSelecionados.length){
-        var svPayload=_servicosSelecionados.map(function(sv){return{os_id:osId,codigo:sv.codigo,descricao:sv.descricao,valor:sv.valor,categoria_id:sv.categoria_id||null,categoria_nome:sv.categoria_nome||null}});
-        await fetch(SB_URL+'/rest/v1/prt_os_servicos',{method:'POST',headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'},body:JSON.stringify(svPayload)});
-      }
+    var osId=_editandoOsId||(osRow&&osRow.id);
+    if(!osId) throw new Error('OS salva mas sem ID retornado');
+    // 2º passo: serviços — deletar antigos e inserir novos, verificando cada resposta
+    var rdel=await fetch(SB_URL+'/rest/v1/prt_os_servicos?os_id=eq.'+osId,{method:'DELETE',headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
+    if(!rdel.ok) throw new Error('Falha ao atualizar serviços da OS');
+    if(_servicosSelecionados.length){
+      var svPayload=_servicosSelecionados.map(function(sv){return{os_id:osId,codigo:sv.codigo,descricao:sv.descricao,valor:sv.valor,categoria_id:sv.categoria_id||null,categoria_nome:sv.categoria_nome||null}});
+      var rsv=await fetch(SB_URL+'/rest/v1/prt_os_servicos',{method:'POST',headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'},body:JSON.stringify(svPayload)});
+      if(!rsv.ok) throw new Error('Falha ao gravar os serviços da OS');
     }
-    // salvar peças utilizadas
-    if(_pecasSelecionadas.length&&osId){
+    // 3º passo: peças — mesmo padrão
+    var rdp=await fetch(SB_URL+'/rest/v1/prt_os_pecas?os_id=eq.'+osId,{method:'DELETE',headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
+    if(!rdp.ok) throw new Error('Falha ao atualizar peças da OS');
+    if(_pecasSelecionadas.length){
       var pecasPayload=_pecasSelecionadas.map(function(p){
         return{os_id:osId,referencia:p.referencia,nome_peca:p.nome,quantidade:p.quantidade,custo_unitario:p.custo_unitario||null,origem:'estoque_parceiro'}
       });
-      await fetch(SB_URL+'/rest/v1/prt_os_pecas',{
+      var rpc=await fetch(SB_URL+'/rest/v1/prt_os_pecas',{
         method:'POST',
         headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'},
         body:JSON.stringify(pecasPayload)
       });
+      if(!rpc.ok) throw new Error('Falha ao gravar as peças da OS');
     }
     var proto=osRow.protocolo||'';
     if(status==='enviada'){
-      toast('OS '+proto+' enviada com sucesso! Nossa equipe analisará e retornará em até 3 dias úteis.','success');
+      await carregarCfgTextos();
+      toast('OS '+proto+' enviada com sucesso! '+cfgTexto('texto_os_enviada','Nossa equipe analisará e retornará em até {prazo_resposta_os_dias} dias úteis.'),'success');
     }else{
       toast((_editandoOsId?'OS atualizada':'Rascunho salvo')+'! '+proto,'success');
     }
@@ -1153,7 +1199,8 @@ async function osSalvar(status){
     _editandoOsId=null;
     navegar('minhas-os');
   }catch(e){
-    console.error(e);toast('Erro ao salvar OS','error');
+    console.error(e);toast(e.message||'Erro ao salvar OS','error');
+    bononiLog('ERRO','os','SALVAR_OS_FALHOU',String(_editandoOsId||''),null,{erro:String(e.message||e)});
     btn.disabled=false;btn.innerHTML=status==='rascunho'?'Salvar rascunho':'Enviar para Stonni';
   }
 }
@@ -1191,8 +1238,7 @@ function gerarPdfOS(id){
       '<div class="row"><span class="lbl">Código Erro:</span><span class="val">'+(o.codigo_erro||'-')+'</span></div>'+
       '<div class="row"><span class="lbl">Defeito:</span><span class="val">'+(o.defeito_descricao||'-')+'</span></div>'+
       '<div class="row"><span class="lbl">Diagnóstico:</span><span class="val">'+(o.diagnostico||'-')+'</span></div>'+
-      '<div class="row"><span class="lbl">Solução:</span><span class="val">'+((o.solucao_tipo||'').replace(/_/g,' '))+'</span></div>'+
-      '<div class="row"><span class="lbl">Serviço:</span><span class="val">'+(o.codigo_servico||'-')+'</span></div>'+
+            '<div class="row"><span class="lbl">Serviço:</span><span class="val">'+(o.codigo_servico||'-')+'</span></div>'+
       '<div class="row"><span class="lbl">Valor:</span><span class="val">'+fmt(o.valor_servico)+'</span></div>'+
       '<div class="row"><span class="lbl">Data Serviço:</span><span class="val">'+fmtData(o.data_servico)+'</span></div>'+
     '</div>'+
@@ -1223,7 +1269,7 @@ async function renderMinhasOS(el){
 var _todasOS=[];
 async function carregarMinhasOS(filtro){
   try{
-    var url=SB_URL+'/rest/v1/prt_ordens_servico?parceiro_id=eq.'+_parceiroId+'&order=criado_em.desc&select=id,protocolo,cliente_nome,cliente_telefone,cliente_cidade,cliente_uf,produto_linha,produto_modelo,numero_serie,numero_nf,data_compra,status,data_servico,valor_servico,codigo_erro,defeito_descricao,solucao_tipo,diagnostico,motivo_recusa,codigo_servico,foto_nf,foto_equipamento';
+    var url=SB_URL+'/rest/v1/prt_ordens_servico?parceiro_id=eq.'+_parceiroId+'&limit=10000&order=criado_em.desc&select=id,protocolo,cliente_nome,cliente_telefone,cliente_cidade,cliente_uf,produto_linha,produto_modelo,numero_serie,numero_nf,data_compra,status,data_servico,valor_servico,codigo_erro,defeito_descricao,solucao_tipo,diagnostico,motivo_recusa,codigo_servico,foto_nf,foto_equipamento';
     var r=await fetch(url,{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
     _todasOS=await r.json();
     if(!Array.isArray(_todasOS)) _todasOS=[];
@@ -1257,7 +1303,7 @@ function mostrarListaOS(filtro){
         '<span class="text-sm fw-600">'+fmt(o.valor_servico)+'</span>'+
       '</div>'+
       '<div class="flex gap-8 mt-8">'+
-        (o.status==='rascunho'?'<button class="btn btn-ghost btn-sm" style="width:auto;padding:6px 12px;font-size:.75rem" onclick="renderNovaOS(document.getElementById(\'mainContent\'),'+o.id+')">✏️ Editar</button>':'')+
+        ((o.status==='rascunho'||o.status==='recusada')?'<button class="btn btn-ghost btn-sm" style="width:auto;padding:6px 12px;font-size:.75rem" onclick="renderNovaOS(document.getElementById(\'mainContent\'),'+o.id+')">✏️ '+(o.status==='recusada'?'Corrigir e reenviar':'Editar')+'</button>':'')+
         '<button class="btn btn-ghost btn-sm" style="width:auto;padding:6px 12px;font-size:.75rem" onclick="gerarPdfOS('+o.id+')">🖨️ PDF</button>'+
       '</div>'+
       (o.motivo_recusa?'<div class="text-sm text-danger mt-8">Motivo: '+o.motivo_recusa+'</div>':'')+
@@ -1294,7 +1340,7 @@ async function renderMaterial(el){
   el.innerHTML='<div class="page-header"><h1>Material Técnico</h1></div>'+
     '<div id="materialArea"><div class="loading-full"><span class="spinner"></span> Carregando...</div></div>';
   try{
-    var r=await fetch(SB_URL+'/rest/v1/prt_materiais?ativo=eq.true&order=ordem.asc,criado_em.desc&select=*',{
+    var r=await fetch(SB_URL+'/rest/v1/prt_materiais?ativo=eq.true&limit=10000&order=ordem.asc,criado_em.desc&select=*',{
       headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}
     });
     _materiaisCache=await r.json();
@@ -1358,7 +1404,7 @@ async function renderEstoque(el){
   el.innerHTML='<div class="page-header"><h1>Meu Estoque de Peças</h1></div>'+
     '<div id="estoqueArea"><div class="loading-full"><span class="spinner"></span> Carregando...</div></div>';
   try{
-    var r=await fetch(SB_URL+'/rest/v1/prt_estoque_parceiro?parceiro_id=eq.'+_parceiroId+'&order=nome_peca.asc&select=*',{
+    var r=await fetch(SB_URL+'/rest/v1/prt_estoque_parceiro?parceiro_id=eq.'+_parceiroId+'&limit=10000&order=nome_peca.asc&select=*',{
       headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}
     });
     var pecas=await r.json();
@@ -1381,11 +1427,12 @@ async function renderEstoque(el){
 
 // ===== FINANCEIRO (melhorado) =====
 async function renderFinanceiro(el){
+  await carregarCfgTextos();
   el.innerHTML='<div class="page-header"><h1>Financeiro</h1></div>'+
-    '<div class="card" style="margin-bottom:16px;background:var(--primary-bg);border-color:var(--primary)"><p class="text-sm" style="color:var(--text)">Os pagamentos são realizados <strong>até o dia 10 do mês seguinte</strong>. Após o fechamento, envie sua NF para liberação do pagamento.</p></div>'+
+    '<div class="card" style="margin-bottom:16px;background:var(--primary-bg);border-color:var(--primary)"><p class="text-sm" style="color:var(--text)">'+esc(cfgTexto('texto_financeiro_banner','Os pagamentos são realizados até o dia {prazo_pagamento_dia} do mês seguinte. Após o fechamento, envie sua NF para liberação do pagamento.'))+'</p></div>'+
     '<div id="finArea"><div class="loading-full"><span class="spinner"></span> Carregando...</div></div>';
   try{
-    var r=await fetch(SB_URL+'/rest/v1/prt_pagamentos?parceiro_id=eq.'+_parceiroId+'&order=mes_referencia.desc&select=*',{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
+    var r=await fetch(SB_URL+'/rest/v1/prt_pagamentos?parceiro_id=eq.'+_parceiroId+'&limit=10000&order=mes_referencia.desc&select=*',{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
     var pags=await r.json();if(!Array.isArray(pags))pags=[];
     var box=document.getElementById('finArea');
     if(!pags.length){box.innerHTML='<div class="empty-state"><p>Nenhum fechamento financeiro ainda</p><p class="text-xs text-muted">Os pagamentos aparecem aqui após o fechamento mensal pela Stonni</p></div>';return}
@@ -1412,7 +1459,7 @@ async function renderComprarPecas(el){
     var cfgR=await fetch(SB_URL+'/rest/v1/prt_configuracoes?chave=eq.desconto_autorizada_perc&select=valor',{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
     var cfgArr=await cfgR.json();if(Array.isArray(cfgArr)&&cfgArr.length)_descontoAutorizada=parseFloat(cfgArr[0].valor)||15;
     // Somente catálogo curado (gestão) com preço > 0 e estoque > 2
-    var r=await fetch(SB_URL+'/rest/v1/geral_pecas_catalogo_estoque?order=nome.asc&select=id,referencia,nome,linha_produto,aplicacao,preco_venda,ipi_perc,estoque_fisico',{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
+    var r=await fetch(SB_URL+'/rest/v1/geral_pecas_catalogo_estoque?limit=10000&order=nome.asc&select=id,referencia,nome,linha_produto,aplicacao,preco_venda,ipi_perc,estoque_fisico',{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
     _pecasCompra=await r.json();if(!Array.isArray(_pecasCompra))_pecasCompra=[];
     // buscar linhas e modelos do banco
     var rl=await fetch(SB_URL+'/rest/v1/prt_linhas_produto?ativo=eq.true&order=ordem.asc&select=id,slug,nome',{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
