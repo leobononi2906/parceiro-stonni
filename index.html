@@ -555,7 +555,22 @@ function toast(msg,tipo){
 // ===== HELPERS =====
 function fmt(v){return(v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}
 function fmtData(d){if(!d)return'-';return new Date(d).toLocaleDateString('pt-BR')}
-function statusBadge(s){return '<span class="badge badge-'+(s||'rascunho')+'">'+(s||'rascunho').replace('_',' ')+'</span>'}
+// Mapeia o status interno para o que o parceiro vê: Rascunho / Aberta / Fechada / Cancelada
+function statusPublico(s){
+  if(s==='rascunho') return {label:'Rascunho',cls:'badge-rascunho'};
+  if(s==='paga') return {label:'Fechada',cls:'badge-paga'};
+  if(s==='recusada'||s==='cancelada') return {label:'Cancelada',cls:'badge-recusada'};
+  return {label:'Aberta',cls:'badge-enviada'}; // enviada, aguardando_peca, aprovada
+}
+function grupoStatus(s){
+  if(s==='rascunho') return 'rascunho';
+  if(s==='paga') return 'fechada';
+  if(s==='recusada'||s==='cancelada') return 'cancelada';
+  return 'aberta';
+}
+// OS ainda "ativa" (parceiro pode editar / solicitar peça / cancelar)
+function osAtiva(s){return s==='rascunho'||s==='enviada'||s==='aguardando_peca'}
+function statusBadge(s){var p=statusPublico(s);return '<span class="badge '+p.cls+'">'+p.label+'</span>'}
 
 // ===== PÁGINAS — STUBS (serão implementadas em parceiro.js / gestao.js) =====
 function renderDashboard(el){
@@ -653,7 +668,7 @@ var LINHAS_PRODUTO={
 var LINHAS_DB={'Geladeira':'geladeira','Ar Condicionado':'ar_condicionado','Gerador':'gerador'};
 
 function renderNovaOS(el,editId){
-  _osStep=1;_osData={};_servicosCache=[];_pecasCatalogo=[];_pecasSelecionadas=[];_editandoOsId=null;_servicosSelecionados=[];_showAccordionPicker=false;_tetoProduto=null;
+  _osStep=1;_osData={};_servicosCache=[];_pecasCatalogo=[];_pecasSelecionadas=[];_editandoOsId=null;_editandoStatusOrig=null;_servicosSelecionados=[];_showAccordionPicker=false;_tetoProduto=null;
   if(editId) return carregarOsParaEditar(el,editId);
   el.innerHTML=
     '<div class="page-header"><h1>Nova Ordem de Serviço</h1></div>'+
@@ -662,6 +677,7 @@ function renderNovaOS(el,editId){
   renderOsStep();
 }
 var _editandoOsId=null;
+var _editandoStatusOrig=null;
 
 async function carregarOsParaEditar(el,id){
   el.innerHTML='<div class="loading-full"><span class="spinner"></span> Carregando OS...</div>';
@@ -671,6 +687,7 @@ async function carregarOsParaEditar(el,id){
     if(!rows.length){toast('OS não encontrada','error');navegar('minhas-os');return}
     var o=rows[0];
     _editandoOsId=o.id;
+    _editandoStatusOrig=o.status;
     _osData={cliente_nome:o.cliente_nome,cliente_telefone:o.cliente_telefone,cliente_uf:o.cliente_uf,cliente_cidade:o.cliente_cidade,
       produto_linha:o.produto_linha,produto_modelo:o.produto_modelo,numero_serie:o.numero_serie,
       numero_nf:o.numero_nf,data_compra:o.data_compra,
@@ -799,7 +816,7 @@ function renderOsStep(){
         '</div>'+
         '<div class="flex justify-between mt-24" style="gap:8px;flex-wrap:wrap">'+
           '<button class="btn btn-ghost btn-sm" onclick="osVoltar()">← Voltar</button>'+
-          '<button class="btn btn-ghost btn-sm" onclick="osSalvar(\'rascunho\')" id="btnRascunho">Salvar rascunho</button>'+
+          '<button class="btn btn-ghost btn-sm" onclick="osSalvar(\'rascunho\')" id="btnRascunho">'+((_editandoStatusOrig&&_editandoStatusOrig!=='rascunho')?'Salvar alterações':'Salvar rascunho')+'</button>'+
           '<button class="btn btn-primary btn-sm" onclick="osSalvar(\'enviada\')" id="btnEnviar">Enviar para Stonni</button>'+
         '</div>';
       break;
@@ -1115,6 +1132,8 @@ async function osSalvar(status){
     atualizado_em:new Date().toISOString()
   };
   if(status==='enviada') payload.data_envio=new Date().toISOString();
+  // ao editar uma OS já ativa, "Salvar alterações" mantém o status atual (não volta pra rascunho)
+  if(_editandoOsId&&_editandoStatusOrig&&_editandoStatusOrig!=='rascunho'&&status==='rascunho') payload.status=_editandoStatusOrig;
   try{
     var r,url,method;
     if(_editandoOsId){
@@ -1165,11 +1184,11 @@ async function osSalvar(status){
       toast((_editandoOsId?'OS atualizada':'Rascunho salvo')+'! '+proto,'success');
     }
     bononiLog('ACAO','os',_editandoOsId?'EDITAR_OS':('CRIAR_OS_'+status.toUpperCase()),String(osId),proto);
-    _editandoOsId=null;
+    _editandoOsId=null;_editandoStatusOrig=null;
     navegar('minhas-os');
   }catch(e){
     console.error(e);toast('Erro ao salvar OS','error');
-    btn.disabled=false;btn.innerHTML=status==='rascunho'?'Salvar rascunho':'Enviar para Stonni';
+    btn.disabled=false;btn.innerHTML=status==='rascunho'?((_editandoStatusOrig&&_editandoStatusOrig!=='rascunho')?'Salvar alterações':'Salvar rascunho'):'Enviar para Stonni';
   }
 }
 
@@ -1283,9 +1302,9 @@ async function renderMinhasOS(el){
     '<div class="filters-bar">'+
       '<div class="filter-chip active" onclick="filtrarOS(this,\'\')">Todas</div>'+
       '<div class="filter-chip" onclick="filtrarOS(this,\'rascunho\')">Rascunho</div>'+
-      '<div class="filter-chip" onclick="filtrarOS(this,\'enviada\')">Enviadas</div>'+
-      '<div class="filter-chip" onclick="filtrarOS(this,\'aprovada\')">Aprovadas</div>'+
-      '<div class="filter-chip" onclick="filtrarOS(this,\'recusada\')">Recusadas</div>'+
+      '<div class="filter-chip" onclick="filtrarOS(this,\'aberta\')">Abertas</div>'+
+      '<div class="filter-chip" onclick="filtrarOS(this,\'fechada\')">Fechadas</div>'+
+      '<div class="filter-chip" onclick="filtrarOS(this,\'cancelada\')">Canceladas</div>'+
     '</div>'+
     '<div id="listaOS"><div class="loading-full"><span class="spinner"></span> Carregando...</div></div>';
   await carregarMinhasOS('');
@@ -1309,7 +1328,7 @@ function filtrarOS(chip,filtro){
 }
 
 function mostrarListaOS(filtro){
-  var lista=filtro?_todasOS.filter(function(o){return o.status===filtro}):_todasOS;
+  var lista=filtro?_todasOS.filter(function(o){return grupoStatus(o.status)===filtro}):_todasOS;
   var box=document.getElementById('listaOS');
   if(!lista.length){
     box.innerHTML='<div class="empty-state"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><p>Nenhuma OS encontrada</p>'+(filtro?'':'<button class="btn btn-primary btn-sm" onclick="navegar(\'nova-os\')">Criar primeira OS</button>')+'</div>';
@@ -1328,7 +1347,7 @@ function mostrarListaOS(filtro){
         '<span class="text-sm fw-600">'+fmt(o.valor_servico)+'</span>'+
       '</div>'+
       '<div class="flex gap-8 mt-8">'+
-        (o.status==='rascunho'?'<button class="btn btn-ghost btn-sm" style="width:auto;padding:6px 12px;font-size:.75rem" onclick="renderNovaOS(document.getElementById(\'mainContent\'),'+o.id+')">✏️ Editar</button>':'')+
+        (osAtiva(o.status)?'<button class="btn btn-ghost btn-sm" style="width:auto;padding:6px 12px;font-size:.75rem" onclick="renderNovaOS(document.getElementById(\'mainContent\'),'+o.id+')">✏️ Editar</button>':'')+
         '<button class="btn btn-ghost btn-sm" style="width:auto;padding:6px 12px;font-size:.75rem" onclick="gerarPdfOS('+o.id+')">🖨️ PDF</button>'+
       '</div>'+
       (o.motivo_recusa?'<div class="text-sm text-danger mt-8">Motivo: '+o.motivo_recusa+'</div>':'')+
@@ -1337,9 +1356,42 @@ function mostrarListaOS(filtro){
   box.innerHTML=html;
 }
 
-function abrirDetalheOS(id){
+async function abrirDetalheOS(id){
   var o=_todasOS.find(function(x){return x.id===id});
   if(!o) return;
+  // buscar peças solicitadas/enviadas para esta OS (antecipadas)
+  var pecaBox='';
+  try{
+    var rp=await fetch(SB_URL+'/rest/v1/prt_reposicao_pecas?os_id=eq.'+id+'&tipo=eq.antecipada&order=criado_em.desc&select=*,prt_envios_pecas(nf_envio,transportadora,rastreio,data_envio,status)',{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
+    var reps=await rp.json();
+    if(Array.isArray(reps)&&reps.length){
+      pecaBox='<div class="card" style="margin:12px 0;background:var(--primary-bg);border-color:var(--primary)">'+
+        '<div class="fw-700 mb-8" style="font-size:.9rem">🔧 Peças desta OS</div>';
+      reps.forEach(function(r){
+        var env=r.prt_envios_pecas;
+        if(env){
+          pecaBox+='<div class="text-sm mb-8">🚚 <strong>'+esc(r.nome_peca)+'</strong> — a caminho'+
+            (env.nf_envio?' · NF '+esc(env.nf_envio):'')+
+            (env.transportadora?' · '+esc(env.transportadora):'')+
+            (env.rastreio?' · rastreio '+esc(env.rastreio):'')+
+            (env.data_envio?' <span class="text-muted">('+fmtData(env.data_envio)+')</span>':'')+
+            '<br><span class="text-xs text-muted">Reagende a visita com o cliente quando a peça chegar.</span></div>';
+        }else{
+          pecaBox+='<div class="text-sm mb-8">⏳ <strong>'+esc(r.nome_peca)+'</strong> — solicitada, aguardando envio da Stonni.</div>';
+        }
+      });
+      pecaBox+='</div>';
+    }
+  }catch(e){console.error('peças da OS:',e)}
+  // ações disponíveis quando a OS está ativa
+  var acoes='';
+  if(osAtiva(o.status)){
+    acoes='<div class="flex gap-8 mt-16" style="flex-wrap:wrap">'+
+      '<button class="btn btn-primary btn-sm" style="width:auto" onclick="solicitarPecaOS('+o.id+')">🔧 Solicitar peça</button>'+
+      '<button class="btn btn-ghost btn-sm" style="width:auto" onclick="this.closest(\'.modal-overlay\').classList.remove(\'show\');renderNovaOS(document.getElementById(\'mainContent\'),'+o.id+')">✏️ Editar OS</button>'+
+      '<button class="btn btn-ghost btn-sm" style="width:auto;color:var(--danger)" onclick="cancelarOS('+o.id+')">✕ Cancelar OS</button>'+
+    '</div>';
+  }
   var html='<div class="modal-overlay show" onclick="if(event.target===this)this.classList.remove(\'show\')"><div class="modal">'+
     '<div class="modal-title">'+(o.protocolo||'OS #'+o.id)+' '+statusBadge(o.status)+'<button class="modal-close" onclick="this.closest(\'.modal-overlay\').classList.remove(\'show\')">✕</button></div>'+
     '<div style="font-size:.88rem;line-height:1.8">'+
@@ -1354,8 +1406,83 @@ function abrirDetalheOS(id){
       '<p><strong>Valor:</strong> '+fmt(o.valor_servico)+'</p>'+
       (o.motivo_recusa?'<p class="text-danger"><strong>Recusada:</strong> '+o.motivo_recusa+'</p>':'')+
     '</div>'+
+    pecaBox+
+    acoes+
   '</div></div>';
   document.body.insertAdjacentHTML('beforeend',html);
+}
+
+// ===== SOLICITAR PEÇA (antecipada) =====
+async function solicitarPecaOS(osId){
+  document.querySelectorAll('.modal-overlay.show').forEach(function(m){m.classList.remove('show')});
+  var cat=[];
+  try{
+    var r=await fetch(SB_URL+'/rest/v1/prt_pecas_catalogo?ativo=eq.true&order=nome.asc&select=referencia,nome&limit=10000',{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
+    cat=await r.json();if(!Array.isArray(cat))cat=[];
+  }catch(e){console.error(e)}
+  var opts=cat.map(function(p){return '<option value="'+esc(p.referencia)+'" data-nome="'+esc(p.nome)+'">'+esc(p.referencia)+' — '+esc(p.nome)+'</option>'}).join('');
+  var html='<div class="modal-overlay show" id="modalSolicPeca" onclick="if(event.target===this)this.classList.remove(\'show\')"><div class="modal">'+
+    '<div class="modal-title">Solicitar peça<button class="modal-close" onclick="this.closest(\'.modal-overlay\').remove()">✕</button></div>'+
+    '<p class="text-sm text-muted mb-16">A Stonni analisa e envia a peça para você. Você reagenda com o cliente quando ela chegar.</p>'+
+    '<div class="field mb-16"><label class="text-xs text-muted">Peça</label>'+
+      '<select id="solicPecaRef" style="width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:.9rem"><option value="">Selecione...</option>'+opts+'</select></div>'+
+    '<div class="field mb-16"><label class="text-xs text-muted">Quantidade</label>'+
+      '<input type="number" id="solicPecaQtd" value="1" min="1" style="width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:.9rem"></div>'+
+    '<div class="flex gap-8 mt-16" style="justify-content:flex-end">'+
+      '<button class="btn btn-ghost btn-sm" style="width:auto" onclick="this.closest(\'.modal-overlay\').remove()">Cancelar</button>'+
+      '<button class="btn btn-primary btn-sm" style="width:auto" id="btnSolicPeca" onclick="salvarSolicitacaoPeca('+osId+')">Solicitar</button>'+
+    '</div>'+
+  '</div></div>';
+  document.body.insertAdjacentHTML('beforeend',html);
+}
+
+async function salvarSolicitacaoPeca(osId){
+  var sel=document.getElementById('solicPecaRef');
+  if(!sel||!sel.value){toast('Selecione uma peça','error');return}
+  var ref=sel.value;
+  var nome=sel.options[sel.selectedIndex].getAttribute('data-nome')||ref;
+  var qtd=parseInt(document.getElementById('solicPecaQtd').value)||1;
+  var btn=document.getElementById('btnSolicPeca');btn.disabled=true;btn.innerHTML='<span class="spinner"></span>';
+  try{
+    await fetch(SB_URL+'/rest/v1/prt_reposicao_pecas',{method:'POST',headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'},body:JSON.stringify({parceiro_id:_parceiroId,os_id:osId,referencia:ref,nome_peca:nome,quantidade:qtd,status:'pendente',tipo:'antecipada'})});
+    // OS passa a aguardar a peça (sai da fila de aprovação de valor da Stonni)
+    var o=_todasOS.find(function(x){return x.id===osId});
+    if(o&&(o.status==='rascunho'||o.status==='enviada')){
+      await fetch(SB_URL+'/rest/v1/prt_ordens_servico?id=eq.'+osId,{method:'PATCH',headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'},body:JSON.stringify({status:'aguardando_peca',atualizado_em:new Date().toISOString()})});
+    }
+    bononiLog('ACAO','os','SOLICITAR_PECA',String(osId),ref+' x'+qtd);
+    document.getElementById('modalSolicPeca').remove();
+    toast('Peça solicitada! A Stonni vai enviar e você acompanha por aqui.','success');
+    carregarMinhasOS('');
+  }catch(e){console.error(e);toast('Erro ao solicitar peça','error');btn.disabled=false;btn.innerHTML='Solicitar'}
+}
+
+// ===== CANCELAR OS =====
+function cancelarOS(osId){
+  document.querySelectorAll('.modal-overlay.show').forEach(function(m){m.classList.remove('show')});
+  var html='<div class="modal-overlay show" id="modalCancelarOS" onclick="if(event.target===this)this.classList.remove(\'show\')"><div class="modal">'+
+    '<div class="modal-title">Cancelar OS<button class="modal-close" onclick="this.closest(\'.modal-overlay\').remove()">✕</button></div>'+
+    '<p class="text-sm text-muted mb-16">Confirma o cancelamento? Se já houver peça enviada, ela permanece no seu estoque.</p>'+
+    '<div class="field mb-16"><label class="text-xs text-muted">Motivo (opcional)</label>'+
+      '<textarea id="cancelMotivo" placeholder="Ex: cliente desistiu, peça incorreta..." style="width:100%;height:70px;padding:10px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:.9rem;resize:vertical"></textarea></div>'+
+    '<div class="flex gap-8 mt-16" style="justify-content:flex-end">'+
+      '<button class="btn btn-ghost btn-sm" style="width:auto" onclick="this.closest(\'.modal-overlay\').remove()">Voltar</button>'+
+      '<button class="btn btn-sm" style="width:auto;background:var(--danger);color:#fff" id="btnCancelarOS" onclick="confirmarCancelarOS('+osId+')">Cancelar OS</button>'+
+    '</div>'+
+  '</div></div>';
+  document.body.insertAdjacentHTML('beforeend',html);
+}
+
+async function confirmarCancelarOS(osId){
+  var motivo=(document.getElementById('cancelMotivo').value||'').trim();
+  var btn=document.getElementById('btnCancelarOS');btn.disabled=true;btn.innerHTML='<span class="spinner"></span>';
+  try{
+    await fetch(SB_URL+'/rest/v1/prt_ordens_servico?id=eq.'+osId,{method:'PATCH',headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'},body:JSON.stringify({status:'cancelada',atualizado_em:new Date().toISOString()})});
+    bononiLog('ACAO','os','CANCELAR_OS',String(osId),motivo||'sem motivo');
+    document.getElementById('modalCancelarOS').remove();
+    toast('OS cancelada.','success');
+    carregarMinhasOS('');
+  }catch(e){console.error(e);toast('Erro ao cancelar','error');btn.disabled=false;btn.innerHTML='Cancelar OS'}
 }
 
 // ===== MATERIAL TÉCNICO =====
