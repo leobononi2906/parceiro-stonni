@@ -386,6 +386,10 @@ tbody tr:hover{background:var(--primary-bg)}
         <svg viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
         Material Técnico
       </div>
+      <div class="nav-item" onclick="navegar('estoque')">
+        <svg viewBox="0 0 24 24"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/></svg>
+        Meu Estoque
+      </div>
       <div class="nav-item" onclick="navegar('comprar-pecas')">
         <svg viewBox="0 0 24 24"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
         Comprar Peças
@@ -525,6 +529,7 @@ function renderPagina(pagina){
     case 'nova-os': renderNovaOS(el,window._editOsId);window._editOsId=null;break;
     case 'minhas-os': renderMinhasOS(el);break;
     case 'material': renderMaterial(el);break;
+    case 'estoque': renderEstoque(el);break;
     case 'comprar-pecas': renderComprarPecas(el);break;
     case 'financeiro': renderFinanceiro(el);break;
     default: el.innerHTML='<div class="empty-state"><p>Página não encontrada</p></div>';
@@ -561,6 +566,7 @@ function renderDashboard(el){
       '<div class="kpi-card"><div class="kpi-label">OS do mês</div><div class="kpi-value" id="kpiOsMes">-</div><div class="kpi-sub">enviadas</div></div>'+
       '<div class="kpi-card"><div class="kpi-label">Aprovadas</div><div class="kpi-value text-success" id="kpiAprovadas">-</div></div>'+
       '<div class="kpi-card"><div class="kpi-label">Valor acumulado</div><div class="kpi-value text-primary" id="kpiValor">-</div></div>'+
+      '<div class="kpi-card"><div class="kpi-label">Peças disponíveis</div><div class="kpi-value" id="kpiPecas">-</div></div>'+
     '</div>'+
     '<div class="quick-actions">'+
       '<div class="quick-btn" onclick="navegar(\'nova-os\')">'+
@@ -571,9 +577,9 @@ function renderDashboard(el){
         '<svg viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>'+
         '<span>Material Técnico</span>'+
       '</div>'+
-      '<div class="quick-btn" onclick="navegar(\'comprar-pecas\')">'+
-        '<svg viewBox="0 0 24 24"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>'+
-        '<span>Comprar Peças</span>'+
+      '<div class="quick-btn" onclick="navegar(\'estoque\')">'+
+        '<svg viewBox="0 0 24 24"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/></svg>'+
+        '<span>Meu Estoque</span>'+
       '</div>'+
     '</div>'+
     '<div class="card"><div class="card-title">Últimas OS</div>'+
@@ -599,6 +605,15 @@ async function carregarDashboardKPIs(){
     document.getElementById('kpiOsMes').textContent=enviadas;
     document.getElementById('kpiAprovadas').textContent=aprovadas;
     document.getElementById('kpiValor').textContent=fmt(valor);
+    
+    // peças disponíveis
+    var r2=await fetch(SB_URL+'/rest/v1/prt_estoque_parceiro?parceiro_id=eq.'+_parceiroId+'&select=quantidade_disponivel',{
+      headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}
+    });
+    var pecas=await r2.json();
+    if(!Array.isArray(pecas)) pecas=[];
+    var totalPecas=pecas.reduce(function(s,p){return s+(p.quantidade_disponivel||0)},0);
+    document.getElementById('kpiPecas').textContent=totalPecas;
 
     // últimas OS
     var r3=await fetch(SB_URL+'/rest/v1/prt_ordens_servico?parceiro_id=eq.'+_parceiroId+'&order=criado_em.desc&limit=5&select=id,protocolo,cliente_nome,produto_modelo,produto_linha,status,data_servico,valor_servico',{
@@ -610,23 +625,14 @@ async function carregarDashboardKPIs(){
     if(!ultimas.length){
       box.innerHTML='<div class="empty-state"><p>Nenhuma OS registrada ainda</p><button class="btn btn-primary btn-sm" onclick="navegar(\'nova-os\')">Criar primeira OS</button></div>';
     }else{
-      var html='<table class="os-table" style="width:100%;border-collapse:collapse"><thead><tr style="text-align:left;border-bottom:2px solid var(--border)">'+
-        '<th style="padding:10px 12px;font-size:13px;color:var(--text-muted);font-weight:600">Protocolo</th>'+
-        '<th style="padding:10px 12px;font-size:13px;color:var(--text-muted);font-weight:600">Cliente</th>'+
-        '<th style="padding:10px 12px;font-size:13px;color:var(--text-muted);font-weight:600">Produto</th>'+
-        '<th style="padding:10px 12px;font-size:13px;color:var(--text-muted);font-weight:600">Status</th>'+
-        '<th style="padding:10px 12px;font-size:13px;color:var(--text-muted);font-weight:600;text-align:right">Valor</th>'+
-        '</tr></thead><tbody>';
+      var html='';
       ultimas.forEach(function(o){
-        html+='<tr style="border-bottom:1px solid var(--border);cursor:pointer" onclick="navegar(\'minhas-os\')" onmouseover="this.style.background=\'var(--primary-bg)\'" onmouseout="this.style.background=\'\'">'+
-          '<td style="padding:10px 12px;font-size:14px;font-weight:600">'+(o.protocolo||'#'+o.id)+'</td>'+
-          '<td style="padding:10px 12px;font-size:14px">'+esc(o.cliente_nome)+'</td>'+
-          '<td style="padding:10px 12px;font-size:13px;color:var(--text-muted)">'+(o.produto_modelo||o.produto_linha||'')+'</td>'+
-          '<td style="padding:10px 12px">'+statusBadge(o.status)+'</td>'+
-          '<td style="padding:10px 12px;font-size:14px;font-weight:600;text-align:right">'+fmt(o.valor_servico)+'</td>'+
-        '</tr>';
+        html+='<div class="card" style="padding:14px;margin-bottom:10px;cursor:pointer" onclick="navegar(\'minhas-os\')">'+
+          '<div class="flex justify-between items-center mb-8"><span class="fw-700 text-sm">'+(o.protocolo||'#'+o.id)+'</span>'+statusBadge(o.status)+'</div>'+
+          '<div class="text-sm text-muted" style="margin-bottom:4px">'+o.cliente_nome+'</div>'+
+          '<div class="flex justify-between items-center"><span class="text-xs text-muted">'+(o.produto_modelo||o.produto_linha)+'</span><span class="text-sm fw-600">'+fmt(o.valor_servico)+'</span></div>'+
+        '</div>';
       });
-      html+='</tbody></table>';
       box.innerHTML=html;
     }
   }catch(e){console.error('Dashboard KPIs:',e)}
@@ -1168,51 +1174,107 @@ async function osSalvar(status){
 }
 
 // ===== PDF DA OS =====
-function gerarPdfOS(id){
+async function gerarPdfOS(id){
   var o=_todasOS.find(function(x){return x.id===id});
   if(!o)return;
+  // Buscar serviços detalhados
+  var servicos=[];
+  try{var rs=await fetch(SB_URL+'/rest/v1/prt_os_servicos?os_id=eq.'+id+'&select=*',{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});servicos=await rs.json();if(!Array.isArray(servicos))servicos=[];}catch(e){}
+  // Buscar peças
+  var pecas=[];
+  try{var rp=await fetch(SB_URL+'/rest/v1/prt_os_pecas?os_id=eq.'+id+'&select=*',{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});pecas=await rp.json();if(!Array.isArray(pecas))pecas=[];}catch(e){}
+  // Buscar dados da empresa
+  var cfgs={};
+  try{var rc=await fetch(SB_URL+'/rest/v1/prt_configuracoes?select=chave,valor',{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});var cv=await rc.json();if(Array.isArray(cv))cv.forEach(function(c){cfgs[c.chave]=c.valor||''});}catch(e){}
+  // Nome do parceiro
+  var parcNome=_usuario?_usuario.parceiro_nome||_usuario.nome||'':'';
+  // Formatar telefone
+  function fmtFone(f){if(!f)return'-';f=f.replace(/\D/g,'');if(f.length===11)return'('+f.substr(0,2)+') '+f.substr(2,5)+'-'+f.substr(7);if(f.length===10)return'('+f.substr(0,2)+') '+f.substr(2,4)+'-'+f.substr(6);return f}
+  // Status badge
+  var statusColors={aprovada:'#065F46;background:#d1fae5',recusada:'#991b1b;background:#fee2e2',enviada:'#1e40af;background:#dbeafe',paga:'#6b21a8;background:#f3e8ff',rascunho:'#666;background:#f0f0f0'};
+  var stColor=statusColors[o.status]||'#333;background:#f0f0f0';
+  // Serviços HTML
+  var srvHtml='';
+  if(servicos.length){
+    srvHtml='<table style="width:100%;border-collapse:collapse;margin-top:6px"><thead><tr style="background:#f0f3f7"><th style="text-align:left;padding:4px 8px;font-size:10px;border-bottom:1px solid #ccc">CÓDIGO</th><th style="text-align:left;padding:4px 8px;font-size:10px;border-bottom:1px solid #ccc">SERVIÇO REALIZADO</th><th style="text-align:left;padding:4px 8px;font-size:10px;border-bottom:1px solid #ccc">CATEGORIA</th><th style="text-align:right;padding:4px 8px;font-size:10px;border-bottom:1px solid #ccc">VALOR</th></tr></thead><tbody>';
+    servicos.forEach(function(s){srvHtml+='<tr><td style="padding:4px 8px;border-bottom:1px solid #eee;font-family:Consolas,monospace;font-weight:700;font-size:11px">'+esc(s.codigo)+'</td><td style="padding:4px 8px;border-bottom:1px solid #eee">'+esc(s.descricao)+'</td><td style="padding:4px 8px;border-bottom:1px solid #eee;font-size:11px;color:#666">'+esc(s.categoria_nome||'')+'</td><td style="padding:4px 8px;border-bottom:1px solid #eee;text-align:right;font-weight:600">'+fmt(s.valor)+'</td></tr>'});
+    srvHtml+='</tbody></table>';
+  }else if(o.codigo_servico){
+    srvHtml='<div style="padding:4px 0"><strong>'+esc(o.codigo_servico)+'</strong></div>';
+  }
+  // Peças HTML
+  var pecHtml='';
+  if(pecas.length){
+    pecHtml='<div class="section"><h2>PEÇAS UTILIZADAS</h2><table style="width:100%;border-collapse:collapse;margin-top:4px"><thead><tr style="background:#f0f3f7"><th style="text-align:left;padding:3px 8px;font-size:10px;border-bottom:1px solid #ccc">REFERÊNCIA</th><th style="text-align:left;padding:3px 8px;font-size:10px;border-bottom:1px solid #ccc">PEÇA</th><th style="text-align:center;padding:3px 8px;font-size:10px;border-bottom:1px solid #ccc">QTD</th></tr></thead><tbody>';
+    pecas.forEach(function(p){pecHtml+='<tr><td style="padding:3px 8px;border-bottom:1px solid #eee;font-family:Consolas,monospace;font-weight:700;font-size:11px">'+esc(p.referencia)+'</td><td style="padding:3px 8px;border-bottom:1px solid #eee">'+esc(p.nome_peca)+'</td><td style="padding:3px 8px;border-bottom:1px solid #eee;text-align:center;font-weight:600">'+p.quantidade+'</td></tr>'});
+    pecHtml+='</tbody></table></div>';
+  }
+  // Campos vazios: ocultar
+  function row(lbl,val){if(!val||val==='-'||val==='undefined')return'';return'<div class="row"><span class="lbl">'+lbl+'</span><span class="val">'+val+'</span></div>'}
+
   var w=window.open('','_blank');
   w.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>OS '+(o.protocolo||o.id)+'</title>'+
-    '<style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;font-size:12px;padding:20px;color:#222}'+
-    '.header{text-align:center;margin-bottom:16px;border-bottom:2px solid #0B1426;padding-bottom:12px}'+
-    '.header h1{font-size:16px;color:#0B1426}.header p{font-size:11px;color:#666;margin-top:4px}'+
-    '.proto{font-size:14px;font-weight:bold;margin:12px 0;text-align:center;background:#f0f4f8;padding:8px;border-radius:4px}'+
-    '.section{margin-bottom:12px}.section h2{font-size:12px;font-weight:bold;background:#0B1426;color:#fff;padding:4px 8px;margin-bottom:6px}'+
-    '.row{display:flex;border-bottom:1px solid #ddd;padding:3px 0}.row .lbl{width:140px;font-weight:bold;color:#555}.row .val{flex:1}'+
-    '.fotos{display:flex;gap:12px;margin-top:8px}.fotos img{max-width:200px;max-height:150px;border:1px solid #ddd;border-radius:4px}'+
-    '.footer{margin-top:24px;text-align:center;font-size:10px;color:#999;border-top:1px solid #ddd;padding-top:8px}'+
-    '@media print{body{padding:10px}}</style></head><body>'+
-    '<div class="header"><h1>STONNI — Rede de Assistência Técnica Autorizada</h1><p>Ordem de Serviço</p></div>'+
-    '<div class="proto">'+(o.protocolo||'OS #'+o.id)+' — Status: '+(o.status||'').toUpperCase()+'</div>'+
-    '<div class="section"><h2>CLIENTE</h2>'+
-      '<div class="row"><span class="lbl">Nome:</span><span class="val">'+(o.cliente_nome||'-')+'</span></div>'+
-      '<div class="row"><span class="lbl">Telefone:</span><span class="val">'+(o.cliente_telefone||'-')+'</span></div>'+
-      '<div class="row"><span class="lbl">Cidade/UF:</span><span class="val">'+(o.cliente_cidade||'')+' / '+(o.cliente_uf||'')+'</span></div>'+
-    '</div>'+
-    '<div class="section"><h2>PRODUTO</h2>'+
-      '<div class="row"><span class="lbl">Linha:</span><span class="val">'+(o.produto_linha||'-')+'</span></div>'+
-      '<div class="row"><span class="lbl">Modelo:</span><span class="val">'+(o.produto_modelo||'-')+'</span></div>'+
-      '<div class="row"><span class="lbl">Nº Série:</span><span class="val">'+(o.numero_serie||'-')+'</span></div>'+
-      '<div class="row"><span class="lbl">NF Compra:</span><span class="val">'+(o.numero_nf||'-')+'</span></div>'+
-      '<div class="row"><span class="lbl">Data Compra:</span><span class="val">'+fmtData(o.data_compra)+'</span></div>'+
-    '</div>'+
-    '<div class="section"><h2>DIAGNÓSTICO E SERVIÇO</h2>'+
-      '<div class="row"><span class="lbl">Código Erro:</span><span class="val">'+(o.codigo_erro||'-')+'</span></div>'+
-      '<div class="row"><span class="lbl">Defeito:</span><span class="val">'+(o.defeito_descricao||'-')+'</span></div>'+
-      '<div class="row"><span class="lbl">Diagnóstico:</span><span class="val">'+(o.diagnostico||'-')+'</span></div>'+
-      '<div class="row"><span class="lbl">Solução:</span><span class="val">'+((o.solucao_tipo||'').replace(/_/g,' '))+'</span></div>'+
-      '<div class="row"><span class="lbl">Serviço:</span><span class="val">'+(o.codigo_servico||'-')+'</span></div>'+
-      '<div class="row"><span class="lbl">Valor:</span><span class="val">'+fmt(o.valor_servico)+'</span></div>'+
+    '<style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;font-size:12px;padding:24px;color:#222;max-width:800px;margin:0 auto}'+
+    '.header{display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid #0B1426;padding-bottom:12px;margin-bottom:16px}'+
+    '.header-left h1{font-size:18px;color:#0B1426;letter-spacing:1px}.header-left p{font-size:10px;color:#666;margin-top:2px}'+
+    '.header-right{text-align:right;font-size:10px;color:#555;line-height:1.5}'+
+    '.proto-bar{display:flex;justify-content:space-between;align-items:center;background:#f0f4f8;padding:10px 16px;border-radius:6px;margin-bottom:16px}'+
+    '.proto-bar .proto{font-size:16px;font-weight:800;color:#0B1426;letter-spacing:1px}'+
+    '.proto-bar .status{display:inline-block;padding:3px 14px;border-radius:12px;font-size:11px;font-weight:700}'+
+    '.section{margin-bottom:14px}.section h2{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;background:#0B1426;color:#fff;padding:5px 10px;margin-bottom:0}'+
+    '.section-body{border:1px solid #ddd;border-top:none;padding:8px 10px}'+
+    '.row{display:flex;border-bottom:1px solid #eee;padding:3px 0}.row:last-child{border:none}.row .lbl{width:130px;font-weight:600;color:#555;font-size:11px}.row .val{flex:1;font-size:12px}'+
+    '.valor-box{border:3px solid #0B1426;border-radius:8px;padding:12px 20px;margin:16px 0;display:flex;justify-content:space-between;align-items:center}'+
+    '.valor-box .label{font-size:12px;font-weight:700;text-transform:uppercase;color:#0B1426}.valor-box .amount{font-size:28px;font-weight:800;color:#0B1426}'+
+    '.assinatura{margin-top:30px;page-break-inside:avoid}.assinatura .linha-assinar{border-bottom:1px solid #333;height:30px;margin-bottom:4px}'+
+    '.assinatura-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px}'+
+    '.footer{margin-top:24px;text-align:center;font-size:9px;color:#999;border-top:1px solid #ddd;padding-top:8px}'+
+    '@media print{body{padding:12px}}</style></head><body>'+
+    // CABEÇALHO com dados empresa
+    '<div class="header"><div class="header-left"><h1>STONNI</h1><p>Rede de Assistência Técnica Autorizada</p></div>'+
+    '<div class="header-right">'+(cfgs.empresa_razao_social?esc(cfgs.empresa_razao_social)+'<br>':'')+(cfgs.empresa_cnpj?'CNPJ: '+esc(cfgs.empresa_cnpj)+'<br>':'')+(cfgs.empresa_endereco?esc(cfgs.empresa_endereco)+'<br>':'')+(cfgs.empresa_telefone?esc(cfgs.empresa_telefone):'')+'</div></div>'+
+    // PROTOCOLO + STATUS
+    '<div class="proto-bar"><span class="proto">'+(o.protocolo||'OS #'+o.id)+'</span><span class="status" style="color:'+stColor+'">'+((o.status||'').toUpperCase())+'</span></div>'+
+    // PARCEIRO
+    (parcNome?'<div class="section"><h2>PARCEIRO AUTORIZADO</h2><div class="section-body"><strong>'+esc(parcNome)+'</strong></div></div>':'')+
+    // CLIENTE
+    '<div class="section"><h2>CLIENTE</h2><div class="section-body">'+
+      row('Nome:',esc(o.cliente_nome))+
+      row('Telefone:',fmtFone(o.cliente_telefone))+
+      row('Cidade/UF:',(o.cliente_cidade||'')+' / '+(o.cliente_uf||''))+
+    '</div></div>'+
+    // PRODUTO
+    '<div class="section"><h2>PRODUTO</h2><div class="section-body">'+
+      '<div class="row"><span class="lbl">Linha:</span><span class="val" style="font-weight:600">'+(o.produto_linha||'-')+'</span></div>'+
+      row('Modelo:',o.produto_modelo)+
+      row('Nº Série:',o.numero_serie)+
+      row('NF Compra:',o.numero_nf)+
+      row('Data Compra:',fmtData(o.data_compra))+
+    '</div></div>'+
+    // DIAGNÓSTICO
+    '<div class="section"><h2>DIAGNÓSTICO</h2><div class="section-body">'+
+      row('Código Erro:',o.codigo_erro)+
+      row('Defeito:',esc(o.defeito_descricao))+
+      row('Diagnóstico:',esc(o.diagnostico))+
+      row('Solução:',(o.solucao_tipo||'').replace(/_/g,' '))+
       '<div class="row"><span class="lbl">Data Serviço:</span><span class="val">'+fmtData(o.data_servico)+'</span></div>'+
-    '</div>'+
-    (o.foto_nf||o.foto_equipamento?'<div class="section"><h2>FOTOS</h2><div class="fotos">'+
-      (o.foto_nf?'<img src="'+o.foto_nf+'" alt="NF">':'')+
-      (o.foto_equipamento?'<img src="'+o.foto_equipamento+'" alt="Equipamento">':'')+
-    '</div></div>':'')+
-    '<div class="footer">Stonni — Portal do Parceiro — Emitido em '+new Date().toLocaleDateString('pt-BR')+' '+new Date().toLocaleTimeString('pt-BR')+'</div>'+
+    '</div></div>'+
+    // SERVIÇOS
+    '<div class="section"><h2>SERVIÇOS REALIZADOS</h2><div class="section-body">'+srvHtml+'</div></div>'+
+    // PEÇAS
+    pecHtml+
+    // VALOR TOTAL
+    '<div class="valor-box"><div class="label">Valor Total</div><div class="amount">'+fmt(o.valor_servico)+'</div></div>'+
+    // ASSINATURA
+    '<div class="assinatura"><div class="assinatura-grid">'+
+    '<div><div class="linha-assinar"></div><div style="font-size:10px;color:#555;text-align:center">Nome do Cliente</div></div>'+
+    '<div><div class="linha-assinar"></div><div style="font-size:10px;color:#555;text-align:center">CPF</div></div>'+
+    '</div><div style="margin-top:16px"><div class="linha-assinar"></div><div style="font-size:10px;color:#555;text-align:center">Assinatura do Cliente</div></div></div>'+
+    // RODAPÉ
+    '<div class="footer">Stonni — Rede de Assistência Técnica Autorizada — Emitido em '+new Date().toLocaleDateString('pt-BR')+' às '+new Date().toLocaleTimeString('pt-BR')+'</div>'+
     '</body></html>');
   w.document.close();
-  setTimeout(function(){w.print()},500);
+  setTimeout(function(){w.print()},600);
 }
 
 // ===== MINHAS OS =====
@@ -1297,8 +1359,6 @@ function abrirDetalheOS(id){
 }
 
 // ===== MATERIAL TÉCNICO =====
-var _materiaisCache=[],_matFiltroLinha='',_matFiltroModelo='';
-var _matLinhaNames={geladeira:'Geladeira',ar_condicionado:'AR Condicionado',gerador:'Gerador'};
 async function renderMaterial(el){
   el.innerHTML='<div class="page-header"><h1>Material Técnico</h1></div>'+
     '<div id="materialArea"><div class="loading-full"><span class="spinner"></span> Carregando...</div></div>';
@@ -1306,60 +1366,22 @@ async function renderMaterial(el){
     var r=await fetch(SB_URL+'/rest/v1/prt_materiais?ativo=eq.true&order=ordem.asc,criado_em.desc&select=*',{
       headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}
     });
-    _materiaisCache=await r.json();
-    if(!Array.isArray(_materiaisCache)) _materiaisCache=[];
-    _matFiltroLinha='';_matFiltroModelo='';
-    renderMateriaisFiltrados();
-  }catch(e){console.error(e)}
-}
-function setMatFiltroLinha(slug){_matFiltroLinha=slug;_matFiltroModelo='';renderMateriaisFiltrados()}
-function setMatFiltroModelo(nome){_matFiltroModelo=(_matFiltroModelo===nome)?'':nome;renderMateriaisFiltrados()}
-function renderMateriaisFiltrados(){
-  var box=document.getElementById('materialArea');
-  if(!_materiaisCache.length){
-    box.innerHTML='<div class="empty-state"><svg viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg><p>Materiais técnicos ainda estão sendo preparados pela Stonni</p></div>';
-    return;
-  }
-  // extrair linhas existentes nos materiais
-  var linhasSet={};_materiaisCache.forEach(function(m){if(m.linha_produto)linhasSet[m.linha_produto]=true});
-  var linhas=Object.keys(linhasSet).sort();
-  // filtros de linha
-  var html='<div class="filters-bar"><div class="filter-chip'+(!_matFiltroLinha?' active':'')+'" onclick="setMatFiltroLinha(\'\')">Todas</div>';
-  linhas.forEach(function(l){html+='<div class="filter-chip'+(_matFiltroLinha===l?' active':'')+'" onclick="setMatFiltroLinha(\''+l+'\')">'+(_matLinhaNames[l]||l)+'</div>'});
-  html+='</div>';
-  // se tem linha selecionada, extrair modelos dessa linha
-  if(_matFiltroLinha){
-    var modelosSet={};
-    _materiaisCache.filter(function(m){return m.linha_produto===_matFiltroLinha&&m.modelo}).forEach(function(m){
-      m.modelo.split(',').forEach(function(mod){var t=mod.trim();if(t)modelosSet[t]=true});
-    });
-    var modelos=Object.keys(modelosSet).sort();
-    if(modelos.length){
-      html+='<div class="filters-bar" style="margin-top:-8px">';
-      modelos.forEach(function(mod){html+='<div class="filter-chip'+(_matFiltroModelo===mod?' active':'')+'" onclick="setMatFiltroModelo(\''+esc(mod)+'\')">'+mod+'</div>'});
-      html+='</div>';
+    var mats=await r.json();
+    if(!Array.isArray(mats)) mats=[];
+    var box=document.getElementById('materialArea');
+    if(!mats.length){
+      box.innerHTML='<div class="empty-state"><svg viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg><p>Materiais técnicos ainda estão sendo preparados pela Stonni</p></div>';
+    }else{
+      var html='';
+      mats.forEach(function(m){
+        html+='<div class="card"><div class="card-title">'+m.titulo+'</div>'+
+          (m.descricao?'<p class="text-sm text-muted mb-8">'+m.descricao+'</p>':'')+
+          '<div class="flex items-center gap-8 text-xs text-muted">'+(m.linha_produto||'')+(m.modelo?' — '+m.modelo:'')+'</div>'+
+          '<a href="'+m.url+'" target="_blank" class="btn btn-ghost btn-sm mt-16">Abrir material →</a></div>';
+      });
+      box.innerHTML=html;
     }
-  }
-  // filtrar materiais
-  var filtered=_materiaisCache;
-  if(_matFiltroLinha){filtered=filtered.filter(function(m){return m.linha_produto===_matFiltroLinha})}
-  if(_matFiltroModelo){filtered=filtered.filter(function(m){return m.modelo&&m.modelo.indexOf(_matFiltroModelo)>-1})}
-  if(!filtered.length){
-    html+='<div class="empty-state"><p>Nenhum material para este filtro</p></div>';
-  }else{
-    filtered.forEach(function(m){
-      var tipoIcon=m.tipo==='video'?'▶️':m.tipo==='pdf'?'📄':'🔗';
-      html+='<div class="card"><div class="card-title">'+tipoIcon+' '+esc(m.titulo)+'</div>'+
-        (m.descricao?'<p class="text-sm text-muted mb-8">'+esc(m.descricao)+'</p>':'')+
-        '<div class="flex items-center gap-8 text-xs text-muted" style="flex-wrap:wrap">'+
-          '<span style="background:var(--primary-bg);color:var(--primary);padding:2px 8px;border-radius:10px;font-weight:600">'+(_matLinhaNames[m.linha_produto]||m.linha_produto||'Geral')+'</span>'+
-          (m.modelo?'<span>'+esc(m.modelo)+'</span>':'')+
-        '</div>'+
-        '<a href="'+m.url+'" target="_blank" class="btn btn-ghost btn-sm mt-16" style="width:auto">Abrir material →</a></div>';
-    });
-  }
-  html+='<p class="text-xs text-muted" style="text-align:center;margin-top:8px">'+filtered.length+' de '+_materiaisCache.length+' materiais</p>';
-  box.innerHTML=html;
+  }catch(e){console.error(e)}
 }
 
 // ===== ESTOQUE =====
@@ -1420,9 +1442,27 @@ async function renderComprarPecas(el){
   try{
     var cfgR=await fetch(SB_URL+'/rest/v1/prt_configuracoes?chave=eq.desconto_autorizada_perc&select=valor',{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
     var cfgArr=await cfgR.json();if(Array.isArray(cfgArr)&&cfgArr.length)_descontoAutorizada=parseFloat(cfgArr[0].valor)||15;
-    // Somente catálogo curado (gestão) com preço > 0 e estoque > 2
-    var r=await fetch(SB_URL+'/rest/v1/geral_pecas_catalogo_estoque?order=nome.asc&select=id,referencia,nome,linha_produto,aplicacao,preco_venda,ipi_perc,estoque_fisico',{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
+    // Fonte principal: prt_pecas_catalogo (catálogo curado pela gestão)
+    var r=await fetch(SB_URL+'/rest/v1/prt_pecas_catalogo?ativo=eq.true&order=nome.asc&select=id,referencia,nome,linha_produto,aplicacao,preco_venda,ipi_perc',{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
     _pecasCompra=await r.json();if(!Array.isArray(_pecasCompra))_pecasCompra=[];
+    _pecasCompra=_pecasCompra.filter(function(p){return parseFloat(p.preco_venda||0)>0});
+    // Buscar estoque geral (comp_produtos_consolidado) para cada peça
+    if(_pecasCompra.length){
+      try{
+        var refs=_pecasCompra.map(function(p){return p.referencia});
+        for(var bi=0;bi<refs.length;bi+=30){
+          var batch=refs.slice(bi,bi+30);
+          var re=await fetch(SB_URL+'/rest/v1/comp_produtos_consolidado?referencia=in.('+batch.join(',')+ ')&select=referencia,estoque_total',{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
+          var estData=await re.json();
+          if(Array.isArray(estData)){
+            estData.forEach(function(e){
+              var p=_pecasCompra.find(function(x){return x.referencia===e.referencia});
+              if(p)p.estoque_geral=parseFloat(e.estoque_total)||0;
+            });
+          }
+        }
+      }catch(e){console.error('Estoque geral:',e)}
+    }
     // buscar linhas e modelos do banco
     var rl=await fetch(SB_URL+'/rest/v1/prt_linhas_produto?ativo=eq.true&order=ordem.asc&select=id,slug,nome',{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
     _compraLinhas=await rl.json();if(!Array.isArray(_compraLinhas))_compraLinhas=[];
@@ -1461,7 +1501,8 @@ function renderCatalogoCompra(){
   fHtml+='<div style="margin-bottom:12px"><input type="text" id="buscaPecaCompra" placeholder="Buscar por ref. ou nome..." oninput="filtrarPecasCompra()" style="width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text)"></div>';
   fHtml+='<div id="listaPecasCompra" style="max-height:400px;overflow-y:auto">';
   pecas.forEach(function(p){var pd=p.preco_venda*(1-_descontoAutorizada/100);
-    fHtml+='<div class="flex justify-between items-center" style="padding:8px 0;border-bottom:1px solid var(--border);cursor:pointer;gap:8px" onclick="adicionarCompra('+p.id+')"><div style="flex:1;min-width:0"><div class="text-sm fw-600" style="word-break:break-word">'+p.referencia+' — '+p.nome+'</div><div class="text-xs text-muted">'+(lnm[p.linha_produto]||'')+(Array.isArray(p.aplicacao)&&p.aplicacao.length?' · '+p.aplicacao.join(', '):'')+(p.ipi_perc?' · IPI '+p.ipi_perc+'%':'')+'</div></div><div style="text-align:right;flex-shrink:0"><div class="text-xs text-muted" style="text-decoration:line-through">'+fmt(p.preco_venda)+'</div><div class="text-sm fw-700 text-primary">'+fmt(pd)+'</div></div></div>'});
+    var estHtml=p.estoque_geral!==null?'<span style="color:'+(p.estoque_geral>0?'var(--green)':'var(--red)')+'">Estoque: '+p.estoque_geral+'</span>':'';
+    fHtml+='<div class="flex justify-between items-center" style="padding:8px 0;border-bottom:1px solid var(--border);cursor:pointer;gap:8px" onclick="adicionarCompra('+p.id+')"><div style="flex:1;min-width:0"><div class="text-sm fw-600" style="word-break:break-word">'+p.referencia+' — '+p.nome+'</div><div class="text-xs text-muted">'+(lnm[p.linha_produto]||'')+(p.ipi_perc?' · IPI '+p.ipi_perc+'%':'')+(estHtml?' · '+estHtml:'')+'</div></div><div style="text-align:right;flex-shrink:0"><div class="text-xs text-muted" style="text-decoration:line-through">'+fmt(p.preco_venda)+'</div><div class="text-sm fw-700 text-primary">'+fmt(pd)+'</div></div></div>'});
   fHtml+='</div></div>';
   // carrinho
   fHtml+='<div class="card"><div class="card-title">Carrinho</div>';
@@ -1476,10 +1517,10 @@ function renderCatalogoCompra(){
 function setCompraFiltroLinha(slug){_compraFiltroLinha=slug;_compraFiltroModelo='';renderCatalogoCompra()}
 function setCompraFiltroModelo(nome){_compraFiltroModelo=nome;renderCatalogoCompra()}
 function filtrarPecasCompra(){var q=(document.getElementById('buscaPecaCompra')?.value||'').toLowerCase();var it=document.getElementById('listaPecasCompra')?.children;if(!it)return;for(var i=0;i<it.length;i++)it[i].style.display=it[i].textContent.toLowerCase().indexOf(q)>-1?'':'none'}
-function adicionarCompra(id){var p=_pecasCompra.find(function(x){return x.id===id});if(!p)return;var e=_carrinhoCompra.find(function(x){return x.id===id});if(e){e.q++;renderCatalogoCompra();return}_carrinhoCompra.push({id:p.id,ref:p.referencia,nm:p.nome,pt:p.preco_venda,pf:p.preco_venda*(1-_descontoAutorizada/100),ip:p.ipi_perc||0,q:1});renderCatalogoCompra()}
+function adicionarCompra(id){var p=_pecasCompra.find(function(x){return x.id===id});if(!p)return;var e=_carrinhoCompra.find(function(x){return x.id===id});if(e){e.q++;renderCatalogoCompra();return}_carrinhoCompra.push({id:p.id,ref:p.referencia,nm:p.nome,pt:p.preco_venda,pf:p.preco_venda*(1-_descontoAutorizada/100),ip:p.ipi_perc||0,q:1,_fromView:!!p._fromView});renderCatalogoCompra()}
 function updQC(i,v){_carrinhoCompra[i].q=Math.max(1,parseInt(v)||1);renderCatalogoCompra()}
 function rmC(i){_carrinhoCompra.splice(i,1);renderCatalogoCompra()}
-async function enviarPC(){if(!_carrinhoCompra.length){toast('Carrinho vazio','error');return}var tt=0,ti=0;_carrinhoCompra.forEach(function(x){var s=x.pf*x.q;tt+=s;ti+=s*(x.ip||0)/100});try{var r=await fetch(SB_URL+'/rest/v1/prt_compras_pecas',{method:'POST',headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json','Prefer':'return=representation'},body:JSON.stringify({parceiro_id:_parceiroId,valor_total:tt,ipi_total:ti,desconto_perc:_descontoAutorizada,valor_final:tt+ti,status:'pendente'})});var res=await r.json();if(!r.ok)throw new Error('Erro');var c=Array.isArray(res)?res[0]:res;var itens=_carrinhoCompra.map(function(x){return{compra_id:c.id,peca_catalogo_id:x.id,referencia:x.ref,nome:x.nm,quantidade:x.q,preco_unitario:x.pt,ipi_perc:x.ip,desconto_perc:_descontoAutorizada,preco_final:x.pf}});await fetch(SB_URL+'/rest/v1/prt_compras_pecas_itens',{method:'POST',headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'},body:JSON.stringify(itens)});toast('Pedido '+(c.codigo||'#'+c.id)+' enviado!','success');_carrinhoCompra=[];navegar('comprar-pecas')}catch(e){console.error(e);toast('Erro ao enviar','error')}}
+async function enviarPC(){if(!_carrinhoCompra.length){toast('Carrinho vazio','error');return}var tt=0,ti=0;_carrinhoCompra.forEach(function(x){var s=x.pf*x.q;tt+=s;ti+=s*(x.ip||0)/100});try{var r=await fetch(SB_URL+'/rest/v1/prt_compras_pecas',{method:'POST',headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json','Prefer':'return=representation'},body:JSON.stringify({parceiro_id:_parceiroId,valor_total:tt,ipi_total:ti,desconto_perc:_descontoAutorizada,valor_final:tt+ti,status:'pendente'})});var res=await r.json();if(!r.ok)throw new Error('Erro');var c=Array.isArray(res)?res[0]:res;var itens=_carrinhoCompra.map(function(x){return{compra_id:c.id,peca_catalogo_id:x._fromView?null:x.id,referencia:x.ref,nome:x.nm,quantidade:x.q,preco_unitario:x.pt,ipi_perc:x.ip,desconto_perc:_descontoAutorizada,preco_final:x.pf}});await fetch(SB_URL+'/rest/v1/prt_compras_pecas_itens',{method:'POST',headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'},body:JSON.stringify(itens)});toast('Pedido '+(c.codigo||'#'+c.id)+' enviado!','success');_carrinhoCompra=[];navegar('comprar-pecas')}catch(e){console.error(e);toast('Erro ao enviar','error')}}
 
 // enter key no login
 document.getElementById('loginSenha').addEventListener('keydown',function(e){if(e.key==='Enter')fazerLogin()});
