@@ -1486,6 +1486,7 @@ async function confirmarCancelarOS(osId){
 }
 
 // ===== MATERIAL TÉCNICO =====
+var _matLinhas=[];var _matFiltroLinha='';var _matFiltroModelo='';var _matBusca='';var _materiaisAll=[];
 async function renderMaterial(el){
   el.innerHTML='<div class="page-header"><h1>Material Técnico</h1></div>'+
     '<div id="materialArea"><div class="loading-full"><span class="spinner"></span> Carregando...</div></div>';
@@ -1493,22 +1494,65 @@ async function renderMaterial(el){
     var r=await fetch(SB_URL+'/rest/v1/prt_materiais?ativo=eq.true&order=ordem.asc,criado_em.desc&select=*',{
       headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}
     });
-    var mats=await r.json();
-    if(!Array.isArray(mats)) mats=[];
-    var box=document.getElementById('materialArea');
-    if(!mats.length){
-      box.innerHTML='<div class="empty-state"><svg viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg><p>Materiais técnicos ainda estão sendo preparados pela Stonni</p></div>';
-    }else{
-      var html='';
-      mats.forEach(function(m){
-        html+='<div class="card"><div class="card-title">'+m.titulo+'</div>'+
-          (m.descricao?'<p class="text-sm text-muted mb-8">'+m.descricao+'</p>':'')+
-          '<div class="flex items-center gap-8 text-xs text-muted">'+(m.linha_produto||'')+(m.modelo?' — '+m.modelo:'')+'</div>'+
-          '<a href="'+m.url+'" target="_blank" class="btn btn-ghost btn-sm mt-16">Abrir material →</a></div>';
-      });
-      box.innerHTML=html;
+    _materiaisAll=await r.json();
+    if(!Array.isArray(_materiaisAll)) _materiaisAll=[];
+    var rl=await fetch(SB_URL+'/rest/v1/prt_linhas_produto?ativo=eq.true&order=ordem.asc&select=id,slug,nome',{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
+    _matLinhas=await rl.json();if(!Array.isArray(_matLinhas))_matLinhas=[];
+    var rm=await fetch(SB_URL+'/rest/v1/prt_modelos_produto?ativo=eq.true&order=ordem.asc&select=id,linha_id,nome',{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
+    var modelos=await rm.json();if(!Array.isArray(modelos))modelos=[];
+    _matLinhas.forEach(function(l){l.modelos=modelos.filter(function(m){return m.linha_id===l.id})});
+    _matFiltroLinha='';_matFiltroModelo='';_matBusca='';
+    renderMaterialLista();
+  }catch(e){console.error(e);document.getElementById('materialArea').innerHTML='<div class="empty-state"><p>Erro ao carregar</p></div>'}
+}
+function setMatFiltroLinha(slug){_matFiltroLinha=slug;_matFiltroModelo='';renderMaterialLista()}
+function setMatFiltroModelo(nome){_matFiltroModelo=nome;renderMaterialLista()}
+function filtrarMaterial(v){_matBusca=(v||'').toLowerCase();renderMaterialLista()}
+function renderMaterialLista(){
+  var box=document.getElementById('materialArea');
+  var lnm={};_matLinhas.forEach(function(l){lnm[l.slug]=l.nome});
+  var mats=_materiaisAll.slice();
+  // filtro categoria (linha): material sem linha definida (geral) aparece em qualquer categoria
+  if(_matFiltroLinha){
+    mats=mats.filter(function(m){return !m.linha_produto||m.linha_produto===_matFiltroLinha});
+  }
+  // filtro produto (modelo): quando o material nao tem produto especifico, vale o filtro da categoria (aparece em todos os produtos daquela linha)
+  if(_matFiltroModelo){
+    mats=mats.filter(function(m){
+      if(!m.modelo) return true;
+      var lista=String(m.modelo).split(',').map(function(s){return s.trim()});
+      return lista.indexOf(_matFiltroModelo)>-1;
+    });
+  }
+  if(_matBusca){
+    mats=mats.filter(function(m){
+      return (m.titulo||'').toLowerCase().indexOf(_matBusca)>-1 || (m.descricao||'').toLowerCase().indexOf(_matBusca)>-1;
+    });
+  }
+  var tipoIcon={video:'🎥',pdf:'📄',imagem:'🖼️',link:'🔗'};
+  var html='<div style="margin-bottom:12px"><input type="text" id="buscaMaterial" placeholder="Buscar material..." value="'+esc(_matBusca)+'" oninput="filtrarMaterial(this.value)" style="width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text)"></div>';
+  html+='<div class="compra-filters"><div class="compra-filter-chip'+(!_matFiltroLinha?' active':'')+'" onclick="setMatFiltroLinha(\'\')">Todos</div>';
+  _matLinhas.forEach(function(l){html+='<div class="compra-filter-chip'+(_matFiltroLinha===l.slug?' active':'')+'" onclick="setMatFiltroLinha(\''+l.slug+'\')">'+l.nome+'</div>'});
+  html+='</div>';
+  if(_matFiltroLinha){
+    var linhaObj=_matLinhas.find(function(l){return l.slug===_matFiltroLinha});
+    if(linhaObj&&linhaObj.modelos&&linhaObj.modelos.length){
+      html+='<div class="compra-filters" style="margin-top:-4px"><div class="compra-filter-chip'+(!_matFiltroModelo?' active':'')+'" onclick="setMatFiltroModelo(\'\')">Todos os produtos</div>';
+      linhaObj.modelos.forEach(function(m){html+='<div class="compra-filter-chip'+(_matFiltroModelo===m.nome?' active':'')+'" onclick="setMatFiltroModelo(\''+esc(m.nome).replace(/'/g,"\\'")+'\')">'+m.nome+'</div>'});
+      html+='</div>';
     }
-  }catch(e){console.error(e)}
+  }
+  if(!mats.length){
+    html+='<div class="empty-state"><svg viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg><p>Nenhum material encontrado</p></div>';
+  }else{
+    mats.forEach(function(m){
+      html+='<div class="card"><div class="card-title">'+(tipoIcon[m.tipo]?tipoIcon[m.tipo]+' ':'')+m.titulo+'</div>'+
+        (m.descricao?'<p class="text-sm text-muted mb-8">'+m.descricao+'</p>':'')+
+        '<div class="flex items-center gap-8 text-xs text-muted">'+(m.linha_produto?(lnm[m.linha_produto]||m.linha_produto):'Geral')+(m.modelo?' — '+m.modelo:'')+'</div>'+
+        '<a href="'+m.url+'" target="_blank" class="btn btn-ghost btn-sm mt-16">Abrir material →</a></div>';
+    });
+  }
+  box.innerHTML=html;
 }
 
 // ===== ESTOQUE =====
