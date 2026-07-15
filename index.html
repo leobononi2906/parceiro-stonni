@@ -640,14 +640,23 @@ async function carregarDashboardKPIs(){
     if(!ultimas.length){
       box.innerHTML='<div class="empty-state"><p>Nenhuma OS registrada ainda</p><button class="btn btn-primary btn-sm" onclick="navegar(\'nova-os\')">Criar primeira OS</button></div>';
     }else{
-      var html='';
+      var html='<table class="os-table" style="width:100%;border-collapse:collapse"><thead><tr style="text-align:left;border-bottom:2px solid var(--border)">'+
+        '<th style="padding:10px 12px;font-size:13px;color:var(--text-muted);font-weight:600">Protocolo</th>'+
+        '<th style="padding:10px 12px;font-size:13px;color:var(--text-muted);font-weight:600">Cliente</th>'+
+        '<th style="padding:10px 12px;font-size:13px;color:var(--text-muted);font-weight:600">Produto</th>'+
+        '<th style="padding:10px 12px;font-size:13px;color:var(--text-muted);font-weight:600">Status</th>'+
+        '<th style="padding:10px 12px;font-size:13px;color:var(--text-muted);font-weight:600;text-align:right">Valor</th>'+
+        '</tr></thead><tbody>';
       ultimas.forEach(function(o){
-        html+='<div class="card" style="padding:14px;margin-bottom:10px;cursor:pointer" onclick="navegar(\'minhas-os\')">'+
-          '<div class="flex justify-between items-center mb-8"><span class="fw-700 text-sm">'+(o.protocolo||'#'+o.id)+'</span>'+statusBadge(o.status)+'</div>'+
-          '<div class="text-sm text-muted" style="margin-bottom:4px">'+o.cliente_nome+'</div>'+
-          '<div class="flex justify-between items-center"><span class="text-xs text-muted">'+(o.produto_modelo||o.produto_linha)+'</span><span class="text-sm fw-600">'+fmt(o.valor_servico)+'</span></div>'+
-        '</div>';
+        html+='<tr style="border-bottom:1px solid var(--border);cursor:pointer" onclick="navegar(\'minhas-os\')" onmouseover="this.style.background=\'var(--primary-bg)\'" onmouseout="this.style.background=\'\'">'+
+          '<td style="padding:10px 12px;font-size:14px;font-weight:600">'+(o.protocolo||'#'+o.id)+'</td>'+
+          '<td style="padding:10px 12px;font-size:14px">'+esc(o.cliente_nome)+'</td>'+
+          '<td style="padding:10px 12px;font-size:13px;color:var(--text-muted)">'+(o.produto_modelo||o.produto_linha||'')+'</td>'+
+          '<td style="padding:10px 12px">'+statusBadge(o.status)+'</td>'+
+          '<td style="padding:10px 12px;font-size:14px;font-weight:600;text-align:right">'+fmt(o.valor_servico)+'</td>'+
+        '</tr>';
       });
+      html+='</tbody></table>';
       box.innerHTML=html;
     }
   }catch(e){console.error('Dashboard KPIs:',e)}
