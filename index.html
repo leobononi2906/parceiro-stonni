@@ -532,6 +532,7 @@ function renderPagina(pagina){
     case 'estoque': renderEstoque(el);break;
     case 'comprar-pecas': renderComprarPecas(el);break;
     case 'financeiro': renderFinanceiro(el);break;
+    case 'perfil': renderPerfil(el);break;
     default: el.innerHTML='<div class="empty-state"><p>Página não encontrada</p></div>';
   }
 }
@@ -601,6 +602,53 @@ function renderDashboard(el){
       '<div class="loading-full" id="dashUltimasOS"><span class="spinner"></span> Carregando...</div>'+
     '</div>';
   carregarDashboardKPIs();
+}
+
+// ===== MEUS DADOS (perfil — só leitura) =====
+// Espelho informativo. Fonte da verdade é a app Assistência (assist_parceiros + assist_parceiro_produtos).
+var PERFIL_PROD_ICON={'Ar Condicionado':'❄️','Geladeira':'🧊','Gerador':'⚡','Outros':'🔧'};
+var PERFIL_PROD_ORDEM=['Ar Condicionado','Geladeira','Gerador','Outros'];
+async function renderPerfil(el){
+  el.innerHTML='<div class="page-header"><h1>Meus dados</h1></div><div class="loading-full"><span class="spinner"></span> Carregando...</div>';
+  if(!_parceiroId){ el.innerHTML='<div class="page-header"><h1>Meus dados</h1></div><div class="card">Seu usuário não está vinculado a uma autorizada. Contate a Stonni.</div>'; return; }
+  try{
+    var h={headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}};
+    var pr=await fetch(SB_URL+'/rest/v1/assist_parceiros?id=eq.'+_parceiroId+'&select=nome,responsavel,cnpj,telefone,whatsapp,email,cep,endereco,cidade,uf,raio_km,status,credenciado,data_credenciamento',h).then(function(r){return r.json()});
+    var p=(Array.isArray(pr)&&pr.length)?pr[0]:{};
+    var prods=await fetch(SB_URL+'/rest/v1/assist_parceiro_produtos?parceiro_id=eq.'+_parceiroId+'&select=produto_tag',h).then(function(r){return r.json()});
+    var tags=(Array.isArray(prods)?prods:[]).map(function(x){return x.produto_tag}).sort(function(a,b){var ia=PERFIL_PROD_ORDEM.indexOf(a),ib=PERFIL_PROD_ORDEM.indexOf(b);return (ia<0?99:ia)-(ib<0?99:ib);});
+    var chip=function(t){return '<span style="display:inline-flex;align-items:center;gap:4px;padding:4px 12px;border-radius:999px;font-size:13px;font-weight:600;background:rgba(79,195,247,.12);color:var(--primary)">'+(PERFIL_PROD_ICON[t]||'🏷️')+' '+esc(t)+'</span>'};
+    var row=function(lbl,val){return '<div style="display:flex;justify-content:space-between;gap:16px;padding:10px 0;border-bottom:1px solid var(--border)"><span style="font-size:12px;font-weight:600;color:var(--text-m);text-transform:uppercase;letter-spacing:.3px;flex-shrink:0">'+lbl+'</span><span style="font-size:14px;text-align:right;color:var(--text)">'+(val?esc(String(val)):'—')+'</span></div>'};
+    var wpp=(p.whatsapp||'').replace(/\D/g,'');
+    var statusNome={ativo:'Ativo',teste:'Em teste',suspenso:'Suspenso',inativo:'Inativo'};
+    var credenciado=p.credenciado
+      ? '<div style="display:inline-flex;align-items:center;gap:6px;background:rgba(76,175,80,.12);color:var(--success);font-weight:700;font-size:12px;padding:5px 12px;border-radius:999px">⭐ Rede Autorizada Stonni</div>'
+      : '<div style="display:inline-flex;align-items:center;gap:6px;background:var(--surface2);color:var(--text-m);font-size:12px;padding:5px 12px;border-radius:999px">🔹 Não credenciado</div>';
+    el.innerHTML=
+      '<div class="page-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px"><h1>Meus dados</h1>'+credenciado+'</div>'+
+      '<div class="card">'+
+        '<div class="card-title">🏢 '+esc(p.nome||'Autorizada')+'</div>'+
+        row('Responsável',p.responsavel)+
+        row('CNPJ',p.cnpj)+
+        row('Telefone',p.telefone)+
+        (p.whatsapp?'<div style="display:flex;justify-content:space-between;gap:16px;padding:10px 0;border-bottom:1px solid var(--border);align-items:center"><span style="font-size:12px;font-weight:600;color:var(--text-m);text-transform:uppercase;letter-spacing:.3px">WhatsApp</span><a href="https://wa.me/'+(wpp.length<=11?'55'+wpp:wpp)+'" target="_blank" style="font-size:14px;color:var(--success);font-weight:600;text-decoration:none">'+esc(p.whatsapp)+' ↗</a></div>':row('WhatsApp',null))+
+        row('E-mail',p.email)+
+        row('CEP',p.cep)+
+        row('Endereço',p.endereco)+
+        row('Cidade / UF',[p.cidade,p.uf].filter(Boolean).join(' / '))+
+        row('Raio de atendimento',p.raio_km?p.raio_km+' km':null)+
+        row('Situação',statusNome[p.status]||p.status)+
+      '</div>'+
+      '<div class="card">'+
+        '<div class="card-title">🛠️ Produtos atendidos</div>'+
+        (tags.length
+          ? '<div style="display:flex;gap:8px;flex-wrap:wrap">'+tags.map(chip).join('')+'</div>'
+          : '<div style="font-size:13px;color:var(--text-m)">Nenhum produto marcado ainda.</div>')+
+        '<div style="font-size:12px;color:var(--text-d);margin-top:12px">Precisa corrigir algum dado ou os produtos que você atende? Fale com a Stonni — a atualização é feita no cadastro central.</div>'+
+      '</div>';
+  }catch(e){
+    el.innerHTML='<div class="page-header"><h1>Meus dados</h1></div><div class="card">Erro ao carregar seus dados. Tente de novo.</div>';
+  }
 }
 
 async function carregarDashboardKPIs(){
