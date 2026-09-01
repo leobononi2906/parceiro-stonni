@@ -604,8 +604,9 @@ function renderDashboard(el){
   carregarDashboardKPIs();
 }
 
-// ===== MEUS DADOS (perfil — só leitura) =====
-// Espelho informativo. Fonte da verdade é a app Assistência (assist_parceiros + assist_parceiro_produtos).
+// ===== MEUS DADOS (perfil — a autorizada vê e PREENCHE seus dados) =====
+// Dados cadastrais editáveis pelo parceiro (assist_parceiros). Produtos atendidos = só leitura
+// (classificação da Stonni). Fonte da verdade central continua na app Assistência.
 var PERFIL_PROD_ICON={'Ar Condicionado':'❄️','Geladeira':'🧊','Gerador':'⚡','Outros':'🔧'};
 var PERFIL_PROD_ORDEM=['Ar Condicionado','Geladeira','Gerador','Outros'];
 async function renderPerfil(el){
@@ -618,37 +619,72 @@ async function renderPerfil(el){
     var prods=await fetch(SB_URL+'/rest/v1/assist_parceiro_produtos?parceiro_id=eq.'+_parceiroId+'&select=produto_tag',h).then(function(r){return r.json()});
     var tags=(Array.isArray(prods)?prods:[]).map(function(x){return x.produto_tag}).sort(function(a,b){var ia=PERFIL_PROD_ORDEM.indexOf(a),ib=PERFIL_PROD_ORDEM.indexOf(b);return (ia<0?99:ia)-(ib<0?99:ib);});
     var chip=function(t){return '<span style="display:inline-flex;align-items:center;gap:4px;padding:4px 12px;border-radius:999px;font-size:13px;font-weight:600;background:rgba(79,195,247,.12);color:var(--primary)">'+(PERFIL_PROD_ICON[t]||'🏷️')+' '+esc(t)+'</span>'};
-    var row=function(lbl,val){return '<div style="display:flex;justify-content:space-between;gap:16px;padding:10px 0;border-bottom:1px solid var(--border)"><span style="font-size:12px;font-weight:600;color:var(--text-m);text-transform:uppercase;letter-spacing:.3px;flex-shrink:0">'+lbl+'</span><span style="font-size:14px;text-align:right;color:var(--text)">'+(val?esc(String(val)):'—')+'</span></div>'};
-    var wpp=(p.whatsapp||'').replace(/\D/g,'');
     var statusNome={ativo:'Ativo',teste:'Em teste',suspenso:'Suspenso',inativo:'Inativo'};
     var credenciado=p.credenciado
       ? '<div style="display:inline-flex;align-items:center;gap:6px;background:rgba(76,175,80,.12);color:var(--success);font-weight:700;font-size:12px;padding:5px 12px;border-radius:999px">⭐ Rede Autorizada Stonni</div>'
       : '<div style="display:inline-flex;align-items:center;gap:6px;background:var(--surface2);color:var(--text-m);font-size:12px;padding:5px 12px;border-radius:999px">🔹 Não credenciado</div>';
+
+    // Aviso: campos essenciais para pagamento / emissão de NF
+    var obrig=[['cnpj','CNPJ'],['telefone','Telefone'],['endereco','Endereço'],['cep','CEP']];
+    var faltando=obrig.filter(function(f){return !String(p[f[0]]||'').trim()}).map(function(f){return f[1]});
+    var aviso=faltando.length
+      ? '<div style="background:#FFF4E5;border:1px solid #F5B36B;border-radius:var(--radius);padding:14px 16px;margin-bottom:16px;display:flex;gap:10px;align-items:flex-start">'+
+          '<span style="font-size:20px;line-height:1">⚠️</span>'+
+          '<div><div style="font-weight:700;color:#8a5a00;font-size:14px;margin-bottom:3px">Complete seu cadastro</div>'+
+          '<div style="font-size:13px;color:#7a5410;line-height:1.4">Precisamos destes dados para <b>pagar você</b> e para você <b>emitir a Nota Fiscal</b>: <b>'+esc(faltando.join(', '))+'</b>. Preencha abaixo e clique em <b>Salvar</b>.</div></div>'+
+        '</div>'
+      : '';
+
+    var inp=function(id,lbl,val,ph){return '<div><label style="display:block;font-size:11.5px;font-weight:600;color:var(--text-m);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">'+lbl+'</label><input id="'+id+'" value="'+esc(val||'')+'" placeholder="'+(ph||'')+'" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:14px;background:var(--surface2);color:var(--text)"></div>'};
+
     el.innerHTML=
       '<div class="page-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px"><h1>Meus dados</h1>'+credenciado+'</div>'+
+      aviso+
       '<div class="card">'+
         '<div class="card-title">🏢 '+esc(p.nome||'Autorizada')+'</div>'+
-        row('Responsável',p.responsavel)+
-        row('CNPJ',p.cnpj)+
-        row('Telefone',p.telefone)+
-        (p.whatsapp?'<div style="display:flex;justify-content:space-between;gap:16px;padding:10px 0;border-bottom:1px solid var(--border);align-items:center"><span style="font-size:12px;font-weight:600;color:var(--text-m);text-transform:uppercase;letter-spacing:.3px">WhatsApp</span><a href="https://wa.me/'+(wpp.length<=11?'55'+wpp:wpp)+'" target="_blank" style="font-size:14px;color:var(--success);font-weight:600;text-decoration:none">'+esc(p.whatsapp)+' ↗</a></div>':row('WhatsApp',null))+
-        row('E-mail',p.email)+
-        row('CEP',p.cep)+
-        row('Endereço',p.endereco)+
-        row('Cidade / UF',[p.cidade,p.uf].filter(Boolean).join(' / '))+
-        row('Raio de atendimento',p.raio_km?p.raio_km+' km':null)+
-        row('Situação',statusNome[p.status]||p.status)+
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">'+
+          '<div style="grid-column:1/-1">'+inp('mp-responsavel','Responsável',p.responsavel,'Nome do responsável')+'</div>'+
+          inp('mp-cnpj','CNPJ',p.cnpj,'00.000.000/0001-00')+
+          inp('mp-telefone','Telefone',p.telefone,'(00) 0000-0000')+
+          inp('mp-whatsapp','WhatsApp',p.whatsapp,'(00) 00000-0000')+
+          inp('mp-email','E-mail',p.email,'email@empresa.com')+
+          inp('mp-cep','CEP',p.cep,'00000-000')+
+          inp('mp-cidade','Cidade',p.cidade,'Cidade')+
+          '<div style="grid-column:1/-1">'+inp('mp-endereco','Endereço',p.endereco,'Rua, nº, bairro')+'</div>'+
+          inp('mp-uf','UF',p.uf,'UF')+
+        '</div>'+
+        '<div style="display:flex;justify-content:flex-end;margin-top:16px"><button onclick="salvarMeusDados()" style="padding:10px 20px;border:none;border-radius:var(--radius-sm);background:var(--primary);color:#fff;font-weight:700;font-size:14px;cursor:pointer">💾 Salvar meus dados</button></div>'+
+        '<div style="font-size:12px;color:var(--text-d);margin-top:10px">Raio de atendimento e produtos atendidos são definidos pela Stonni. Situação: <b>'+esc(statusNome[p.status]||p.status||'—')+'</b>.</div>'+
       '</div>'+
       '<div class="card">'+
         '<div class="card-title">🛠️ Produtos atendidos</div>'+
         (tags.length
           ? '<div style="display:flex;gap:8px;flex-wrap:wrap">'+tags.map(chip).join('')+'</div>'
           : '<div style="font-size:13px;color:var(--text-m)">Nenhum produto marcado ainda.</div>')+
-        '<div style="font-size:12px;color:var(--text-d);margin-top:12px">Precisa corrigir algum dado ou os produtos que você atende? Fale com a Stonni — a atualização é feita no cadastro central.</div>'+
+        '<div style="font-size:12px;color:var(--text-d);margin-top:12px">Os produtos que você atende são definidos pela Stonni. Se algo estiver errado, fale com a gente.</div>'+
       '</div>';
   }catch(e){
     el.innerHTML='<div class="page-header"><h1>Meus dados</h1></div><div class="card">Erro ao carregar seus dados. Tente de novo.</div>';
   }
+}
+async function salvarMeusDados(){
+  if(!_parceiroId){ toast('Sem autorizada vinculada','err'); return; }
+  var g=function(id){return (document.getElementById(id)?.value||'').trim();};
+  var payload={
+    responsavel:g('mp-responsavel'), cnpj:g('mp-cnpj'), telefone:g('mp-telefone'),
+    whatsapp:g('mp-whatsapp'), email:g('mp-email'), cep:g('mp-cep'),
+    endereco:g('mp-endereco'), cidade:g('mp-cidade'), uf:g('mp-uf').toUpperCase()
+  };
+  try{
+    var r=await fetch(SB_URL+'/rest/v1/assist_parceiros?id=eq.'+_parceiroId,{
+      method:'PATCH',
+      headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json','Prefer':'return=minimal'},
+      body:JSON.stringify(payload)
+    });
+    if(!r.ok){ throw new Error('HTTP '+r.status); }
+    toast('Dados salvos! Obrigado 🙌','ok');
+    renderPerfil(document.getElementById('mainContent'));
+  }catch(e){ console.error('salvarMeusDados',e); toast('Não consegui salvar. Tente de novo.','err'); }
 }
 
 async function carregarDashboardKPIs(){
