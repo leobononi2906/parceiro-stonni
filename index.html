@@ -503,7 +503,15 @@ async function fazerLogout(){
 })();
 
 // ===== NAVEGAÇÃO =====
-function navegar(pagina){
+function navegar(pagina,forcar){
+  // Guarda de saida: renderPagina() destroi a tela atual sem aviso. Este e o
+  // ponto unico por onde a navegacao passa. Quem seta a guarda, limpa.
+  if(!forcar&&typeof window._guardaSaida==='function'){
+    var msg=null;
+    try{ msg=window._guardaSaida() }catch(e){ msg=null }
+    if(msg){ osConfirmarSaida(msg,pagina); return; }
+  }
+  window._guardaSaida=null;
   _paginaAtual=pagina;
   // atualizar nav
   document.querySelectorAll('.nav-item').forEach(function(el){el.classList.remove('active')});
@@ -635,7 +643,7 @@ async function renderPerfil(el){
         '</div>'
       : '';
 
-    var inp=function(id,lbl,val,ph){return '<div><label style="display:block;font-size:11.5px;font-weight:600;color:var(--text-m);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">'+lbl+'</label><input id="'+id+'" value="'+esc(val||'')+'" placeholder="'+(ph||'')+'" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:14px;background:var(--surface2);color:var(--text)"></div>'};
+    var inp=function(id,lbl,val,ph,extra){return '<div><label style="display:block;font-size:11.5px;font-weight:600;color:var(--text-m);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">'+lbl+'</label><input id="'+id+'" value="'+esc(val||'')+'" placeholder="'+(ph||'')+'" '+(extra||'')+' style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:14px;background:var(--surface2);color:var(--text)"></div>'};
 
     el.innerHTML=
       '<div class="page-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px"><h1>Meus dados</h1>'+credenciado+'</div>'+
@@ -645,8 +653,8 @@ async function renderPerfil(el){
         '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">'+
           '<div style="grid-column:1/-1">'+inp('mp-responsavel','Responsável',p.responsavel,'Nome do responsável')+'</div>'+
           inp('mp-cnpj','CNPJ',p.cnpj,'00.000.000/0001-00')+
-          inp('mp-telefone','Telefone',p.telefone,'(00) 0000-0000')+
-          inp('mp-whatsapp','WhatsApp',p.whatsapp,'(00) 00000-0000')+
+          inp('mp-telefone','Telefone',fmtTelefone(p.telefone),'(99) 9999-9999',"inputmode='tel' maxlength='15' oninput='mascaraTel(this)'")+
+          inp('mp-whatsapp','WhatsApp',fmtTelefone(p.whatsapp),'(99) 99999-9999',"inputmode='tel' maxlength='15' oninput='mascaraTel(this)'")+
           inp('mp-email','E-mail',p.email,'email@empresa.com')+
           inp('mp-cep','CEP',p.cep,'00000-000')+
           inp('mp-cidade','Cidade',p.cidade,'Cidade')+
@@ -670,9 +678,16 @@ async function renderPerfil(el){
 async function salvarMeusDados(){
   if(!_parceiroId){ toast('Sem autorizada vinculada','err'); return; }
   var g=function(id){return (document.getElementById(id)?.value||'').trim();};
+  // Vazio segue permitido (cadastro incompleto e comum); preenchido tem de ser valido.
+  var campos=[['mp-telefone','Telefone'],['mp-whatsapp','WhatsApp']];
+  for(var i=0;i<campos.length;i++){
+    var val=g(campos[i][0]);
+    if(val&&!telValido(val)){ toast(campos[i][1]+' invalido - use '+TEL_FORMATO,'err'); return; }
+  }
   var payload={
-    responsavel:g('mp-responsavel'), cnpj:g('mp-cnpj'), telefone:g('mp-telefone'),
-    whatsapp:g('mp-whatsapp'), email:g('mp-email'), cep:g('mp-cep'),
+    responsavel:g('mp-responsavel'), cnpj:g('mp-cnpj'),
+    telefone:soDigitos(g('mp-telefone'))||null, whatsapp:soDigitos(g('mp-whatsapp'))||null,
+    email:g('mp-email'), cep:g('mp-cep'),
     endereco:g('mp-endereco'), cidade:g('mp-cidade'), uf:g('mp-uf').toUpperCase()
   };
   try{
@@ -721,6 +736,7 @@ async function carregarDashboardKPIs(){
     var ultimas=await r3.json();
     if(!Array.isArray(ultimas)) ultimas=[];
     var box=document.getElementById('dashUltimasOS');
+    if(!box) return; // navegou p/ outra tela durante o load
     if(!ultimas.length){
       box.innerHTML='<div class="empty-state"><p>Nenhuma OS registrada ainda</p><button class="btn btn-primary btn-sm" onclick="navegar(\'nova-os\')">Criar primeira OS</button></div>';
     }else{
@@ -749,6 +765,167 @@ async function carregarDashboardKPIs(){
 // ===== NOVA OS =====
 var _osStep=1;
 var _osData={};
+var _servicosCarregando=false;
+
+// ============================================================
+//  ESTADO DO FORMULARIO -- espelho DOM -> _osData
+//  Antes, os campos de um passo so entravam em _osData no osProximo().
+//  Enquanto a pessoa digitava o valor existia SO no DOM -- entao qualquer
+//  re-render no meio do caminho (upload de foto, voltar um passo) remontava o
+//  passo a partir de dado velho e apagava o que tinha sido digitado.
+// ============================================================
+var OS_CAMPOS={
+  osCliNome:'cliente_nome', osCliTel:'cliente_telefone', osCliUF:'cliente_uf', osCliCidade:'cliente_cidade',
+  osProdLinha:'produto_linha', osProdModelo:'produto_modelo', osProdSerie:'numero_serie',
+  osNF:'numero_nf', osDataCompra:'data_compra',
+  osCodErro:'codigo_erro', osDefeito:'defeito_descricao', osDiag:'diagnostico', osSolData:'data_servico'
+};
+// Valor CRU, sem trim: com trim aqui a pessoa nao consegue nem digitar espaco
+// entre palavras. O trim vai na validacao e no payload.
+function osCommit(){
+  for(var id in OS_CAMPOS){
+    var el=document.getElementById(id);
+    if(el) _osData[OS_CAMPOS[id]]=el.value;
+  }
+}
+// Delegacao por PROPRIEDADE (nao addEventListener): idempotente, nao empilha
+// listener a cada re-render. #osFormArea nao e recriado entre os passos --
+// so o innerHTML dele muda -- entao um bind por entrada na tela basta.
+function osBindForm(){
+  var area=document.getElementById('osFormArea');
+  if(!area) return;
+  area.oninput=area.onchange=function(e){
+    var k=OS_CAMPOS[e.target&&e.target.id];
+    if(k){ _osData[k]=e.target.value; osAgendarRascunho(); }
+  };
+}
+
+// ---------- rascunho local (localStorage) ----------
+// O formulario so vivia em variavel + DOM: reload, queda da aba ou a camera do
+// celular descartando o app levavam tudo. Aqui sobrevive ao aparelho, com
+// validade. Tudo em try/catch: Safari em modo privado LANCA em setItem.
+var OS_DRAFT_TTL=24*60*60*1000;
+function osDraftKey(){
+  var u=(window._user&&window._user.id)||'anon';
+  return 'stonni_os_draft_v1:'+u+':'+(_parceiroId||0);
+}
+function rascunhoSalvar(k,o){ try{ localStorage.setItem(k,JSON.stringify({v:1,ts:Date.now(),dados:o})) }catch(e){} }
+function rascunhoLer(k,ttl){
+  try{
+    var raw=localStorage.getItem(k); if(!raw) return null;
+    var o=JSON.parse(raw);
+    if(!o||o.v!==1||!o.ts){ rascunhoLimpar(k); return null }
+    if(ttl&&(Date.now()-o.ts)>ttl){ rascunhoLimpar(k); return null }
+    return {ts:o.ts,dados:o.dados};
+  }catch(e){ return null }
+}
+function rascunhoLimpar(k){ try{ localStorage.removeItem(k) }catch(e){} }
+function haQuantoTempo(ts){
+  var s=Math.max(0,Math.round((Date.now()-ts)/1000));
+  if(s<60) return 'agora ha pouco';
+  var m=Math.round(s/60); if(m<60) return 'ha '+m+' min';
+  var h=Math.round(m/60); if(h<24) return 'ha '+h+'h';
+  return 'ha '+Math.round(h/24)+'d';
+}
+var _draftTimer=null;
+function osAgendarRascunho(){ clearTimeout(_draftTimer); _draftTimer=setTimeout(osSalvarRascunhoLocal,500) }
+function osSalvarRascunhoLocal(){
+  if(!osFormTemAlgo()) return;
+  // Nao guarda cache de rede nem binario: as fotos ja viraram URL no Storage.
+  rascunhoSalvar(osDraftKey(),{
+    editId:_editandoOsId, editStatusOrig:_editandoStatusOrig, step:_osStep,
+    data:_osData, servicos:_servicosSelecionados, pecas:_pecasSelecionadas
+  });
+}
+function osLimparRascunho(){ clearTimeout(_draftTimer); rascunhoLimpar(osDraftKey()) }
+function osTemConteudo(dd,servicos,pecas){
+  if((servicos||[]).length||(pecas||[]).length) return true;
+  dd=dd||{};
+  for(var id in OS_CAMPOS){
+    var v=dd[OS_CAMPOS[id]];
+    if(v!=null&&String(v).trim()!=='') return true;
+  }
+  if(Array.isArray(dd.fotos_equipamento)&&dd.fotos_equipamento.length) return true;
+  return !!dd.foto_nf;
+}
+function osFormTemAlgo(){ return osTemConteudo(_osData,_servicosSelecionados,_pecasSelecionadas) }
+
+// A camera do celular pode descartar a aba: salvar assim que ela some e o que
+// garante o rascunho nesse caso.
+document.addEventListener('visibilitychange',function(){
+  if(document.hidden&&document.getElementById('osFormArea')){ osCommit(); osSalvarRascunhoLocal(); }
+});
+
+// Guarda de saida: navegar() consulta isto antes de destruir a tela.
+function osInstalarGuarda(){
+  window._guardaSaida=function(){
+    osCommit();
+    return osFormTemAlgo()
+      ? 'Voce tem uma OS em preenchimento. O rascunho fica guardado neste aparelho. Quer sair mesmo assim?'
+      : null;
+  };
+}
+
+function osMostrarFaixaRascunho(rasc){
+  var area=document.getElementById('osFormArea');
+  if(!area||document.getElementById('os-rascunho-faixa')) return;
+  var d=rasc.dados||{}, dd=d.data||{};
+  var nF=Array.isArray(dd.fotos_equipamento)?dd.fotos_equipamento.length:0;
+  var partes=[String(dd.cliente_nome||'').trim()||'cliente ainda sem nome','passo '+(d.step||1)+' de 4'];
+  if(nF) partes.push(nF+' foto(s)');
+  partes.push(haQuantoTempo(rasc.ts));
+  var faixa=document.createElement('div');
+  faixa.id='os-rascunho-faixa';
+  faixa.style.cssText='background:var(--primary-bg);border:1px solid var(--primary);border-radius:var(--radius-sm);padding:10px 12px;margin-bottom:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap';
+  faixa.innerHTML='<div style="flex:1;min-width:180px"><div style="font-weight:700;font-size:13px">Voce tem uma OS nao finalizada</div><div class="text-xs text-muted">'+esc(partes.join(' - '))+'</div></div>'+
+    '<button class="btn btn-primary btn-sm" style="width:auto" onclick="osRetomarRascunho()">Continuar</button>'+
+    '<button class="btn btn-ghost btn-sm" style="width:auto" onclick="osDescartarRascunho()">Descartar</button>';
+  area.parentNode.insertBefore(faixa,area);
+}
+function osRemoverFaixa(){ var f=document.getElementById('os-rascunho-faixa'); if(f) f.remove() }
+// Restauracao e sempre por escolha: preencher sozinho com dado de horas atras e
+// pior que um toque a mais, ainda mais em aparelho compartilhado de oficina.
+function osRetomarRascunho(){
+  var rasc=rascunhoLer(osDraftKey(),OS_DRAFT_TTL);
+  osRemoverFaixa();
+  if(!rasc||!rasc.dados){ toast('O rascunho expirou','error'); return }
+  var d=rasc.dados;
+  _osData=d.data||{}; _servicosSelecionados=d.servicos||[]; _pecasSelecionadas=d.pecas||[];
+  _editandoOsId=d.editId||null; _editandoStatusOrig=d.editStatusOrig||null;
+  _osStep=Math.min(Math.max(1,Number(d.step)||1),4);
+  _servicosCache=[]; _categoriasCache=[]; _tetoProduto=null; _accordionOpen=null; _showAccordionPicker=false;
+  renderOsStep();
+}
+// Modal proprio (o app nao usa confirm() nativo -- ver docs/STATUS.md).
+// "Sair mesmo assim" reentra em navegar() com forcar=true.
+function osConfirmarSaida(msg,pagina){
+  document.querySelectorAll('.modal-overlay.show').forEach(function(m){m.classList.remove('show')});
+  var html='<div class="modal-overlay show" id="modalSairOS"><div class="modal">'+
+    '<div class="modal-title">Sair sem finalizar?<button class="modal-close" onclick="this.closest(\'.modal-overlay\').remove()">\u2715</button></div>'+
+    '<p class="text-sm text-muted mb-16">'+esc(msg)+'</p>'+
+    '<div class="flex gap-8 mt-16" style="justify-content:flex-end">'+
+      '<button class="btn btn-ghost btn-sm" style="width:auto" onclick="this.closest(\'.modal-overlay\').remove()">Continuar editando</button>'+
+      '<button class="btn btn-sm" style="width:auto;background:var(--danger);color:#fff" onclick="this.closest(\'.modal-overlay\').remove();navegar(\''+pagina+'\',true)">Sair mesmo assim</button>'+
+    '</div>'+
+  '</div></div>';
+  document.body.insertAdjacentHTML('beforeend',html);
+}
+
+function osDescartarRascunho(){
+  document.querySelectorAll('.modal-overlay.show').forEach(function(m){m.classList.remove('show')});
+  var html='<div class="modal-overlay show" id="modalDescartarRascunho"><div class="modal">'+
+    '<div class="modal-title">Descartar rascunho?<button class="modal-close" onclick="this.closest(\'.modal-overlay\').remove()">\u2715</button></div>'+
+    '<p class="text-sm text-muted mb-16">A OS nao finalizada sera apagada deste aparelho. Nao da para desfazer.</p>'+
+    '<div class="flex gap-8 mt-16" style="justify-content:flex-end">'+
+      '<button class="btn btn-ghost btn-sm" style="width:auto" onclick="this.closest(\'.modal-overlay\').remove()">Voltar</button>'+
+      '<button class="btn btn-sm" style="width:auto;background:var(--danger);color:#fff" onclick="this.closest(\'.modal-overlay\').remove();osConfirmarDescarte()">Descartar</button>'+
+    '</div>'+
+  '</div></div>';
+  document.body.insertAdjacentHTML('beforeend',html);
+}
+function osConfirmarDescarte(){
+  osLimparRascunho(); osRemoverFaixa(); toast('Rascunho descartado','success');
+}
 var _servicosCache=[];
 var _pecasCatalogo=[];
 var _pecasSelecionadas=[];
@@ -768,6 +945,10 @@ function renderNovaOS(el,editId){
     '<div class="steps-bar"><div class="step-dot active" id="dot1"></div><div class="step-dot" id="dot2"></div><div class="step-dot" id="dot3"></div><div class="step-dot" id="dot4"></div></div>'+
     '<div class="card" id="osFormArea"></div>';
   renderOsStep();
+  osBindForm();
+  osInstalarGuarda();
+  var rasc=rascunhoLer(osDraftKey(),OS_DRAFT_TTL);
+  if(rasc&&osTemConteudo(rasc.dados&&rasc.dados.data,rasc.dados&&rasc.dados.servicos,rasc.dados&&rasc.dados.pecas)) osMostrarFaixaRascunho(rasc);
 }
 var _editandoOsId=null;
 var _editandoStatusOrig=null;
@@ -819,7 +1000,7 @@ function renderOsStep(){
         '<div class="card-title">1. Dados do Cliente</div>'+
         '<div class="form-group"><label>Nome do cliente</label><input type="text" id="osCliNome" value="'+esc(_osData.cliente_nome)+'" placeholder="Nome completo"></div>'+
         '<div class="form-row cols-2">'+
-          '<div class="form-group"><label>Telefone</label><input type="tel" id="osCliTel" value="'+esc(_osData.cliente_telefone)+'" placeholder="(00) 00000-0000"></div>'+
+          '<div class="form-group"><label>Telefone</label><input type="tel" id="osCliTel" value="'+esc(fmtTelefone(_osData.cliente_telefone))+'" placeholder="(99) 99999-9999" inputmode="tel" maxlength="15" oninput="mascaraTel(this)"></div>'+
           '<div class="form-group"><label>UF</label><select id="osCliUF"><option value="">Selecione</option>'+
             ['AC','AL','AM','AP','BA','CE','DF','ES','GO','MA','MG','MS','MT','PA','PB','PE','PI','PR','RJ','RN','RO','RR','RS','SC','SE','SP','TO'].map(function(u){return '<option'+(_osData.cliente_uf===u?' selected':'')+'>'+u+'</option>'}).join('')+
           '</select></div>'+
@@ -844,10 +1025,10 @@ function renderOsStep(){
           '<div class="form-group"><label>Número da NF de compra <span class="text-xs text-muted">(opcional)</span></label><input type="text" id="osNF" value="'+esc(_osData.numero_nf)+'" placeholder="NF de compra do cliente"></div>'+
           '<div class="form-group"><label>Data da compra</label><input type="date" id="osDataCompra" value="'+esc(_osData.data_compra)+'"></div>'+
         '</div>'+
-        '<div class="form-group"><label>Foto da NF de compra</label>'+
-          '<input type="file" id="fotoNF" accept="image/*" capture="environment" onchange="uploadFoto(\'nf\')" style="display:none">'+
+        '<div class="form-group"><label>NF de compra (foto ou PDF)</label>'+
+          '<input type="file" id="fotoNF" accept="image/*,application/pdf" onchange="uploadFoto(\'nf\')" style="display:none">'+
           '<div id="previewNF" class="foto-preview" onclick="document.getElementById(\'fotoNF\').click()">'+
-            (_osData.foto_nf?'<img src="'+_osData.foto_nf+'" style="width:100%;height:100%;object-fit:cover;border-radius:var(--radius-sm)">':'<svg viewBox="0 0 24 24" width="24" height="24" stroke="var(--text-d)" fill="none" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg><span class="text-xs text-muted">Toque para tirar foto da NF</span>')+
+            (_osData.foto_nf?previewNFHtml(_osData.foto_nf):'<svg viewBox="0 0 24 24" width="24" height="24" stroke="var(--text-d)" fill="none" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg><span class="text-xs text-muted">Toque para escolher foto ou PDF da NF</span>')+
           '</div>'+
         '</div>'+
         '<div class="flex justify-between mt-16"><button class="btn btn-ghost btn-sm" onclick="osVoltar()">← Voltar</button><button class="btn btn-primary btn-sm" onclick="osProximo(2)">Próximo →</button></div>';
@@ -855,9 +1036,9 @@ function renderOsStep(){
     case 3:
       var servHtml='<div class="loading-full" id="servicosLista"><span class="spinner"></span> Carregando serviços...</div>';
       if(_servicosCache.length){servHtml=renderServicosHtml()}
-      var fotosArr=Array.isArray(_osData.fotos_equipamento)?_osData.fotos_equipamento:[];
-      var fotosEquipHtml='';
-      fotosArr.forEach(function(url,i){
+      var fotosEquipHtml=renderFotosEquipHtml();
+      var fotosArrIgnorado=[];
+      [].forEach(function(url,i){
         fotosEquipHtml+='<div style="position:relative;width:100px;height:80px;border-radius:var(--radius-sm);overflow:hidden;border:1px solid var(--border);flex-shrink:0"><img src="'+url+'" style="width:100%;height:100%;object-fit:cover"><button onclick="removerFotoEquip('+i+')" style="position:absolute;top:2px;right:2px;background:var(--danger);color:#fff;border:none;border-radius:50%;width:20px;height:20px;font-size:11px;cursor:pointer;display:flex;align-items:center;justify-content:center">✕</button></div>';
       });
       area.innerHTML=
@@ -876,7 +1057,7 @@ function renderOsStep(){
         '<hr style="border:0;border-top:1px solid var(--border);margin:16px 0">'+
         '<div class="card-title">Fotos do equipamento</div>'+
         '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px" id="fotosEquipGrid">'+fotosEquipHtml+'</div>'+
-        '<input type="file" id="fotoEquipInput" accept="image/*" capture="environment" onchange="uploadFotoEquip()" style="display:none" multiple>'+
+        '<input type="file" id="fotoEquipInput" accept="image/*,application/pdf" onchange="uploadFotoEquip()" style="display:none" multiple>'+
         '<button class="btn btn-ghost btn-sm" style="width:auto" onclick="document.getElementById(\'fotoEquipInput\').click()">📷 Adicionar foto</button>'+
         '<p class="text-xs text-muted mt-8">Tire fotos do equipamento instalado no veículo. Você pode adicionar várias.</p>'+
         '<div class="flex justify-between mt-16"><button class="btn btn-ghost btn-sm" onclick="osVoltar()">← Voltar</button><button class="btn btn-primary btn-sm" onclick="osProximo(3)">Revisar →</button></div>';
@@ -928,6 +1109,7 @@ var _showAccordionPicker=false;
 async function carregarServicos(){
   var linhaDb=LINHAS_DB[_osData.produto_linha]||'';
   if(!linhaDb){document.getElementById('servicosArea').innerHTML='<p class="text-muted text-sm">Selecione uma linha de produto primeiro</p>';return}
+  _servicosCarregando=true;
   try{
     var rc=await fetch(SB_URL+'/rest/v1/prt_categorias_servico?linha_produto=eq.'+linhaDb+'&ativo=eq.true&order=ordem.asc&select=*',{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
     _categoriasCache=await rc.json();if(!Array.isArray(_categoriasCache))_categoriasCache=[];
@@ -1114,13 +1296,79 @@ function osAtualizarModelos(){
   if(linha&&LINHAS_PRODUTO[linha]){
     LINHAS_PRODUTO[linha].forEach(function(m){sel.innerHTML+='<option>'+m+'</option>'});
   }
+  // Reescrever o <select> nao dispara 'change': sem isto o modelo da linha
+  // ANTERIOR continuaria em _osData depois de trocar a linha do produto.
+  _osData.produto_modelo='';
 }
 
+// ---- TELEFONE: mascara e validacao BR ----
+// Nao existia validacao nenhuma: o telefone ia pro banco como a pessoa digitasse.
+function soDigitos(v){return String(v==null?'':v).replace(/\D/g,'')}
+function fmtTelefone(v){
+  var d=soDigitos(v);
+  if(d.length===11) return '('+d.slice(0,2)+') '+d.slice(2,7)+'-'+d.slice(7);
+  if(d.length===10) return '('+d.slice(0,2)+') '+d.slice(2,6)+'-'+d.slice(6);
+  return String(v==null?'':v); // legado com lixo continua legivel
+}
+// Formato exigido: (99) 99999-9999 p/ celular, (99) 9999-9999 p/ fixo.
+var TEL_FORMATO='(99) 99999-9999 para celular ou (99) 9999-9999 para fixo';
+function telValido(v){
+  var d=soDigitos(v);
+  if(d.length!==10&&d.length!==11) return false;
+  if(Number(d.slice(0,2))<11) return false;      // DDD nao existe abaixo de 11
+  if(d.length===11&&d[2]!=='9') return false;    // celular tem 9o digito
+  if(d.length===10&&d[2]==='9') return false;    // 9 no inicio = celular, faltou 1 digito
+  if(/^(\d)\1+$/.test(d)) return false;          // 11111111111 e afins
+  return true;
+}
+// Mascara PROGRESSIVA: o campo ja mostra (99) 9999... enquanto se digita, entao
+// a pessoa ve o formato exigido em vez de descobrir no erro ao salvar.
+// Digitos "uteis" do telefone. Colar com DDI (+55 41 99999-8888 = 13 digitos)
+// fazia o 55 virar DDD e o numero sair todo deslocado.
+function telDigitos(v){
+  var d=soDigitos(v);
+  if(d.length>11&&d.slice(0,2)==='55') d=d.slice(2);
+  return d.slice(0,11);
+}
+function telParcial(d){
+  if(!d.length) return '';
+  if(d.length<=2) return '('+d;
+  if(d.length<=6) return '('+d.slice(0,2)+') '+d.slice(2);
+  if(d.length<=10) return '('+d.slice(0,2)+') '+d.slice(2,6)+'-'+d.slice(6);
+  return '('+d.slice(0,2)+') '+d.slice(2,7)+'-'+d.slice(7);
+}
+function mascaraTel(el){
+  if(!el) return;
+  var antes=el.value;
+  var caret = el.selectionStart==null ? antes.length : el.selectionStart;
+  // Quantos DIGITOS havia antes do cursor -- e o que ancora a posicao depois de
+  // reformatar; contar caracteres faria o caret pular a cada separador novo.
+  var digitosAntes=soDigitos(antes.slice(0,caret)).length;
+  var d=telDigitos(antes);
+  var novo=telParcial(d);
+  if(novo===antes) return;
+  el.value=novo;
+  var pos=0, vistos=0;
+  while(pos<novo.length && vistos<digitosAntes){
+    if(novo[pos]>='0'&&novo[pos]<='9') vistos++;
+    pos++;
+  }
+  try{ el.setSelectionRange(pos,pos) }catch(e){}
+}
+
+// Imagem OU PDF -- um ou outro, nunca os dois obrigatorios.
+function ehPdfUrl(u){return /[.]pdf([?]|$)/i.test(String(u||''))}
+function tipoNFAceito(f){return !!f&&(f.type==='application/pdf'||f.type.indexOf('image/')===0)}
+function previewNFHtml(url){
+  if(ehPdfUrl(url)) return '<span class="text-xs" style="color:var(--primary);font-weight:700">PDF</span><span class="text-xs text-muted">anexado</span><a href="'+url+'" target="_blank" onclick="event.stopPropagation()" class="text-xs" style="color:var(--primary);text-decoration:underline">abrir</a>';
+  return '<img src="'+url+'" style="width:100%;height:100%;object-fit:cover;border-radius:var(--radius-sm)">';
+}
 async function uploadFoto(tipo){
   var input=document.getElementById('fotoNF');
   var preview=document.getElementById('previewNF');
   var file=input.files[0];
   if(!file)return;
+  if(!tipoNFAceito(file)){input.value='';toast('Envie uma imagem ou um PDF','error');return}
   preview.innerHTML='<span class="spinner"></span><span class="text-xs text-muted">Enviando...</span>';
   try{
     var ext=file.name.split('.').pop().toLowerCase();
@@ -1133,8 +1381,8 @@ async function uploadFoto(tipo){
     if(!r.ok) throw new Error('Upload falhou');
     var url=SB_URL+'/storage/v1/object/public/prt-os-fotos/'+path;
     _osData.foto_nf=url;
-    preview.innerHTML='<img src="'+url+'" style="width:100%;height:100%;object-fit:cover;border-radius:var(--radius-sm)">';
-    toast('Foto enviada!','success');
+    preview.innerHTML=previewNFHtml(url);
+    toast(file.type==='application/pdf'?'PDF enviado!':'Foto enviada!','success');
   }catch(e){console.error(e);toast('Erro no upload','error');preview.innerHTML='<span class="text-xs text-danger">Erro — toque novamente</span>'}
 }
 
@@ -1155,37 +1403,60 @@ async function uploadFotoEquip(){
       _osData.fotos_equipamento.push(SB_URL+'/storage/v1/object/public/prt-os-fotos/'+path);
     }catch(e){console.error(e);toast('Erro ao enviar foto','error')}
   }
-  input.value='';toast(_osData.fotos_equipamento.length+' foto(s) do equipamento','success');renderOsStep();
+  input.value='';
+  osPintarFotosEquip();
+  osSalvarRascunhoLocal();
+  toast(_osData.fotos_equipamento.length+' foto(s) do equipamento','success');
 }
-function removerFotoEquip(idx){if(!Array.isArray(_osData.fotos_equipamento))return;_osData.fotos_equipamento.splice(idx,1);renderOsStep()}
+// Atualiza SO a galeria. Antes chamava renderOsStep(), que remontava o passo 3
+// inteiro a partir de _osData e apagava codigo de erro, defeito, diagnostico e
+// data -- e ainda recarregava o catalogo, zerando a peca ja escolhida.
+function osPintarFotosEquip(){
+  var box=document.getElementById('fotosEquipGrid');
+  if(box) box.innerHTML=renderFotosEquipHtml();
+}
+function renderFotosEquipHtml(){
+  var fotos=Array.isArray(_osData.fotos_equipamento)?_osData.fotos_equipamento:[];
+  if(!fotos.length) return '<span class="text-xs text-muted">Nenhuma foto ainda</span>';
+  var h='';
+  fotos.forEach(function(url,i){
+    var miolo = ehPdfUrl(url)
+      ? '<a href="'+url+'" target="_blank" style="display:flex;flex-direction:column;align-items:center;justify-content:center;width:100%;height:100%;text-decoration:none;color:var(--primary);background:var(--primary-bg);font-size:11px;font-weight:700">PDF</a>'
+      : '<img src="'+url+'" style="width:100%;height:100%;object-fit:cover">';
+    h+='<div style="position:relative;width:100px;height:80px;border-radius:var(--radius-sm);overflow:hidden;border:1px solid var(--border);flex-shrink:0">'+miolo+
+       '<button onclick="removerFotoEquip('+i+')" style="position:absolute;top:2px;right:2px;background:var(--danger);color:#fff;border:none;border-radius:50%;width:20px;height:20px;font-size:11px;cursor:pointer">\u2715</button></div>';
+  });
+  return h;
+}
+function removerFotoEquip(idx){
+  if(!Array.isArray(_osData.fotos_equipamento))return;
+  _osData.fotos_equipamento.splice(idx,1);
+  osPintarFotosEquip();
+  osSalvarRascunhoLocal();
+}
 
 function osProximo(step){
+  osCommit();
+  var tr=function(v){return String(v==null?'':v).trim()};
   switch(step){
     case 1:
-      _osData.cliente_nome=document.getElementById('osCliNome').value.trim();
-      _osData.cliente_telefone=document.getElementById('osCliTel').value.trim();
-      _osData.cliente_uf=document.getElementById('osCliUF').value;
-      _osData.cliente_cidade=document.getElementById('osCliCidade').value.trim();
+      _osData.cliente_nome=tr(_osData.cliente_nome);
       if(!_osData.cliente_nome){toast('Preencha o nome do cliente','error');return}
       break;
     case 2:
-      _osData.produto_linha=document.getElementById('osProdLinha').value;
-      _osData.produto_modelo=document.getElementById('osProdModelo').value||null;
-      _osData.numero_serie=document.getElementById('osProdSerie').value.trim()||null;
-      _osData.numero_nf=document.getElementById('osNF').value.trim()||null;
-      _osData.data_compra=document.getElementById('osDataCompra').value||null;
       if(!_osData.produto_linha){toast('Selecione a linha do produto','error');return}
       if(!_osData.data_compra){toast('Informe a data da compra','error');return}
       _servicosCache=[];_categoriasCache=[];_accordionOpen=null;_servicosSelecionados=[];_showAccordionPicker=false;_tetoProduto=null;
       break;
     case 3:
-      _osData.codigo_erro=document.getElementById('osCodErro').value.trim()||null;
-      _osData.defeito_descricao=document.getElementById('osDefeito').value.trim();
-      _osData.diagnostico=document.getElementById('osDiag').value.trim()||null;
-      _osData.data_servico=document.getElementById('osSolData').value;
+      _osData.defeito_descricao=tr(_osData.defeito_descricao);
       if(!_osData.defeito_descricao){toast('Descreva o defeito','error');return}
       if(!_osData.data_servico){toast('Informe a data do serviço','error');return}
       if(!_servicosSelecionados.length){toast('Adicione ao menos um serviço realizado','error');return}
+      // calcValorEfetivo() depende de _categoriasCache/_tetoProduto. Avancar
+      // antes do carregamento terminar gravaria valor_servico SEM os tetos --
+      // ou seja, valor maior do que a Stonni paga.
+      if(_servicosCarregando){toast('Carregando a tabela de serviços — tente de novo em um instante','error');return}
       _osData.codigo_servico=_servicosSelecionados.map(function(x){return x.codigo}).join(', ');
       _osData.valor_servico=calcValorEfetivo();
       _osData.categoria_servico=_servicosSelecionados.map(function(x){return x.categoria_nome}).join(', ');
@@ -1193,9 +1464,11 @@ function osProximo(step){
   }
   _osStep=step+1;
   renderOsStep();
+  osSalvarRascunhoLocal();
 }
 
-function osVoltar(){_osStep--;renderOsStep()}
+// Commit ANTES de trocar de passo: sem isto, voltar apagava tudo do passo atual.
+function osVoltar(){ osCommit(); osSalvarRascunhoLocal(); _osStep--; renderOsStep() }
 
 async function osSalvar(status){
   var btn=document.getElementById(status==='rascunho'?'btnRascunho':'btnEnviar');
@@ -1203,7 +1476,7 @@ async function osSalvar(status){
   var payload={
     parceiro_id:_parceiroId,
     cliente_nome:_osData.cliente_nome,
-    cliente_telefone:_osData.cliente_telefone||null,
+    cliente_telefone:soDigitos(_osData.cliente_telefone)||null,
     cliente_cidade:_osData.cliente_cidade||null,
     cliente_uf:_osData.cliente_uf||null,
     produto_linha:_osData.produto_linha,
@@ -1278,6 +1551,11 @@ async function osSalvar(status){
     }
     bononiLog('ACAO','os',_editandoOsId?'EDITAR_OS':('CRIAR_OS_'+status.toUpperCase()),String(osId),proto);
     _editandoOsId=null;_editandoStatusOrig=null;
+    // Obrigatorio: renderPagina() e chamado direto em varios pontos e nao passa
+    // por navegar(), entao a guarda nao se limpa sozinha -- se ficar, toda
+    // navegacao do app vira uma confirmacao.
+    window._guardaSaida=null;
+    osLimparRascunho();
     navegar('minhas-os');
   }catch(e){
     console.error(e);toast('Erro ao salvar OS','error');
@@ -1301,7 +1579,7 @@ async function gerarPdfOS(id){
   // Nome do parceiro
   var parcNome=_usuario?_usuario.parceiro_nome||_usuario.nome||'':'';
   // Formatar telefone
-  function fmtFone(f){if(!f)return'-';f=f.replace(/\D/g,'');if(f.length===11)return'('+f.substr(0,2)+') '+f.substr(2,5)+'-'+f.substr(7);if(f.length===10)return'('+f.substr(0,2)+') '+f.substr(2,4)+'-'+f.substr(6);return f}
+  function fmtFone(f){return f?fmtTelefone(f):'-'}  // delega p/ o helper global
   // Status badge
   var statusColors={aprovada:'#065F46;background:#d1fae5',recusada:'#991b1b;background:#fee2e2',enviada:'#1e40af;background:#dbeafe',paga:'#6b21a8;background:#f3e8ff',rascunho:'#666;background:#f0f0f0'};
   var stColor=statusColors[o.status]||'#333;background:#f0f0f0';
@@ -1735,10 +2013,11 @@ async function renderComprarPecas(el){
     _compraLinhas.forEach(function(l){l.modelos=modelos.filter(function(m){return m.linha_id===l.id})});
     _compraFiltroLinha='';_compraFiltroModelo='';
     renderCatalogoCompra();
-  }catch(e){console.error(e);document.getElementById('compraPecasArea').innerHTML='<div class="empty-state"><p>Erro ao carregar</p></div>'}
+  }catch(e){console.error(e);var bx=document.getElementById('compraPecasArea');if(bx)bx.innerHTML='<div class="empty-state"><p>Erro ao carregar</p></div>'}
 }
 function renderCatalogoCompra(){
   var box=document.getElementById('compraPecasArea');
+  if(!box) return; // navegou p/ outra tela durante o load
   var pecas=_pecasCompra.filter(function(p){return p.preco_venda>0});
   if(!pecas.length){box.innerHTML='<div class="empty-state"><p>Nenhuma peça disponível para compra ainda</p></div>';return}
   // filtrar por linha
