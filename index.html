@@ -3102,17 +3102,18 @@ var PC_BUCKET='prt-compras-anexos';
 // interno, de propósito: ela pode ouvir a Stonni citando o status por telefone.
 var PC_ST={
   pendente:            {rot:'Aguardando aprovação', cls:'badge-enviada',  dica:'A Stonni está analisando o pedido.'},
-  aprovado:            {rot:'Aprovado',             cls:'badge-aprovada', dica:'Aprovado. A Stonni vai emitir a NF.'},
-  nota_anexada:        {rot:'NF emitida',           cls:'badge-aprovada', dica:'NF disponível abaixo. Aguarde a liberação para pagamento.'},
+  aprovado:            {rot:'Aprovado',             cls:'badge-aprovada', dica:'Aprovado. A Stonni vai enviar o orçamento.'},
+  orcamento_enviado:   {rot:'Orçamento enviado',    cls:'badge-aprovada', dica:'Orçamento disponível abaixo. Aguarde a liberação para pagamento.'},
   aguardando_pagamento:{rot:'Aguardando pagamento', cls:'badge-enviada',  dica:'Pague e anexe o comprovante.'},
   comprovante_enviado: {rot:'Comprovante enviado',  cls:'badge-aprovada', dica:'A Stonni está validando o pagamento.'},
-  pagamento_validado:  {rot:'Pagamento validado',   cls:'badge-paga',     dica:'Pagamento confirmado. Liberação em andamento.'},
+  pagamento_validado:  {rot:'Pagamento validado',   cls:'badge-paga',     dica:'Pagamento confirmado. A Stonni vai emitir a NF-e.'},
+  nota_anexada:        {rot:'NF-e emitida',         cls:'badge-paga',     dica:'NF-e disponível abaixo. Liberação em andamento.'},
   liberado:            {rot:'Liberado',             cls:'badge-paga',     dica:'Pedido liberado.'},
   rejeitado:           {rot:'Recusado',             cls:'badge-recusada', dica:'Pedido recusado pela Stonni.'},
   cancelado:           {rot:'Cancelado',            cls:'badge-recusada', dica:'Pedido cancelado.'},
   estornado:           {rot:'Estornado',            cls:'badge-recusada', dica:'Pagamento estornado.'}
 };
-var PC_CAT={nf_venda:'Nota fiscal',comprovante_pagamento:'Comprovante de pagamento',boleto:'Boleto',outro:'Outro'};
+var PC_CAT={orcamento:'Orçamento',nf_venda:'Nota fiscal (NF-e)',comprovante_pagamento:'Comprovante de pagamento',boleto:'Boleto',outro:'Outro'};
 var _pcPedidos=[];var _pcAnexos={};var _pcAcao=null;
 
 function pcBadge(s){
