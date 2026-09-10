@@ -298,6 +298,7 @@ tbody tr:hover{background:var(--primary-bg)}
 /* ===== TOAST ===== */
 .toast{
   position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:200;
+  display:flex;align-items:center;gap:8px;
   padding:12px 24px;border-radius:var(--radius);font-size:.85rem;font-weight:500;
   background:var(--surface);border:1px solid var(--border);box-shadow:var(--shadow);
   opacity:0;transition:opacity .3s;pointer-events:none;
@@ -305,6 +306,7 @@ tbody tr:hover{background:var(--primary-bg)}
 .toast.show{opacity:1}
 .toast.success{border-color:var(--success);color:var(--success)}
 .toast.error{border-color:var(--danger);color:var(--danger)}
+.toast.aviso{border-color:var(--warning);color:var(--warning)}
 
 /* ===== LOADING ===== */
 .spinner{width:20px;height:20px;border:2px solid var(--border);border-top-color:var(--primary);border-radius:50%;animation:spin .6s linear infinite;display:inline-block}
@@ -437,7 +439,7 @@ tbody tr:hover{background:var(--primary-bg)}
 </div>
 
 <!-- TOAST -->
-<div class="toast" id="toast"></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <!-- ==================== SCRIPTS ==================== -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -716,10 +718,23 @@ function toggleSidebar(){
 }
 
 // ===== TOAST =====
+// O icone sai do TIPO da mensagem, nunca da string. E o vocabulario tem alias
+// porque havia quatro palavras para tres estados: 'err' e 'ok' nao existiam no
+// CSS e saiam sem cor -- entre elas um erro de validacao de telefone.
+var TOAST_TIPO={
+  success:{cls:'success',ico:'circle-check'}, ok:{cls:'success',ico:'circle-check'},
+  error:{cls:'error',ico:'circle-x'}, err:{cls:'error',ico:'circle-x'}, erro:{cls:'error',ico:'circle-x'},
+  aviso:{cls:'aviso',ico:'triangle-alert'}, warning:{cls:'aviso',ico:'triangle-alert'}
+};
 function toast(msg,tipo){
   var el=document.getElementById('toast');
-  el.textContent=msg;
-  el.className='toast '+(tipo||'')+' show';
+  // tipo desconhecido cai em aviso, com icone: some cor, nao some a mensagem.
+  var t=TOAST_TIPO[tipo]||TOAST_TIPO.aviso;
+  el.className='toast '+t.cls+' show';
+  el.innerHTML=ico(t.ico,16);
+  // A mensagem entra como TEXTO, nao como HTML: varias carregam dado do banco
+  // (protocolo da OS, nome de peca) e innerHTML aqui seria caminho de injecao.
+  el.appendChild(document.createTextNode(msg));
   setTimeout(function(){el.classList.remove('show')},3000);
 }
 
@@ -860,7 +875,7 @@ async function salvarMeusDados(){
       body:JSON.stringify(payload)
     });
     if(!r.ok){ throw new Error('HTTP '+r.status); }
-    toast('Dados salvos! Obrigado 🙌','ok');
+    toast('Dados salvos!','ok');
     renderPerfil(document.getElementById('mainContent'));
   }catch(e){ console.error('salvarMeusDados',e); toast('Não consegui salvar. Tente de novo.','err'); }
 }
