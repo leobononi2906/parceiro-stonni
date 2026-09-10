@@ -1234,9 +1234,13 @@ function renderAccordionPicker(){
     var catTotal=totalCategoriaRaw(cat.id);
     var catTemSel=_servicosSelecionados.some(function(x){return x.categoria_id===cat.id});
     var catCapado=cat.valor_teto>0&&catTotal>cat.valor_teto;
-    var isOpen=_accordionOpen===cat.slug;
-    html+='<div class="srv-accordion'+(isOpen?' open':'')+'" data-cat="'+cat.slug+'">';
-    html+='<div class="srv-accordion-header'+(catTemSel?' has-selected':'')+'" onclick="toggleAccordion(\''+cat.slug+'\')">';
+    // Chave do grupo: slug quando existe, id como reserva. Categoria sem slug
+    // fazia o clique não casar com nada — o grupo abria vazio, sem erro, como
+    // se não houvesse serviço cadastrado.
+    var chave=cat.slug||('cat'+cat.id);
+    var isOpen=_accordionOpen===chave;
+    html+='<div class="srv-accordion'+(isOpen?' open':'')+'" data-cat="'+chave+'">';
+    html+='<div class="srv-accordion-header'+(catTemSel?' has-selected':'')+'" onclick="toggleAccordion(\''+chave+'\')">';
     html+='<div class="srv-accordion-title">'+cat.nome+(catTotal>0?' ('+(catCapado?'<span style="text-decoration:line-through;font-size:11px">'+fmt(catTotal)+'</span> ':'')+fmt(catCapado?cat.valor_teto:catTotal)+')':'')+'</div><div class="srv-accordion-teto">teto '+fmt(cat.valor_teto)+'</div><div class="srv-accordion-arrow">▼</div></div>';
     html+='<div class="srv-accordion-body">';
     items.forEach(function(s){
