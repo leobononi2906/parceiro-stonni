@@ -889,7 +889,19 @@ function toast(msg,tipo){
 
 // ===== HELPERS =====
 function fmt(v){return(v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}
-function fmtData(d){if(!d)return'-';return new Date(d).toLocaleDateString('pt-BR')}
+// Coluna DATE (sem hora) vinha um DIA ANTES: new Date('2026-09-17') e
+// meia-noite UTC, e no fuso do Brasil (-3) o toLocaleDateString volta para
+// o dia 16. Em 2026-01-01 errava o ANO (saia 31/12/2025). Pegava
+// data_compra (que inicia a garantia), data_servico e data_vencimento.
+// Data pura e montada como data LOCAL; a regex esta ANCORADA nela, entao
+// timestamp -- que traz hora e offset -- segue pelo new Date, onde acerta.
+function fmtData(d){
+  if(!d)return'-';
+  var s=String(d);
+  var m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
+  if(m)return new Date(+m[1],+m[2]-1,+m[3]).toLocaleDateString('pt-BR');
+  return new Date(s).toLocaleDateString('pt-BR');
+}
 // Mapeia o status interno para o que o parceiro vê: Rascunho / Aberta / Fechada / Cancelada
 function statusPublico(s){
   if(s==='rascunho') return {label:'Rascunho',cls:'badge-rascunho'};
@@ -2913,7 +2925,18 @@ async function enviarNFParceiro(pagId){var nf=document.getElementById('finNF'+pa
 var _carrinhoCompra=[],_pecasCompra=[],_descontoAutorizada=15;
 var _compraLinhas=[];var _compraFiltroLinha='';var _compraFiltroModelo='';
 async function renderComprarPecas(el){
-  el.innerHTML='<div class="page-header"><h1>Comprar Peças</h1></div><div id="compraPecasArea"><div class="loading-full"><span class="spinner"></span> Carregando...</div></div>';
+  el.innerHTML='<div class="page-header"><h1>Comprar Peças</h1></div>'+
+    // Aviso do ciclo: "aguardando pagamento" sozinho nao diz de quem e a
+    // proxima acao. Aqui a autorizada le a ordem inteira antes de precisar.
+    '<div class="card" style="margin-bottom:12px;background:var(--primary-bg);border-color:var(--primary-txt)">'+
+      '<p class="text-sm">Você monta o pedido no <strong>Catálogo</strong>. Depois a Stonni aprova e emite a NF; '+
+      'em <strong>Meus pedidos</strong> você baixa a nota, paga e anexa o comprovante.</p></div>'+
+    '<div class="filters-bar" id="pcAbas">'+
+      '<div class="filter-chip active" data-aba="catalogo" onclick="pcAba(\'catalogo\')">'+ico('shopping-cart',13)+' Catálogo</div>'+
+      '<div class="filter-chip" data-aba="pedidos" onclick="pcAba(\'pedidos\')">'+ico('package',13)+' Meus pedidos</div>'+
+    '</div>'+
+    '<div id="compraPecasArea"><div class="loading-full"><span class="spinner"></span> Carregando...</div></div>'+
+    '<div id="pcPedidosArea" hidden></div>';
   try{
     var cfgR=await fetch(SB_URL+'/rest/v1/prt_configuracoes?chave=eq.desconto_autorizada_perc&select=valor',{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
     var cfgArr=await cfgR.json();if(Array.isArray(cfgArr)&&cfgArr.length)_descontoAutorizada=parseFloat(cfgArr[0].valor)||15;
@@ -2996,7 +3019,320 @@ function filtrarPecasCompra(){var q=(document.getElementById('buscaPecaCompra')?
 function adicionarCompra(id){var p=_pecasCompra.find(function(x){return x.id===id});if(!p)return;var e=_carrinhoCompra.find(function(x){return x.id===id});if(e){e.q++;renderCatalogoCompra();return}_carrinhoCompra.push({id:p.id,ref:p.referencia,nm:p.nome,pt:p.preco_venda,pf:p.preco_venda*(1-_descontoAutorizada/100),ip:p.ipi_perc||0,q:1,_fromView:!!p._fromView});renderCatalogoCompra()}
 function updQC(i,v){_carrinhoCompra[i].q=Math.max(1,parseInt(v)||1);renderCatalogoCompra()}
 function rmC(i){_carrinhoCompra.splice(i,1);renderCatalogoCompra()}
-async function enviarPC(){if(!_carrinhoCompra.length){toast('Carrinho vazio','error');return}var tt=0,ti=0;_carrinhoCompra.forEach(function(x){var s=x.pf*x.q;tt+=s;ti+=s*(x.ip||0)/100});try{var r=await fetch(SB_URL+'/rest/v1/prt_compras_pecas',{method:'POST',headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json','Prefer':'return=representation'},body:JSON.stringify({parceiro_id:_parceiroId,valor_total:tt,ipi_total:ti,desconto_perc:_descontoAutorizada,valor_final:tt+ti,status:'pendente'})});var res=await r.json();if(!r.ok)throw new Error('Erro');var c=Array.isArray(res)?res[0]:res;var itens=_carrinhoCompra.map(function(x){return{compra_id:c.id,peca_catalogo_id:x._fromView?null:x.id,referencia:x.ref,nome:x.nm,quantidade:x.q,preco_unitario:x.pt,ipi_perc:x.ip,desconto_perc:_descontoAutorizada,preco_final:x.pf}});await fetch(SB_URL+'/rest/v1/prt_compras_pecas_itens',{method:'POST',headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'},body:JSON.stringify(itens)});toast('Pedido '+(c.codigo||'#'+c.id)+' enviado!','success');_carrinhoCompra=[];navegar('comprar-pecas')}catch(e){console.error(e);toast('Erro ao enviar','error')}}
+async function enviarPC(){if(!_carrinhoCompra.length){toast('Carrinho vazio','error');return}var tt=0,ti=0;_carrinhoCompra.forEach(function(x){var s=x.pf*x.q;tt+=s;ti+=s*(x.ip||0)/100});try{var r=await fetch(SB_URL+'/rest/v1/prt_compras_pecas',{method:'POST',headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json','Prefer':'return=representation'},body:JSON.stringify({parceiro_id:_parceiroId,valor_total:tt,ipi_total:ti,desconto_perc:_descontoAutorizada,valor_final:tt+ti,status:'pendente'})});var res=await r.json();if(!r.ok)throw new Error('Erro');var c=Array.isArray(res)?res[0]:res;var itens=_carrinhoCompra.map(function(x){return{compra_id:c.id,peca_catalogo_id:x._fromView?null:x.id,referencia:x.ref,nome:x.nm,quantidade:x.q,preco_unitario:x.pt,ipi_perc:x.ip,desconto_perc:_descontoAutorizada,preco_final:x.pf}});await fetch(SB_URL+'/rest/v1/prt_compras_pecas_itens',{method:'POST',headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'},body:JSON.stringify(itens)});toast('Pedido '+(c.codigo||'#'+c.id)+' enviado!','success');_carrinhoCompra=[];// cai na aba do pedido que ela acabou de criar, nao no catalogo vazio
+    navegar('comprar-pecas');setTimeout(function(){pcAba('pedidos')},400)}catch(e){console.error(e);toast('Erro ao enviar','error')}}
+
+// ===== PEDIDO DE PEÇA — CICLO DE NF E PAGAMENTO =====
+// A autorizada monta o pedido na aba Catálogo; aqui ela acompanha o resto do
+// ciclo: baixa a NF que a Stonni emitiu, paga, anexa o comprovante e avisa.
+// Portado de stonni-assistencia/modules/pedidos.js (face autorizada), reescrito
+// no idioma deste arquivo (ES5, sem template literal).
+//
+// NÃO CONFUNDIR com a tela Financeiro: lá é o fechamento do que a STONNI PAGA à
+// autorizada pelos serviços de garantia. Aqui o dinheiro vai na direção oposta
+// — a autorizada paga a Stonni pelas peças. Ciclos separados, telas separadas.
+//
+// O front NÃO decide a máquina de estados: manda só {status} e o guard trigger
+// do banco valida a transição, exige o anexo e carimba as datas. Data gravada
+// aqui seria a data do relógio do celular da autorizada.
+//
+// Bucket PRIVADO prt-compras-anexos: NF e comprovante são fiscais, então o link
+// é assinado no clique e expira. Diferente de prt-os-fotos, que é público.
+var PC_BUCKET='prt-compras-anexos';
+// Rótulo + cor + o que a etapa espera da autorizada. Mesmos textos do app
+// interno, de propósito: ela pode ouvir a Stonni citando o status por telefone.
+var PC_ST={
+  pendente:            {rot:'Aguardando aprovação', cls:'badge-enviada',  dica:'A Stonni está analisando o pedido.'},
+  aprovado:            {rot:'Aprovado',             cls:'badge-aprovada', dica:'Aprovado. A Stonni vai emitir a NF.'},
+  nota_anexada:        {rot:'NF emitida',           cls:'badge-aprovada', dica:'NF disponível abaixo. Aguarde a liberação para pagamento.'},
+  aguardando_pagamento:{rot:'Aguardando pagamento', cls:'badge-enviada',  dica:'Pague e anexe o comprovante.'},
+  comprovante_enviado: {rot:'Comprovante enviado',  cls:'badge-aprovada', dica:'A Stonni está validando o pagamento.'},
+  pagamento_validado:  {rot:'Pagamento validado',   cls:'badge-paga',     dica:'Pagamento confirmado. Liberação em andamento.'},
+  liberado:            {rot:'Liberado',             cls:'badge-paga',     dica:'Pedido liberado.'},
+  rejeitado:           {rot:'Recusado',             cls:'badge-recusada', dica:'Pedido recusado pela Stonni.'},
+  cancelado:           {rot:'Cancelado',            cls:'badge-recusada', dica:'Pedido cancelado.'},
+  estornado:           {rot:'Estornado',            cls:'badge-recusada', dica:'Pagamento estornado.'}
+};
+var PC_CAT={nf_venda:'Nota fiscal',comprovante_pagamento:'Comprovante de pagamento',boleto:'Boleto',outro:'Outro'};
+var _pcPedidos=[];var _pcAnexos={};var _pcAcao=null;
+
+function pcBadge(s){
+  var d=PC_ST[s]||{rot:s||'—',cls:'badge-enviada'};
+  return '<span class="badge '+d.cls+'">'+esc(d.rot)+'</span>';
+}
+
+// ---------- abas Catálogo / Meus pedidos ----------
+// Aba em vez de item novo no menu: a barra lateral já tem 8 itens, e pedido de
+// peça é continuação de comprar peça, não outro assunto.
+function pcAba(qual){
+  var chips=document.querySelectorAll('#pcAbas .filter-chip');
+  for(var i=0;i<chips.length;i++)chips[i].classList.toggle('active',chips[i].getAttribute('data-aba')===qual);
+  var cat=document.getElementById('compraPecasArea');
+  var ped=document.getElementById('pcPedidosArea');
+  if(!cat||!ped)return;
+  cat.hidden=(qual!=='catalogo');
+  ped.hidden=(qual!=='pedidos');
+  if(qual==='pedidos'){
+    ped.innerHTML='<div class="loading-full"><span class="spinner"></span> Carregando...</div>';
+    renderPcPedidos(ped);
+  }
+}
+
+// ---------- transição de status ----------
+// O guard do banco devolve a razão em texto ("Anexe o arquivo antes desta
+// etapa", "Transicao invalida"). Mostrar isso, e não um "erro 400" genérico —
+// a autorizada precisa saber o que fazer, não que houve um número.
+async function pcTransicionar(id,novo){
+  try{
+    var r=await fetch(SB_URL+'/rest/v1/prt_compras_pecas?id=eq.'+id,{
+      method:'PATCH',
+      headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json','Prefer':'return=minimal'},
+      body:JSON.stringify({status:novo})
+    });
+    if(r.ok){
+      bononiLog('ACAO','compra','PEDIDO_STATUS',String(id),novo);
+      toast((PC_ST[novo]||{}).rot||'Status atualizado','success');
+      var ped=document.getElementById('pcPedidosArea');
+      if(ped)renderPcPedidos(ped);
+      return true;
+    }
+    var j=await r.json().catch(function(){return null});
+    var motivo=(j&&j.message)?j.message:('HTTP '+r.status);
+    toast('Não deu para avançar: '+motivo,'error');
+  }catch(e){
+    console.error(e);
+    toast('Erro de conexão ao atualizar o pedido','error');
+  }
+  return false;
+}
+
+// ---------- confirmação em modal ----------
+// O app não usa confirm() nativo (Safari iOS). Mesmo markup dos outros modais
+// daqui, então o observador de acessibilidade dá role=dialog, Escape e foco.
+function pcConfirmar(titulo,msg,rotuloOk,perigo,aoConfirmar){
+  _pcAcao=aoConfirmar;
+  var chips=document.querySelectorAll('.modal-overlay.show');
+  for(var i=0;i<chips.length;i++)chips[i].classList.remove('show');
+  var estilo=perigo?'background:var(--danger);color:#fff':'';
+  var html='<div class="modal-overlay show" id="modalPc"><div class="modal">'+
+    '<div class="modal-title">'+esc(titulo)+'<button class="modal-close" aria-label="Fechar" onclick="pcFecharConfirm()">'+ico('x',20)+'</button></div>'+
+    '<p class="text-sm text-muted mb-16">'+esc(msg)+'</p>'+
+    '<div class="flex gap-8 mt-16" style="justify-content:flex-end">'+
+      '<button class="btn btn-ghost btn-sm" style="width:auto" onclick="pcFecharConfirm()">Voltar</button>'+
+      '<button class="btn btn-sm" style="width:auto;'+estilo+'" onclick="pcConfirmarOk()">'+esc(rotuloOk)+'</button>'+
+    '</div>'+
+  '</div></div>';
+  document.body.insertAdjacentHTML('beforeend',html);
+}
+function pcFecharConfirm(){
+  _pcAcao=null;
+  var m=document.getElementById('modalPc');
+  if(m)m.remove();
+}
+function pcConfirmarOk(){
+  var f=_pcAcao;_pcAcao=null;
+  var m=document.getElementById('modalPc');
+  if(m)m.remove();
+  if(typeof f==='function')f();
+}
+
+// ---------- anexos ----------
+function pcAceito(f){return !!f&&(f.type==='application/pdf'||/^image\//.test(f.type))}
+
+// Bucket privado: o link tem de ser assinado na hora do clique, e expira.
+async function pcAbrirAnexo(anexoId){
+  var a=_pcAnexos[anexoId];
+  if(!a){toast('Anexo não encontrado','error');return}
+  try{
+    var sess=await sb.auth.getSession();
+    var token=(sess&&sess.data&&sess.data.session)?sess.data.session.access_token:SB_KEY;
+    var r=await fetch(SB_URL+'/storage/v1/object/sign/'+PC_BUCKET+'/'+a.storage_path,{
+      method:'POST',
+      headers:{'apikey':SB_KEY,'Authorization':'Bearer '+token,'Content-Type':'application/json'},
+      body:JSON.stringify({expiresIn:3600})
+    });
+    var d=await r.json().catch(function(){return null});
+    if(!r.ok||!d||!d.signedURL)throw new Error((d&&d.message)||('HTTP '+r.status));
+    window.open(SB_URL+'/storage/v1'+d.signedURL,'_blank');
+  }catch(e){
+    console.error(e);
+    toast('Não deu para abrir o arquivo: '+(e&&e.message),'error');
+  }
+}
+
+async function pcAnexar(compraId,categoria){
+  var inp=document.createElement('input');
+  inp.type='file';
+  // sem `capture`: com ele o celular abre a câmera direto e a pessoa não
+  // consegue escolher um PDF que já está no aparelho.
+  inp.accept='image/*,application/pdf';
+  inp.onchange=async function(){
+    var file=inp.files&&inp.files[0];
+    if(!file)return;
+    if(!pcAceito(file)){toast('Envie uma imagem ou um PDF','error');return}
+    if(file.size>20*1024*1024){toast('Arquivo acima de 20 MB','error');return}
+    toast('Enviando '+file.name+'...');
+    try{
+      var ext=(file.name.split('.').pop()||'bin').toLowerCase();
+      var limpo=file.name.replace(/[^a-zA-Z0-9._-]/g,'_');
+      // parceiro_id na 1ª pasta: é o que vai permitir escopar o bucket por
+      // autorizada quando a RLS de storage entrar.
+      var path=(_parceiroId||0)+'/'+compraId+'/'+categoria+'/'+Date.now()+'-'+limpo;
+      var sess=await sb.auth.getSession();
+      var token=(sess&&sess.data&&sess.data.session)?sess.data.session.access_token:SB_KEY;
+      var up=await fetch(SB_URL+'/storage/v1/object/'+PC_BUCKET+'/'+path,{
+        method:'POST',
+        headers:{'apikey':SB_KEY,'Authorization':'Bearer '+token,'Content-Type':file.type||'application/octet-stream','x-upsert':'true'},
+        body:file
+      });
+      if(!up.ok)throw new Error('Upload falhou (HTTP '+up.status+')');
+      var ins=await fetch(SB_URL+'/rest/v1/prt_compras_anexos',{
+        method:'POST',
+        headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json','Prefer':'return=minimal'},
+        body:JSON.stringify({
+          compra_id:compraId,categoria:categoria,nome_arquivo:file.name,storage_path:path,
+          mime_type:file.type||null,extensao:ext,tamanho_bytes:file.size,
+          enviado_por_email:_user?_user.email:null,
+          enviado_por_nome:_parceiro?_parceiro.nome:null,
+          enviado_por_papel:'autorizada'
+        })
+      });
+      if(!ins.ok)throw new Error('Não deu para registrar o anexo (HTTP '+ins.status+')');
+      bononiLog('ACAO','compra','ANEXAR_PEDIDO',String(compraId),categoria,ext);
+      toast(file.type==='application/pdf'?'PDF anexado!':'Imagem anexada!','success');
+      var ped=document.getElementById('pcPedidosArea');
+      if(ped)renderPcPedidos(ped);
+    }catch(e){
+      console.error(e);
+      bononiLog('ERRO','compra','ANEXAR_PEDIDO',String(compraId),categoria,e&&e.message);
+      toast('Erro no envio: '+(e&&e.message),'error');
+    }
+  };
+  inp.click();
+}
+
+function pcAnexarComprovante(id){pcAnexar(id,'comprovante_pagamento')}
+
+// Etapa separada do anexo de propósito: ela pode anexar mais de um arquivo
+// (boleto + comprovante, duas parcelas) antes de dizer "terminei".
+function pcEnviarComprovante(id){
+  pcConfirmar('Avisar a Stonni?','Confirma que o pagamento foi feito e o comprovante está anexado?','Já paguei',false,
+    function(){pcTransicionar(id,'comprovante_enviado')});
+}
+function pcCancelarPedido(id){
+  pcConfirmar('Cancelar pedido?','O pedido sai da fila e a Stonni não vai analisá-lo.','Cancelar pedido',true,
+    function(){pcTransicionar(id,'cancelado')});
+}
+
+// Lista de anexos agrupada por categoria — com mais de um arquivo, jogar tudo
+// num parágrafo só vira borrão.
+function pcAnexosHtml(lista){
+  if(!lista||!lista.length)return '<span class="text-xs text-muted">Nenhum arquivo ainda.</span>';
+  var porCat={};
+  lista.forEach(function(a){(porCat[a.categoria]=porCat[a.categoria]||[]).push(a)});
+  var out='';
+  Object.keys(porCat).forEach(function(cat){
+    out+='<div style="margin-top:6px">'+
+      '<div class="text-xs" style="color:var(--text-m);font-weight:700;text-transform:uppercase;letter-spacing:.04em">'+
+        esc(PC_CAT[cat]||cat)+' ('+porCat[cat].length+')</div>';
+    porCat[cat].forEach(function(a){
+      var kb=a.tamanho_bytes?Math.round(a.tamanho_bytes/1024)+' KB':'';
+      var quem=esc(a.enviado_por_nome||(a.enviado_por_papel==='autorizada'?'Você':'Stonni'));
+      out+='<div class="flex items-center gap-8" style="padding:2px 0">'+
+        '<span style="display:inline-flex;color:var(--primary-txt)">'+
+          (a.mime_type==='application/pdf'?ico('file-text',14):ico('image',14))+'</span>'+
+        '<a href="javascript:void(0)" onclick="pcAbrirAnexo('+a.id+')" class="text-xs" '+
+          'style="color:var(--primary-txt);text-decoration:underline;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+
+          esc(a.nome_arquivo||'arquivo')+'</a>'+
+        '<span class="text-xs" style="color:var(--text-m);white-space:nowrap">'+esc(kb)+(kb?' · ':'')+quem+'</span>'+
+      '</div>';
+    });
+    out+='</div>';
+  });
+  return out;
+}
+
+// ---------- a lista de pedidos ----------
+async function renderPcPedidos(box){
+  if(!_parceiroId){box.innerHTML='<div class="empty-state"><p>Usuário sem vínculo de autorizada.</p></div>';return}
+  try{
+    var H={headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY},cache:'no-store'};
+    // A view já traz o nome da autorizada, a contagem de itens e quantos anexos
+    // de cada tipo existem — evita uma consulta por cartão só para saber se o
+    // botão "Já paguei" pode aparecer.
+    var r=await fetch(SB_URL+'/rest/v1/prt_compras_detalhe?parceiro_id=eq.'+_parceiroId+'&order=criado_em.desc&select=*',H);
+    _pcPedidos=await r.json();
+    if(!Array.isArray(_pcPedidos))_pcPedidos=[];
+    if(!_pcPedidos.length){
+      box.innerHTML='<div class="empty-state">'+
+        '<div class="empty-state-icon">'+ico('shopping-cart',40)+'</div>'+
+        '<h3>Nenhum pedido ainda</h3>'+
+        '<p>Monte um pedido na aba Catálogo.</p></div>';
+      return;
+    }
+    var ids=_pcPedidos.map(function(p){return p.id}).join(',');
+    var ra=await fetch(SB_URL+'/rest/v1/prt_compras_anexos?compra_id=in.('+ids+')&order=criado_em.asc&select=*',H);
+    var anexos=await ra.json();if(!Array.isArray(anexos))anexos=[];
+    _pcAnexos={};
+    var porCompra={};
+    anexos.forEach(function(a){_pcAnexos[a.id]=a;(porCompra[a.compra_id]=porCompra[a.compra_id]||[]).push(a)});
+    var ri=await fetch(SB_URL+'/rest/v1/prt_compras_pecas_itens?compra_id=in.('+ids+')&order=id.asc&select=*',H);
+    var itens=await ri.json();if(!Array.isArray(itens))itens=[];
+    var porItens={};
+    itens.forEach(function(i){(porItens[i.compra_id]=porItens[i.compra_id]||[]).push(i)});
+
+    box.innerHTML=_pcPedidos.map(function(p){
+      var d=PC_ST[p.status]||{};
+      var its=porItens[p.id]||[];
+      var podeComprovante=(p.status==='aguardando_pagamento');
+      var jaTemComprovante=(Number(p.anexos_comprovante)||0)>0;
+      var vence=p.data_vencimento?'<span class="text-xs" style="color:var(--warning)">vence '+fmtData(p.data_vencimento)+'</span>':'';
+
+      var acoes='';
+      if(podeComprovante){
+        acoes='<div class="flex gap-8 mt-8" style="flex-wrap:wrap">'+
+          '<button class="btn btn-primary btn-sm" style="width:auto" onclick="pcAnexarComprovante('+p.id+')">'+
+            ico('receipt',13)+' Anexar comprovante</button>'+
+          (jaTemComprovante
+            ? '<button class="btn btn-outline btn-sm" style="width:auto" onclick="pcEnviarComprovante('+p.id+')">'+
+                ico('check',13)+' Já paguei, avisar a Stonni</button>'
+            : '')+
+        '</div>'+
+        '<p class="text-xs" style="color:var(--text-m);margin-top:4px">Aceita imagem <strong>ou</strong> PDF, até 20 MB. '+
+          (jaTemComprovante?'Pode anexar mais de um arquivo antes de avisar.':'Anexe o comprovante para liberar o aviso.')+'</p>';
+      }else if(p.status==='pendente'){
+        acoes='<div class="mt-8"><button class="btn btn-outline btn-sm" style="width:auto;color:var(--danger);border-color:var(--danger)" '+
+          'onclick="pcCancelarPedido('+p.id+')">'+ico('x',13)+' Cancelar pedido</button></div>';
+      }
+
+      return '<div class="card" style="margin-bottom:10px">'+
+        '<div class="flex justify-between items-center" style="flex-wrap:wrap;gap:6px">'+
+          '<div><span class="fw-700" style="font-size:15px">'+esc(p.codigo||('#'+p.id))+'</span> '+pcBadge(p.status)+
+            '<div class="text-xs" style="color:var(--text-m)">'+fmtData(p.criado_em)+' · '+(p.qtd_itens||its.length)+' item(ns)'+(vence?' · '+vence:'')+'</div></div>'+
+          '<div style="text-align:right"><div class="fw-700" style="font-size:16px;color:var(--primary-txt)">'+fmt(p.valor_final)+'</div>'+
+            (p.nf_venda?'<div class="text-xs" style="color:var(--text-m)">NF '+esc(p.nf_venda)+'</div>':'')+'</div>'+
+        '</div>'+
+        (d.dica?'<p class="text-xs" style="color:var(--text-m);margin:8px 0 0">'+esc(d.dica)+'</p>':'')+
+        (p.motivo_recusa?'<p class="text-xs" style="color:var(--danger);margin:6px 0 0"><strong>Motivo:</strong> '+esc(p.motivo_recusa)+'</p>':'')+
+        (its.length
+          ? '<div style="border-top:1px solid var(--border);margin-top:8px;padding-top:6px">'+
+            its.map(function(i){
+              return '<div class="flex justify-between text-xs" style="padding:1px 0">'+
+                '<span>'+(i.quantidade||1)+'x <b>'+esc(i.referencia||'')+'</b> '+esc(i.nome||'')+'</span>'+
+                '<span style="white-space:nowrap">'+fmt(i.preco_final)+'</span></div>';
+            }).join('')+'</div>'
+          : '')+
+        '<div style="border-top:1px solid var(--border);margin-top:8px;padding-top:6px">'+pcAnexosHtml(porCompra[p.id])+'</div>'+
+        acoes+
+      '</div>';
+    }).join('');
+  }catch(e){
+    console.error(e);
+    bononiLog('ERRO','compra','LOAD_MEUS_PEDIDOS',null,null,e&&e.message);
+    box.innerHTML='<div class="empty-state"><p>Não foi possível carregar seus pedidos.</p>'+
+      '<p class="text-xs" style="color:var(--text-m)">'+esc((e&&e.message)||'')+'</p></div>';
+  }
+}
 
 // enter key no login
 document.getElementById('loginSenha').addEventListener('keydown',function(e){if(e.key==='Enter')fazerLogin()});
