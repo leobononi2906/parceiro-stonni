@@ -34,8 +34,9 @@ atende** e registra a indicação.
   copiar e link `wa.me` quando o telefone dele foi informado.
 - Rodapé da tela: os 5 últimos encaminhamentos feitos por esta autorizada.
 
-**Depende da migration** `2026-09-10_encaminhamento_rede.sql` (repo `stonni-assistencia`,
-`docs/sql/`) — aplicar em produção **antes** do deploy desta tela.
+**Migration** `2026-09-10_encaminhamento_rede.sql` (repo `stonni-assistencia`, `docs/sql/`)
+já **aplicada em produção em 10/09/2026** — `prt_parceiro_categorias` e `prt_encaminhamentos`
+existem, vazias. Esta tela pode subir.
 
 ## Telas (função `navegar()`)
 Início/dashboard (Últimas OS) · Nova OS · Minhas OS · **Encaminhar cliente** · Material Técnico · Meu Estoque · Comprar Peças · Financeiro · Perfil.
