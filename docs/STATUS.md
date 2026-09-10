@@ -1,6 +1,6 @@
 # STATUS — Portal Rede Autorizada (parceiro-stonni)
 
-> Atualizado: 2026-08-11
+> Atualizado: 2026-09-10
 
 ## O que é
 Portal do **parceiro da rede de assistência técnica autorizada Stonni**: o parceiro abre OS, consulta material técnico, controla o próprio estoque de peças, compra peças e vê o financeiro dele.
@@ -9,7 +9,79 @@ Portal do **parceiro da rede de assistência técnica autorizada Stonni**: o par
 - **Clone real (git):** `C:\CLAUDE\Projetos GitHub\parceiro-stonni` (remote `leobononi2906/parceiro-stonni`, branch `main`). *(Desaninhado de `assistencia\` em 11/08/2026.)*
 - **Deploy:** https://parceiro-stonni.vercel.app (chave de acesso no Hub = `rede-autorizada`) · push na `main` → Vercel automático.
 - **Supabase:** `vishxwdxqiygbxmtpfoy` (prefixo `prt_`).
-- **Código:** `index.html` único (~160KB, ~2550 linhas). Sem build. `vercel.json` com SPA rewrite + headers de segurança (X-Frame-Options DENY, nosniff). Chama Supabase por `fetch` em `/rest/v1/`.
+- **Código:** `index.html` único (~196KB). Sem build. `vercel.json` com SPA rewrite + headers de segurança (X-Frame-Options DENY, nosniff). Chama Supabase por `fetch` em `/rest/v1/`.
+
+## 10/09/2026 — Contraste AA, ícones no lugar dos emojis, acessibilidade
+
+A auditoria mediu **32 pares reais de cor e reprovou 20**. Não eram casos de borda: o botão
+principal era branco sobre o ciano claro, **2,00:1** — o mínimo AA para texto é 4,5. Hoje
+são **30 pares medidos, 30 passando**, e há script no repo para não escorregar de novo:
+
+```
+py -3 docs/contraste.py     # sai com erro se algum par cair abaixo do mínimo
+```
+
+**A decisão que salvou a identidade.** Escurecer o ciano `#4FC3F7` até dar 4,5:1 com texto
+branco levaria a `#087EB3`, que não é o azul da marca. Então o ciano **não mudou**: continua
+como preenchimento (botão, chip, borda selecionada), e o **rótulo do `.btn-primary` passou a
+ser escuro** (`var(--text)`) sobre ele — **7,21:1**, hover 6,27. Para texto e ícone em ciano
+sobre fundo claro entrou um token separado, `--primary-txt: #0E6E9C`.
+
+| token | de | para |
+|---|---|---|
+| `--primary-txt` *(novo)* | — | `#0E6E9C` |
+| `--success` | `#4CAF50` | `#2E7D32` |
+| `--warning` | `#F57C00` | `#A85400` |
+| `--danger` | `#E53935` | `#C62828` |
+| `--paid` | `#AB47BC` | `#8E24AA` |
+| `--border-campo` *(novo)* | — | `#7691B1` |
+| `--primary` | `#4FC3F7` | **não mudou** — é preenchimento |
+
+`--text-d` (`#8DA0B8`) **deixou de ser cor de texto**: reprovava em qualquer fundo, e estava
+no `thead` de todas as tabelas. Os usos passaram a `--text-m`; ele ficou só na seta do
+acordeão e no traço do SVG de estado vazio. O verificador tem uma camada de regras, não só
+de pares, exatamente para pegar esse tipo de reincidência — foi ela que achou três lugares
+onde `--text-d` continuava servindo de cor de texto.
+
+**A paleta do `bononi-exped` não foi adotada** — dele vem o *idioma dos ícones*, não as
+cores: o `btn-primary` do exped reprova em 3,30:1 e ele tem 103 usos de `text-slate-400`
+abaixo de AA. Adotá-la seria trocar uma dívida por outra.
+
+**Ícones.** 34 caracteres distintos, 51 ocorrências, todos de interface. Entraram como
+`ico(nome, tamanho)`, que devolve **string** SVG a partir de geometria copiada do
+**lucide 0.462.0** (o mesmo do exped, licença ISC) — 84 nomes. Não usei o UMD por CDN de
+propósito: as telas são remontadas com `innerHTML` dezenas de vezes por sessão, e qualquer
+solução que exija hidratação depois de **cada** render é armadilha garantida.
+
+Dois lugares onde o significado estava **só** no emoji ganharam texto junto:
+
+- `Fotos: NF ✅ / ❌` era por onde o técnico decidia se podia enviar a OS. Agora é ícone
+  **mais** "NF anexada" / "NF faltando".
+- O semáforo de estoque passou a mapa de estado com rótulo. O limiar "≤3 = atenção" era
+  invisível: só a cor e a bolinha mudavam.
+
+Armadilha que vale saber: **três `✕` estavam escritos na forma escapada** (`✕`, com a
+barra invertida no fonte) — varredura por codepoint não os acha. A conferência tem de
+procurar as duas grafias.
+
+**Acessibilidade (níveis 1 e 2).** 13 botões só-ícone rotulados (11 não tinham nome nenhum),
+19 `aria-hidden` em ícone decorativo, **24 `<label>` ligados ao campo** (nenhum era, antes),
+`role="status"` no toast — por onde passa *todo* o retorno de erro do app —, os **7 modais**
+viraram diálogos com `Escape` e devolução de foco, e estado que só existia em cor ganhou
+equivalente programático (`aria-current`, `aria-expanded`, `aria-pressed`, nome no
+`.nav-badge`).
+
+Os sete modais são montados por concatenação e inseridos no `body`; em vez de tocar nos sete
+pontos, um observador ativa qualquer `.modal-overlay.show` (`modalAtivar`). O `Escape`
+**aciona o botão de fechar que já existe** — nunca remove nada por conta própria. Isso importa
+no wizard da Nova OS, que tem guarda de saída: fechar por teclado passa pela mesma guarda,
+senão o rascunho se perde.
+
+**Fora desta rodada, de propósito:**
+- **Teclado (WCAG 2.1.1).** São 94 `onclick` contra 52 `<button>`: o app **não se opera por
+  teclado**. É falha real e merece rodada própria — mexe em quase toda tela.
+- **Documento impresso e textos de WhatsApp.** Nada que chega ao cliente mudou de conteúdo.
+- **Tema escuro** — não existe, e nada aqui criou um.
 
 
 ## 10/09/2026 — Tela "Encaminhar cliente"
