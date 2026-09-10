@@ -680,8 +680,11 @@ function navegar(pagina,forcar){
   document.querySelectorAll('.nav-item').forEach(function(el){el.classList.remove('active')});
   var items=document.querySelectorAll('.nav-item');
   for(var i=0;i<items.length;i++){
+    items[i].removeAttribute('aria-current');
     if(items[i].getAttribute('onclick')&&items[i].getAttribute('onclick').indexOf("'"+pagina+"'")>-1){
       items[i].classList.add('active');
+      // a cor sozinha nao diz "voce esta aqui"
+      items[i].setAttribute('aria-current','page');
     }
   }
   // fechar sidebar mobile
@@ -718,6 +721,48 @@ function toggleSidebar(){
 }
 
 // ===== TOAST =====
+// ---------- controles que sao <div>: estado e teclado ----------
+// Chip de filtro e cabecalho de accordion sao <div onclick>. Anunciar
+// aria-pressed num div sem role nao resolve, entao os dois ganham
+// role="button" + tabindex, e Enter/Espaco acionam o clique.
+//
+// A sincronizacao roda depois de cada clique porque filtrarOS() troca a classe
+// .active nos elementos que JA estao na tela, sem re-render -- um atributo
+// escrito so na criacao ficaria velho no primeiro filtro trocado.
+function a11ySincronizar() {
+  var chips = document.querySelectorAll('.filter-chip,.compra-filter-chip');
+  for (var i = 0; i < chips.length; i++) {
+    var c = chips[i];
+    if (!c.getAttribute('onclick')) continue;      // container, nao chip
+    c.setAttribute('role', 'button');
+    if (!c.hasAttribute('tabindex')) c.setAttribute('tabindex', '0');
+    c.setAttribute('aria-pressed', c.classList.contains('active') ? 'true' : 'false');
+  }
+  var heads = document.querySelectorAll('.srv-accordion-header');
+  for (var j = 0; j < heads.length; j++) {
+    var h = heads[j], box = h.parentNode;
+    h.setAttribute('role', 'button');
+    if (!h.hasAttribute('tabindex')) h.setAttribute('tabindex', '0');
+    h.setAttribute('aria-expanded',
+      (box && box.classList && box.classList.contains('open')) ? 'true' : 'false');
+  }
+}
+var _a11yAgendado = false;
+function a11yAgendar() {
+  if (_a11yAgendado) return;
+  _a11yAgendado = true;
+  setTimeout(function () { _a11yAgendado = false; a11ySincronizar(); }, 0);
+}
+document.addEventListener('click', a11yAgendar);
+document.addEventListener('keydown', function (ev) {
+  if (ev.key !== 'Enter' && ev.key !== ' ' && ev.keyCode !== 13 && ev.keyCode !== 32) return;
+  var el = document.activeElement;
+  if (!el || el.tagName === 'BUTTON' || el.tagName === 'A' || el.tagName === 'INPUT') return;
+  if (el.getAttribute('role') !== 'button' || !el.getAttribute('onclick')) return;
+  ev.preventDefault();
+  el.click();
+});
+
 // ---------- modal como dialogo ----------
 // Os sete modais deste arquivo sao montados por concatenacao e inseridos no
 // body com a classe .modal-overlay.show. Um observador ativa todos, sem
@@ -776,6 +821,7 @@ document.addEventListener('click', function () { setTimeout(modalDevolverFoco, 0
       }
     }
     modalDevolverFoco();
+    a11yAgendar();
   }).observe(document.body, { childList: true, subtree: true });
 })();
 
@@ -2735,6 +2781,8 @@ function encAtualizarBadge(){
   var b=document.getElementById('badgeEnc');if(!b)return;
   var n=encNovosDesde(Date.parse(encVistoEm()||''));
   b.textContent=n;
+  // sem isto o leitor anuncia so o numero, sem dizer de que
+  b.setAttribute('aria-label', n===1 ? '1 encaminhamento novo' : n+' encaminhamentos novos');
   if(n>0) b.classList.remove('hidden'); else b.classList.add('hidden');
 }
 async function encBadgeAoEntrar(){
