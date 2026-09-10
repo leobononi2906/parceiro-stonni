@@ -1361,7 +1361,7 @@ function renderOsStep(){
         '<div class="form-group"><label for="osProdSerie">Número de série <span class="text-xs text-muted">(opcional)</span></label><input type="text" id="osProdSerie" value="'+esc(_osData.numero_serie)+'" placeholder="Se disponível"></div>'+
         '<hr style="border:0;border-top:1px solid var(--border);margin:16px 0">'+
         '<div class="form-row cols-2">'+
-          '<div class="form-group"><label for="osNF">Número da NF de compra <span class="text-xs text-muted">(opcional)</span></label><input type="text" id="osNF" value="'+esc(_osData.numero_nf)+'" placeholder="NF de compra do cliente"></div>'+
+          '<div class="form-group"><label for="osNF">Número da NF de compra <span class="text-xs" style="color:var(--danger)">*</span></label><input type="text" id="osNF" value="'+esc(_osData.numero_nf)+'" placeholder="NF de compra do cliente"></div>'+
           '<div class="form-group"><label for="osDataCompra">Data da compra</label><input type="date" id="osDataCompra" value="'+esc(_osData.data_compra)+'"></div>'+
         '</div>'+
         '<div class="form-group"><label for="fotoNF">NF de compra (foto ou PDF)</label>'+
@@ -1832,6 +1832,10 @@ function osProximo(step){
     case 2:
       if(!_osData.produto_linha){toast('Selecione a linha do produto','error');return}
       if(!_osData.data_compra){toast('Informe a data da compra','error');return}
+      // Garantia se prova com a nota: sem o numero da NF-e de compra a Stonni
+      // nao tem como conferir o inicio da garantia contra a data digitada.
+      _osData.numero_nf=tr(_osData.numero_nf);
+      if(!_osData.numero_nf){toast('Informe o número da NF-e de compra','error');return}
       _servicosCache=[];_categoriasCache=[];_accordionOpen=null;_servicosSelecionados=[];_showAccordionPicker=false;_tetoProduto=null;
       break;
     case 3:
