@@ -64,6 +64,20 @@ Armadilha que vale saber: **três `✕` estavam escritos na forma escapada** (`�
 barra invertida no fonte) — varredura por codepoint não os acha. A conferência tem de
 procurar as duas grafias.
 
+**Verificador das chamadas de ícone:**
+
+```
+py -3 docs/verifica_icones.py     # sai com erro se achar problema
+```
+
+Errar uma chamada de `ico()` não dá erro de sintaxe e não aparece em revisão. Confere duas
+coisas: a **forma** (a chamada tem de ficar em contexto de código — `${ico(..)}` dentro de
+uma string de aspa simples imprime `${ico('x', 14)}` na tela, e `' + ico(..) + '` dentro de
+um template imprime `' + ico('x', 14) + '`) e o **destino** (`textContent`, `innerText`,
+`esc()` e valor de atributo de texto não renderizam markup — foi assim que 12 botões do app
+interno mostraram o `<svg>` escrito, e só **depois do clique**, porque a renderização
+inicial usava `innerHTML`).
+
 **Acessibilidade (níveis 1 e 2).** 13 botões só-ícone rotulados (11 não tinham nome nenhum),
 19 `aria-hidden` em ícone decorativo, **24 `<label>` ligados ao campo** (nenhum era, antes),
 `role="status"` no toast — por onde passa *todo* o retorno de erro do app —, os **7 modais**
