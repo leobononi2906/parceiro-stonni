@@ -1632,11 +1632,22 @@ async function gerarPdfOS(id){
   var tt=await tetoDetalhar(servicos,LINHAS_DB_TETO[o.produto_linha]||'',o.valor_servico);
   var TD='padding:4px 8px;border-bottom:1px solid #eee';
   var HIT='border:1px solid #b06000;border-left:5px solid #b06000;background:#fdf3e6;border-radius:3px;padding:5px 8px;font-size:10px;color:#7a4300;line-height:1.45';
+  // Só quando EXCEDEU. Dentro dos tetos o documento não tem nada a explicar:
+  // sai a tabela de sempre, com a coluna CATEGORIA e sem menção a teto.
+  var excedeu=tt.capadoCategoria||tt.capadoProduto;
+  var TH='text-align:left;padding:4px 8px;font-size:10px;border-bottom:1px solid #ccc';
   var srvHtml='';
-  if(servicos.length){
-    srvHtml='<table style="width:100%;border-collapse:collapse;margin-top:6px"><thead><tr style="background:#f0f3f7"><th style="text-align:left;padding:4px 8px;font-size:10px;border-bottom:1px solid #ccc">CÓDIGO</th><th style="text-align:left;padding:4px 8px;font-size:10px;border-bottom:1px solid #ccc">SERVIÇO REALIZADO</th><th style="text-align:right;padding:4px 8px;font-size:10px;border-bottom:1px solid #ccc;width:135px">VALOR</th></tr></thead><tbody>';
+  if(servicos.length&&!excedeu){
+    srvHtml='<table style="width:100%;border-collapse:collapse;margin-top:6px"><thead><tr style="background:#f0f3f7"><th style="'+TH+'">CÓDIGO</th><th style="'+TH+'">SERVIÇO REALIZADO</th><th style="'+TH+'">CATEGORIA</th><th style="'+TH+';text-align:right">VALOR</th></tr></thead><tbody>';
+    servicos.forEach(function(s){srvHtml+='<tr><td style="'+TD+';font-family:Consolas,monospace;font-weight:700;font-size:11px">'+esc(s.codigo)+'</td><td style="'+TD+'">'+esc(s.descricao)+'</td><td style="'+TD+';font-size:11px;color:#666">'+esc(s.categoria_nome||'')+'</td><td style="'+TD+';text-align:right;font-weight:600">'+fmt(s.valor)+'</td></tr>'});
+    srvHtml+='</tbody></table>';
+    // Não é sobre teto: é o total impresso não bater com as linhas listadas.
+    if(tt.divergente)srvHtml+='<div style="font-size:9px;color:#888;margin-top:5px">Pelas regras vigentes hoje os serviços listados somariam '+fmt(tt.somaCategorias)+'. O valor total impresso é o registrado na aprovação desta OS.</div>';
+  }else if(servicos.length){
+    srvHtml='<table style="width:100%;border-collapse:collapse;margin-top:6px"><thead><tr style="background:#f0f3f7"><th style="'+TH+'">CÓDIGO</th><th style="'+TH+'">SERVIÇO REALIZADO</th><th style="'+TH+';text-align:right;width:135px">VALOR</th></tr></thead><tbody>';
     tt.grupos.forEach(function(g){
-      srvHtml+='<tr style="background:#eef2f7"><td colspan="2" style="padding:5px 8px;font-size:9px;font-weight:700;text-transform:uppercase;color:#0B1426">'+esc(g.nome)+'</td><td style="padding:5px 8px;font-size:9px;text-align:right;color:#555">'+(g.teto>0?'teto '+fmt(g.teto):'sem teto')+'</td></tr>';
+      // O teto aparece no grupo que estourou; nos outros, só o nome.
+      srvHtml+='<tr style="background:#eef2f7"><td colspan="2" style="padding:5px 8px;font-size:9px;font-weight:700;text-transform:uppercase;color:#0B1426">'+esc(g.nome)+'</td><td style="padding:5px 8px;font-size:9px;text-align:right;color:#555">'+(g.capado?'teto '+fmt(g.teto):'')+'</td></tr>';
       g.itens.forEach(function(s){srvHtml+='<tr><td style="'+TD+';font-family:Consolas,monospace;font-weight:700;font-size:11px">'+esc(s.codigo)+'</td><td style="'+TD+'">'+esc(s.descricao)+'</td><td style="'+TD+';text-align:right;font-weight:600">'+fmt(s.valor)+'</td></tr>'});
       if(g.capado){
         srvHtml+='<tr style="background:#fafbfc"><td colspan="2" style="'+TD+';font-size:10px;color:#444">Subtotal da categoria — teto aplicado</td><td style="'+TD+';text-align:right;font-size:10px;white-space:nowrap"><span style="text-decoration:line-through;color:#888;margin-right:6px;font-size:9px">'+fmt(g.soma)+'</span><strong>'+fmt(g.efetivo)+'</strong></td></tr>';
@@ -1656,7 +1667,7 @@ async function gerarPdfOS(id){
     }
     // Teto alterado depois da aprovação: o documento não pode fechar uma conta
     // que não bate. Manda o valor gravado e avisa.
-    if(tt.divergente)srvHtml+='<div style="font-size:9px;color:#888;margin-top:5px">Os tetos vigentes hoje resultariam em '+fmt(tt.capadoProduto?tt.tetoProduto:tt.somaCategorias)+'. O valor total impresso é o registrado na aprovação desta OS.</div>';
+    if(tt.divergente)srvHtml+='<div style="font-size:9px;color:#888;margin-top:5px">Pelas regras vigentes hoje os serviços listados somariam '+fmt(tt.capadoProduto?tt.tetoProduto:tt.somaCategorias)+'. O valor total impresso é o registrado na aprovação desta OS.</div>';
   }else if(o.codigo_servico){
     srvHtml='<div style="padding:4px 0"><strong>'+esc(o.codigo_servico)+'</strong></div>';
   }
@@ -1722,8 +1733,8 @@ async function gerarPdfOS(id){
     // PEÇAS
     pecHtml+
     // VALOR TOTAL
-    '<div class="valor-box"><div><div class="label">Valor Total</div>'+(tt.tetoProduto!=null?'<div style="font-size:9px;color:#888;font-weight:400">Teto do produto: '+fmt(tt.tetoProduto)+(tt.capadoProduto?' — <strong style="color:#7a4300">atingido</strong>':'')+'</div>':'')+'</div><div class="amount">'+fmt(tt.total)+'</div></div>'+
-    ((tt.capadoCategoria||tt.capadoProduto||tt.tetoProduto!=null)?'<div style="font-size:9px;color:#888;margin:-6px 0 14px">Teto é o valor máximo que a autorizada pode cobrar para realizar o serviço.</div>':'')+
+    '<div class="valor-box"><div><div class="label">Valor Total</div>'+(tt.capadoProduto?'<div style="font-size:9px;color:#888;font-weight:400">Teto do produto: '+fmt(tt.tetoProduto)+' — <strong style="color:#7a4300">atingido</strong></div>':'')+'</div><div class="amount">'+fmt(tt.total)+'</div></div>'+
+    (excedeu?'<div style="font-size:9px;color:#888;margin:-6px 0 14px">Teto é o valor máximo que a autorizada pode cobrar para realizar o serviço.</div>':'')+
     // ASSINATURA
     '<div class="assinatura"><div class="assinatura-grid">'+
     '<div><div class="linha-assinar"></div><div style="font-size:10px;color:#555;text-align:center">Nome do Cliente</div></div>'+
