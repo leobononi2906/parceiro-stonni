@@ -12,7 +12,7 @@
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html{font-size:16px;-webkit-text-size-adjust:100%}
 body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);min-height:100dvh;overflow-x:hidden}
-a{color:var(--primary);text-decoration:none}
+a{color:var(--primary-txt);text-decoration:none}
 button{cursor:pointer;border:none;font-family:inherit;font-size:inherit}
 input,select,textarea{font-family:inherit;font-size:1rem}
 
@@ -25,13 +25,28 @@ input,select,textarea{font-family:inherit;font-size:1rem}
   --primary:   #4FC3F7;
   --primary-h: #29B6F6;
   --primary-bg:rgba(79,195,247,.10);
+  /* O ciano da marca e PREENCHIMENTO. Como texto ou icone sobre fundo claro ele
+     da 2,00:1 -- muito abaixo do minimo AA (4,5). Este e o par escuro do mesmo
+     tom, para texto e icone: 5,63:1 no branco, 5,18:1 na tinta .12 dos badges,
+     5,25:1 como anel de foco. */
+  --primary-txt:#0E6E9C;
   --text:      #1A2B3C;
   --text-m:    #546A80;
   --text-d:    #8DA0B8;
-  --success:   #4CAF50;
-  --warning:   #F57C00;
-  --danger:    #E53935;
-  --paid:      #AB47BC;
+  /* Tons fechados o suficiente para passar AA nos DOIS papeis de cada cor:
+     como texto sobre branco e dentro da tinta .12 do badge. O anterior de cada
+     um esta no comentario. */
+  --success:   #2E7D32;  /* era #4CAF50 -- 2,78:1 no branco, 2,49:1 no badge */
+  --warning:   #A85400;  /* era #F57C00 -- 2,70:1 e 2,50:1 */
+  --danger:    #C62828;  /* era #E53935 -- 4,23:1 e 3,66:1 (e o contador do menu) */
+  --paid:      #8E24AA;  /* era #AB47BC -- passava solto (4,82) e falhava no badge (4,10) */
+  /* Usado em 9 lugares no JS e nunca definido: a propriedade caia como invalida
+     e o texto herdava a cor do pai. Alias do cinza que passa AA. */
+  --text-muted:var(--text-m);
+  /* Borda de CAMPO. --border (#DCE3EB) da 1,21:1 contra o fundo do campo, e a
+     1.4.11 pede 3:1 para o que delimita um controle. Borda de card e divisoria
+     de tabela continuam em --border: aquilo e decoracao, nao controle. */
+  --border-campo:#7691B1;
   --radius:    10px;
   --radius-sm: 6px;
   --shadow:    0 2px 12px rgba(0,0,0,.08);
@@ -56,25 +71,25 @@ input,select,textarea{font-family:inherit;font-size:1rem}
 .form-group label{display:block;font-size:.8rem;font-weight:600;color:var(--text-m);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px}
 .form-group input{
   width:100%;padding:12px 14px;
-  background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);
+  background:var(--surface2);border:1px solid var(--border-campo);border-radius:var(--radius-sm);
   color:var(--text);font-size:.95rem;
   transition:border .2s;
 }
-.form-group input:focus{outline:none;border-color:var(--primary)}
+.form-group input:focus{outline:2px solid var(--primary-txt);outline-offset:1px;border-color:var(--primary-txt)}
 .btn{
   display:inline-flex;align-items:center;justify-content:center;gap:8px;
   padding:12px 24px;border-radius:var(--radius-sm);font-weight:600;
   font-size:.9rem;transition:all .15s;width:100%;
 }
-.btn-primary{background:var(--primary);color:#FFFFFF}
+.btn-primary{background:var(--primary);color:var(--text)}
 .btn-primary:hover{background:var(--primary-h)}
 .btn-primary:disabled{opacity:.5;cursor:not-allowed}
-.btn-ghost{background:transparent;color:var(--primary);border:1px solid var(--border)}
+.btn-ghost{background:transparent;color:var(--primary-txt);border:1px solid var(--border)}
 .btn-ghost:hover{background:var(--primary-bg)}
 .btn-sm{padding:8px 16px;font-size:.82rem}
 .btn-danger{background:var(--danger);color:#fff}
 .login-error{color:var(--danger);font-size:.82rem;margin-top:12px;display:none}
-.login-footer{margin-top:20px;font-size:.75rem;color:var(--text-d)}
+.login-footer{margin-top:20px;font-size:.75rem;color:var(--text-m)}
 
 /* ===== APP SHELL ===== */
 #appShell{display:none;min-height:100dvh}
@@ -159,7 +174,7 @@ input,select,textarea{font-family:inherit;font-size:1rem}
 }
 .kpi-label{font-size:.72rem;font-weight:600;color:var(--text-m);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
 .kpi-value{font-size:1.5rem;font-weight:700}
-.kpi-sub{font-size:.75rem;color:var(--text-d);margin-top:4px}
+.kpi-sub{font-size:.75rem;color:var(--text-m);margin-top:4px}
 
 .card{
   background:var(--surface);border:1px solid var(--border);
@@ -172,7 +187,7 @@ input,select,textarea{font-family:inherit;font-size:1rem}
 table{width:100%;border-collapse:collapse;font-size:.85rem}
 thead th{
   text-align:left;padding:10px 12px;font-size:.72rem;font-weight:700;
-  text-transform:uppercase;letter-spacing:.5px;color:var(--text-d);
+  text-transform:uppercase;letter-spacing:.5px;color:var(--text-m);
   border-bottom:1px solid var(--border);white-space:nowrap;
 }
 tbody td{padding:10px 12px;border-bottom:1px solid var(--border);color:var(--text-m)}
@@ -180,8 +195,8 @@ tbody tr:hover{background:var(--primary-bg)}
 
 /* ===== STATUS BADGES ===== */
 .badge{display:inline-block;padding:3px 10px;border-radius:12px;font-size:.72rem;font-weight:600}
-.badge-rascunho{background:rgba(0,0,0,.06);color:var(--text-d)}
-.badge-enviada{background:rgba(79,195,247,.12);color:var(--primary)}
+.badge-rascunho{background:rgba(0,0,0,.06);color:var(--text-m)}
+.badge-enviada{background:rgba(79,195,247,.12);color:var(--primary-txt)}
 .badge-em_analise{background:rgba(255,167,38,.12);color:var(--warning)}
 .badge-aprovada{background:rgba(76,175,80,.12);color:var(--success)}
 .badge-recusada{background:rgba(239,83,80,.12);color:var(--danger)}
@@ -202,25 +217,25 @@ tbody tr:hover{background:var(--primary-bg)}
 /* ===== FORMULÁRIO STEPS ===== */
 .steps-bar{display:flex;gap:4px;margin-bottom:24px}
 .step-dot{flex:1;height:4px;border-radius:2px;background:var(--border)}
-.step-dot.active{background:var(--primary)}
+.step-dot.active{background:var(--primary-txt)}
 .step-dot.done{background:var(--success)}
 
 .form-row{display:grid;grid-template-columns:1fr;gap:12px;margin-bottom:14px}
 @media(min-width:600px){.form-row.cols-2{grid-template-columns:1fr 1fr}}
 .form-group select{
   width:100%;padding:12px 14px;
-  background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);
+  background:var(--surface2);border:1px solid var(--border-campo);border-radius:var(--radius-sm);
   color:var(--text);font-size:.95rem;appearance:none;
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23546A80' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
   background-repeat:no-repeat;background-position:right 12px center;
 }
-.form-group select:focus{outline:none;border-color:var(--primary)}
+.form-group select:focus{outline:2px solid var(--primary-txt);outline-offset:1px;border-color:var(--primary-txt)}
 .form-group textarea{
   width:100%;padding:12px 14px;min-height:80px;resize:vertical;
-  background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);
+  background:var(--surface2);border:1px solid var(--border-campo);border-radius:var(--radius-sm);
   color:var(--text);font-size:.95rem;
 }
-.form-group textarea:focus{outline:none;border-color:var(--primary)}
+.form-group textarea:focus{outline:2px solid var(--primary-txt);outline-offset:1px;border-color:var(--primary-txt)}
 
 /* ===== ACCORDION SERVIÇOS ===== */
 .srv-accordion{border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:8px}
@@ -236,24 +251,24 @@ tbody tr:hover{background:var(--primary-bg)}
 .srv-item{display:flex;align-items:center;gap:8px;padding:10px 12px;margin:3px 0;border-radius:var(--radius-sm);cursor:pointer;transition:all .12s;border:1px solid transparent}
 .srv-item:hover{background:var(--primary-bg);border-color:var(--border)}
 .srv-item.selected{background:rgba(79,195,247,.15);border-color:var(--primary)}
-.srv-item-code{font-size:.78rem;font-weight:700;color:var(--primary);min-width:70px}
+.srv-item-code{font-size:.78rem;font-weight:700;color:var(--primary-txt);min-width:70px}
 .srv-item-desc{font-size:.84rem;color:var(--text-m);flex:1}
 .srv-item-valor{font-size:.85rem;font-weight:700;color:var(--text);white-space:nowrap}
 .srv-selected-banner{display:flex;align-items:center;gap:10px;padding:10px 14px;margin-top:8px;background:rgba(79,195,247,.08);border:1px solid var(--primary);border-radius:var(--radius)}
-.srv-selected-banner .srv-sel-label{font-size:.72rem;font-weight:600;color:var(--text-d);text-transform:uppercase}
+.srv-selected-banner .srv-sel-label{font-size:.72rem;font-weight:600;color:var(--text-m);text-transform:uppercase}
 .srv-selected-banner .srv-sel-info{font-size:.84rem;font-weight:600;color:var(--text)}
-.srv-selected-banner .srv-sel-valor{margin-left:auto;font-size:.9rem;font-weight:700;color:var(--primary);white-space:nowrap}
+.srv-selected-banner .srv-sel-valor{margin-left:auto;font-size:.9rem;font-weight:700;color:var(--primary-txt);white-space:nowrap}
 .srv-selected-banner .srv-remove{background:none;color:var(--danger);font-size:.8rem;padding:2px 6px;border-radius:4px;flex-shrink:0}
 .srv-selected-banner .srv-remove:hover{background:rgba(229,57,53,.1)}
 .srv-total-bar{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;margin-top:12px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius)}
 .srv-total-bar .srv-total-label{font-size:.82rem;font-weight:600;color:var(--text-m)}
-.srv-total-bar .srv-total-valor{font-size:1.1rem;font-weight:700;color:var(--primary)}
+.srv-total-bar .srv-total-valor{font-size:1.1rem;font-weight:700;color:var(--primary-txt)}
 .srv-total-bar .srv-total-warn{font-size:.72rem;color:var(--warning);font-weight:600}
-.srv-add-btn{display:inline-flex;align-items:center;gap:4px;padding:6px 14px;margin-top:8px;background:var(--primary-bg);color:var(--primary);border:1px dashed var(--primary);border-radius:var(--radius-sm);font-size:.82rem;font-weight:600;cursor:pointer;transition:all .15s}
+.srv-add-btn{display:inline-flex;align-items:center;gap:4px;padding:6px 14px;margin-top:8px;background:var(--primary-bg);color:var(--primary-txt);border:1px dashed var(--primary-txt);border-radius:var(--radius-sm);font-size:.82rem;font-weight:600;cursor:pointer;transition:all .15s}
 .srv-add-btn:hover{background:rgba(79,195,247,.2)}
 .compra-filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
 .compra-filter-chip{padding:5px 12px;border-radius:16px;font-size:.78rem;font-weight:500;background:var(--surface2);color:var(--text-m);border:1px solid var(--border);cursor:pointer;transition:all .12s}
-.compra-filter-chip.active{background:var(--primary-bg);color:var(--primary);border-color:var(--primary)}
+.compra-filter-chip.active{background:var(--primary-bg);color:var(--primary-txt);border-color:var(--primary-txt)}
 
 /* ===== PAGE HEADER ===== */
 .page-header{margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
@@ -266,10 +281,10 @@ tbody tr:hover{background:var(--primary-bg)}
   background:var(--surface2);color:var(--text-m);border:1px solid var(--border);
   cursor:pointer;transition:all .12s;
 }
-.filter-chip.active{background:var(--primary-bg);color:var(--primary);border-color:var(--primary)}
+.filter-chip.active{background:var(--primary-bg);color:var(--primary-txt);border-color:var(--primary-txt)}
 
 /* ===== EMPTY STATE ===== */
-.empty-state{text-align:center;padding:48px 20px;color:var(--text-d)}
+.empty-state{text-align:center;padding:48px 20px;color:var(--text-m)}
 .empty-state svg{width:48px;height:48px;stroke:var(--text-d);fill:none;stroke-width:1.2;margin-bottom:12px}
 .empty-state p{font-size:.9rem;margin-bottom:16px}
 
@@ -311,7 +326,7 @@ tbody tr:hover{background:var(--primary-bg)}
 .gap-8{gap:8px}.gap-12{gap:12px}
 .flex{display:flex}.flex-col{flex-direction:column}.items-center{align-items:center}.justify-between{justify-content:space-between}
 .text-sm{font-size:.82rem}.text-xs{font-size:.72rem}
-.text-muted{color:var(--text-m)}.text-primary{color:var(--primary)}.text-success{color:var(--success)}.text-danger{color:var(--danger)}
+.text-muted{color:var(--text-m)}.text-primary{color:var(--primary-txt)}.text-success{color:var(--success)}.text-warning{color:var(--warning)}.text-danger{color:var(--danger)}
 .fw-600{font-weight:600}.fw-700{font-weight:700}
 .hidden{display:none!important}
 .truncate{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
