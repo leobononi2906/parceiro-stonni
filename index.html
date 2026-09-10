@@ -1097,6 +1097,49 @@ function renderOsStep(){
   }
 }
 
+
+// ===== TETO: quebra dos dois niveis (categoria + linha do produto) =====
+// Espelha tetoDetalhar() do core.js da Assistencia Stonni. Duplicado porque
+// este portal e um arquivo unico sem core compartilhado -- se mudar la, mudar
+// aqui: a impressao das duas pontas tem de fechar o mesmo numero.
+async function tetoDetalhar(servs,linhaDb,valorPago){
+  var r={grupos:[],somaBruta:0,somaCategorias:0,tetoProduto:null,capadoCategoria:false,capadoProduto:false,total:0,divergente:false};
+  if(!Array.isArray(servs))servs=[];
+  servs.forEach(function(s){r.somaBruta+=parseFloat(s.valor)||0});
+  var H={'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY};
+  // Categorias pelos IDs da OS, nao por linha/ativo: filtrar perderia o teto
+  // de categoria remanejada ou desativada depois da OS.
+  var ids=[];
+  servs.forEach(function(s){if(s.categoria_id!=null&&ids.indexOf(s.categoria_id)<0)ids.push(s.categoria_id)});
+  var cats=[];
+  if(ids.length){try{var rc=await fetch(SB_URL+'/rest/v1/prt_categorias_servico?id=in.('+ids.join(',')+')&select=id,nome,valor_teto',{headers:H,cache:'no-store'});cats=await rc.json();if(!Array.isArray(cats))cats=[]}catch(e){}}
+  if(linhaDb){try{var rt=await fetch(SB_URL+'/rest/v1/prt_teto_produto?linha_produto=eq.'+linhaDb+'&ativo=eq.true&select=valor_maximo',{headers:H,cache:'no-store'});var tv=await rt.json();if(Array.isArray(tv)&&tv.length)r.tetoProduto=parseFloat(tv[0].valor_maximo)}catch(e){}}
+  var pos={};
+  servs.forEach(function(s){
+    var k=(s.categoria_id==null)?'sem':String(s.categoria_id);
+    if(pos[k]==null){
+      var cat=null;cats.forEach(function(c){if(String(c.id)===k)cat=c});
+      pos[k]=r.grupos.length;
+      r.grupos.push({nome:s.categoria_nome||(cat&&cat.nome)||'Servicos',teto:cat?(parseFloat(cat.valor_teto)||0):0,itens:[],soma:0,efetivo:0,capado:false});
+    }
+    var g=r.grupos[pos[k]];g.itens.push(s);g.soma+=parseFloat(s.valor)||0;
+  });
+  r.grupos.forEach(function(g){
+    g.capado=g.teto>0&&g.soma>g.teto+0.005;
+    g.efetivo=g.capado?g.teto:g.soma;
+    if(g.capado)r.capadoCategoria=true;
+    r.somaCategorias+=g.efetivo;
+  });
+  r.capadoProduto=r.tetoProduto>0&&r.somaCategorias>r.tetoProduto+0.005;
+  var recalc=r.capadoProduto?r.tetoProduto:r.somaCategorias;
+  // valor_servico e o que a Stonni PAGA (gravado na aprovacao); os tetos podem
+  // ter mudado depois, entao ele manda no total e o recalculo so explica.
+  r.total=(valorPago!=null&&valorPago!=='')?(parseFloat(valorPago)||0):recalc;
+  r.divergente=servs.length>0&&Math.abs(recalc-r.total)>0.005;
+  return r;
+}
+var LINHAS_DB_TETO={'Geladeira':'geladeira','Ar Condicionado':'ar_condicionado','Gerador':'gerador'};
+
 function esc(v){return(v||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
 
 // ===== SERVIÇOS (MULTI) =====
@@ -1583,12 +1626,37 @@ async function gerarPdfOS(id){
   // Status badge
   var statusColors={aprovada:'#065F46;background:#d1fae5',recusada:'#991b1b;background:#fee2e2',enviada:'#1e40af;background:#dbeafe',paga:'#6b21a8;background:#f3e8ff',rascunho:'#666;background:#f0f0f0'};
   var stColor=statusColors[o.status]||'#333;background:#f0f0f0';
-  // Serviços HTML
+  // Serviços HTML -- agrupado por categoria, com o teto de cada uma e aviso
+  // explícito quando ele foi atingido. A coluna CATEGORIA saiu: virou cabeçalho
+  // do grupo, que é onde o teto precisa aparecer.
+  var tt=await tetoDetalhar(servicos,LINHAS_DB_TETO[o.produto_linha]||'',o.valor_servico);
+  var TD='padding:4px 8px;border-bottom:1px solid #eee';
+  var HIT='border:1px solid #b06000;border-left:5px solid #b06000;background:#fdf3e6;border-radius:3px;padding:5px 8px;font-size:10px;color:#7a4300;line-height:1.45';
   var srvHtml='';
   if(servicos.length){
-    srvHtml='<table style="width:100%;border-collapse:collapse;margin-top:6px"><thead><tr style="background:#f0f3f7"><th style="text-align:left;padding:4px 8px;font-size:10px;border-bottom:1px solid #ccc">CÓDIGO</th><th style="text-align:left;padding:4px 8px;font-size:10px;border-bottom:1px solid #ccc">SERVIÇO REALIZADO</th><th style="text-align:left;padding:4px 8px;font-size:10px;border-bottom:1px solid #ccc">CATEGORIA</th><th style="text-align:right;padding:4px 8px;font-size:10px;border-bottom:1px solid #ccc">VALOR</th></tr></thead><tbody>';
-    servicos.forEach(function(s){srvHtml+='<tr><td style="padding:4px 8px;border-bottom:1px solid #eee;font-family:Consolas,monospace;font-weight:700;font-size:11px">'+esc(s.codigo)+'</td><td style="padding:4px 8px;border-bottom:1px solid #eee">'+esc(s.descricao)+'</td><td style="padding:4px 8px;border-bottom:1px solid #eee;font-size:11px;color:#666">'+esc(s.categoria_nome||'')+'</td><td style="padding:4px 8px;border-bottom:1px solid #eee;text-align:right;font-weight:600">'+fmt(s.valor)+'</td></tr>'});
+    srvHtml='<table style="width:100%;border-collapse:collapse;margin-top:6px"><thead><tr style="background:#f0f3f7"><th style="text-align:left;padding:4px 8px;font-size:10px;border-bottom:1px solid #ccc">CÓDIGO</th><th style="text-align:left;padding:4px 8px;font-size:10px;border-bottom:1px solid #ccc">SERVIÇO REALIZADO</th><th style="text-align:right;padding:4px 8px;font-size:10px;border-bottom:1px solid #ccc;width:135px">VALOR</th></tr></thead><tbody>';
+    tt.grupos.forEach(function(g){
+      srvHtml+='<tr style="background:#eef2f7"><td colspan="2" style="padding:5px 8px;font-size:9px;font-weight:700;text-transform:uppercase;color:#0B1426">'+esc(g.nome)+'</td><td style="padding:5px 8px;font-size:9px;text-align:right;color:#555">'+(g.teto>0?'teto '+fmt(g.teto):'sem teto')+'</td></tr>';
+      g.itens.forEach(function(s){srvHtml+='<tr><td style="'+TD+';font-family:Consolas,monospace;font-weight:700;font-size:11px">'+esc(s.codigo)+'</td><td style="'+TD+'">'+esc(s.descricao)+'</td><td style="'+TD+';text-align:right;font-weight:600">'+fmt(s.valor)+'</td></tr>'});
+      if(g.capado){
+        srvHtml+='<tr style="background:#fafbfc"><td colspan="2" style="'+TD+';font-size:10px;color:#444">Subtotal da categoria — teto aplicado</td><td style="'+TD+';text-align:right;font-size:10px;white-space:nowrap"><span style="text-decoration:line-through;color:#888;margin-right:6px;font-size:9px">'+fmt(g.soma)+'</span><strong>'+fmt(g.efetivo)+'</strong></td></tr>';
+        srvHtml+='<tr><td colspan="3" style="padding:3px 8px 7px"><div style="'+HIT+'"><b style="text-transform:uppercase;letter-spacing:.3px">Teto da categoria atingido</b> — “'+esc(g.nome)+'” tem teto de <strong>'+fmt(g.teto)+'</strong>. A soma dos serviços da categoria foi '+fmt(g.soma)+', então o valor considerado é '+fmt(g.efetivo)+'.</div></td></tr>';
+      }else if(g.itens.length>1){
+        srvHtml+='<tr style="background:#fafbfc"><td colspan="2" style="'+TD+';font-size:10px;color:#444">Subtotal da categoria</td><td style="'+TD+';text-align:right;font-size:10px">'+fmt(g.soma)+'</td></tr>';
+      }
+    });
     srvHtml+='</tbody></table>';
+    // O teto da LINHA incide sobre a soma das categorias, não sobre um serviço:
+    // fecha a seção em vez de virar linha da tabela.
+    if(tt.capadoProduto){
+      srvHtml+='<div style="text-align:right;font-size:10px;color:#444;margin-top:6px">Soma das categorias: '+fmt(tt.somaCategorias)+'</div>';
+      srvHtml+='<div style="'+HIT+';margin-top:4px"><b style="text-transform:uppercase;letter-spacing:.3px">Teto do produto atingido</b> — a linha '+esc(o.produto_linha||'—')+' tem teto de <strong>'+fmt(tt.tetoProduto)+'</strong>, aplicado sobre a soma de '+fmt(tt.somaCategorias)+'.</div>';
+    }else if(tt.capadoCategoria){
+      srvHtml+='<div style="text-align:right;font-size:10px;color:#444;margin-top:6px">Soma bruta: '+fmt(tt.somaBruta)+' &rarr; com tetos: <strong>'+fmt(tt.total)+'</strong></div>';
+    }
+    // Teto alterado depois da aprovação: o documento não pode fechar uma conta
+    // que não bate. Manda o valor gravado e avisa.
+    if(tt.divergente)srvHtml+='<div style="font-size:9px;color:#888;margin-top:5px">Os tetos vigentes hoje resultariam em '+fmt(tt.capadoProduto?tt.tetoProduto:tt.somaCategorias)+'. O valor total impresso é o registrado na aprovação desta OS.</div>';
   }else if(o.codigo_servico){
     srvHtml='<div style="padding:4px 0"><strong>'+esc(o.codigo_servico)+'</strong></div>';
   }
@@ -1654,7 +1722,8 @@ async function gerarPdfOS(id){
     // PEÇAS
     pecHtml+
     // VALOR TOTAL
-    '<div class="valor-box"><div class="label">Valor Total</div><div class="amount">'+fmt(o.valor_servico)+'</div></div>'+
+    '<div class="valor-box"><div><div class="label">Valor Total</div>'+(tt.tetoProduto!=null?'<div style="font-size:9px;color:#888;font-weight:400">Teto do produto: '+fmt(tt.tetoProduto)+(tt.capadoProduto?' — <strong style="color:#7a4300">atingido</strong>':'')+'</div>':'')+'</div><div class="amount">'+fmt(tt.total)+'</div></div>'+
+    ((tt.capadoCategoria||tt.capadoProduto||tt.tetoProduto!=null)?'<div style="font-size:9px;color:#888;margin:-6px 0 14px">Teto é o valor máximo que a autorizada pode cobrar para realizar o serviço.</div>':'')+
     // ASSINATURA
     '<div class="assinatura"><div class="assinatura-grid">'+
     '<div><div class="linha-assinar"></div><div style="font-size:10px;color:#555;text-align:center">Nome do Cliente</div></div>'+
