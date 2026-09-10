@@ -356,11 +356,11 @@ tbody tr:hover{background:var(--primary-bg)}
     <div class="login-title">Portal do Parceiro</div>
     <div class="login-sub">Rede de Assistência Técnica Autorizada</div>
     <div class="form-group">
-      <label>E-mail</label>
+      <label for="loginEmail">E-mail</label>
       <input type="email" id="loginEmail" placeholder="seu@email.com" autocomplete="email">
     </div>
     <div class="form-group">
-      <label>Senha</label>
+      <label for="loginSenha">Senha</label>
       <input type="password" id="loginSenha" placeholder="••••••••" autocomplete="current-password">
     </div>
     <button class="btn btn-primary" id="btnLogin" onclick="fazerLogin()">Entrar</button>
@@ -394,37 +394,37 @@ tbody tr:hover{background:var(--primary-bg)}
     <div class="sidebar-section" id="navParceiro">
       <div class="sidebar-label">Parceiro</div>
       <div class="nav-item active" onclick="navegar('dashboard')">
-        <svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
         Início
       </div>
       <div class="nav-item" onclick="navegar('nova-os')">
-        <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         Nova OS
       </div>
       <div class="nav-item" onclick="navegar('minhas-os')">
-        <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
         Minhas OS
         <span class="nav-badge hidden" id="badgeOS">0</span>
       </div>
       <div class="nav-item" onclick="navegar('encaminhar')">
-        <svg viewBox="0 0 24 24"><circle cx="12" cy="10" r="3"/><path d="M12 2a8 8 0 0 0-8 8c0 5.4 8 12 8 12s8-6.6 8-12a8 8 0 0 0-8-8z"/></svg>
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="10" r="3"/><path d="M12 2a8 8 0 0 0-8 8c0 5.4 8 12 8 12s8-6.6 8-12a8 8 0 0 0-8-8z"/></svg>
         Encaminhar cliente
         <span class="nav-badge hidden" id="badgeEnc">0</span>
       </div>
       <div class="nav-item" onclick="navegar('material')">
-        <svg viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
         Material Técnico
       </div>
       <div class="nav-item" onclick="navegar('estoque')">
-        <svg viewBox="0 0 24 24"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/></svg>
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/></svg>
         Meu Estoque
       </div>
       <div class="nav-item" onclick="navegar('comprar-pecas')">
-        <svg viewBox="0 0 24 24"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
         Comprar Peças
       </div>
       <div class="nav-item" onclick="navegar('financeiro')">
-        <svg viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
         Financeiro
       </div>
     </div>
@@ -771,15 +771,15 @@ function renderDashboard(el){
     '</div>'+
     '<div class="quick-actions">'+
       '<div class="quick-btn" onclick="navegar(\'nova-os\')">'+
-        '<svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>'+
+        '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>'+
         '<span>Nova OS</span>'+
       '</div>'+
       '<div class="quick-btn" onclick="navegar(\'material\')">'+
-        '<svg viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>'+
+        '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>'+
         '<span>Material Técnico</span>'+
       '</div>'+
       '<div class="quick-btn" onclick="navegar(\'estoque\')">'+
-        '<svg viewBox="0 0 24 24"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/></svg>'+
+        '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/></svg>'+
         '<span>Meu Estoque</span>'+
       '</div>'+
     '</div>'+
@@ -821,7 +821,7 @@ async function renderPerfil(el){
         '</div>'
       : '';
 
-    var inp=function(id,lbl,val,ph,extra){return '<div><label style="display:block;font-size:11.5px;font-weight:600;color:var(--text-m);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">'+lbl+'</label><input id="'+id+'" value="'+esc(val||'')+'" placeholder="'+(ph||'')+'" '+(extra||'')+' style="width:100%;padding:10px 12px;border:1px solid var(--border-campo);border-radius:var(--radius-sm);font-size:14px;background:var(--surface2);color:var(--text)"></div>'};
+    var inp=function(id,lbl,val,ph,extra){return '<div><label for="'+id+'" style="display:block;font-size:11.5px;font-weight:600;color:var(--text-m);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">'+lbl+'</label><input id="'+id+'" value="'+esc(val||'')+'" placeholder="'+(ph||'')+'" '+(extra||'')+' style="width:100%;padding:10px 12px;border:1px solid var(--border-campo);border-radius:var(--radius-sm);font-size:14px;background:var(--surface2);color:var(--text)"></div>'};
 
     el.innerHTML=
       '<div class="page-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px"><h1>Meus dados</h1>'+credenciado+'</div>'+
@@ -1176,14 +1176,14 @@ function renderOsStep(){
     case 1: // Cliente
       area.innerHTML=
         '<div class="card-title">1. Dados do Cliente</div>'+
-        '<div class="form-group"><label>Nome do cliente</label><input type="text" id="osCliNome" value="'+esc(_osData.cliente_nome)+'" placeholder="Nome completo"></div>'+
+        '<div class="form-group"><label for="osCliNome">Nome do cliente</label><input type="text" id="osCliNome" value="'+esc(_osData.cliente_nome)+'" placeholder="Nome completo"></div>'+
         '<div class="form-row cols-2">'+
-          '<div class="form-group"><label>Telefone</label><input type="tel" id="osCliTel" value="'+esc(fmtTelefone(_osData.cliente_telefone))+'" placeholder="(99) 99999-9999" inputmode="tel" maxlength="15" oninput="mascaraTel(this)"></div>'+
-          '<div class="form-group"><label>UF</label><select id="osCliUF"><option value="">Selecione</option>'+
+          '<div class="form-group"><label for="osCliTel">Telefone</label><input type="tel" id="osCliTel" value="'+esc(fmtTelefone(_osData.cliente_telefone))+'" placeholder="(99) 99999-9999" inputmode="tel" maxlength="15" oninput="mascaraTel(this)"></div>'+
+          '<div class="form-group"><label for="osCliUF">UF</label><select id="osCliUF"><option value="">Selecione</option>'+
             ['AC','AL','AM','AP','BA','CE','DF','ES','GO','MA','MG','MS','MT','PA','PB','PE','PI','PR','RJ','RN','RO','RR','RS','SC','SE','SP','TO'].map(function(u){return '<option'+(_osData.cliente_uf===u?' selected':'')+'>'+u+'</option>'}).join('')+
           '</select></div>'+
         '</div>'+
-        '<div class="form-group"><label>Cidade</label><input type="text" id="osCliCidade" value="'+esc(_osData.cliente_cidade)+'" placeholder="Cidade"></div>'+
+        '<div class="form-group"><label for="osCliCidade">Cidade</label><input type="text" id="osCliCidade" value="'+esc(_osData.cliente_cidade)+'" placeholder="Cidade"></div>'+
         '<div class="flex justify-between mt-16"><div></div><button class="btn btn-primary btn-sm" onclick="osProximo(1)">Próximo '+ico('arrow-right',14)+'</button></div>';
       break;
     case 2: // Produto
@@ -1193,20 +1193,20 @@ function renderOsStep(){
       }
       area.innerHTML=
         '<div class="card-title">2. Produto e Compra</div>'+
-        '<div class="form-group"><label>Linha do produto</label><select id="osProdLinha" onchange="osAtualizarModelos()"><option value="">Selecione</option>'+
+        '<div class="form-group"><label for="osProdLinha">Linha do produto</label><select id="osProdLinha" onchange="osAtualizarModelos()"><option value="">Selecione</option>'+
           Object.keys(LINHAS_PRODUTO).map(function(l){return '<option'+(_osData.produto_linha===l?' selected':'')+'>'+l+'</option>'}).join('')+
         '</select></div>'+
-        '<div class="form-group"><label>Modelo <span class="text-xs text-muted">(opcional)</span></label><select id="osProdModelo">'+modelos+'</select></div>'+
-        '<div class="form-group"><label>Número de série <span class="text-xs text-muted">(opcional)</span></label><input type="text" id="osProdSerie" value="'+esc(_osData.numero_serie)+'" placeholder="Se disponível"></div>'+
+        '<div class="form-group"><label for="osProdModelo">Modelo <span class="text-xs text-muted">(opcional)</span></label><select id="osProdModelo">'+modelos+'</select></div>'+
+        '<div class="form-group"><label for="osProdSerie">Número de série <span class="text-xs text-muted">(opcional)</span></label><input type="text" id="osProdSerie" value="'+esc(_osData.numero_serie)+'" placeholder="Se disponível"></div>'+
         '<hr style="border:0;border-top:1px solid var(--border);margin:16px 0">'+
         '<div class="form-row cols-2">'+
-          '<div class="form-group"><label>Número da NF de compra <span class="text-xs text-muted">(opcional)</span></label><input type="text" id="osNF" value="'+esc(_osData.numero_nf)+'" placeholder="NF de compra do cliente"></div>'+
-          '<div class="form-group"><label>Data da compra</label><input type="date" id="osDataCompra" value="'+esc(_osData.data_compra)+'"></div>'+
+          '<div class="form-group"><label for="osNF">Número da NF de compra <span class="text-xs text-muted">(opcional)</span></label><input type="text" id="osNF" value="'+esc(_osData.numero_nf)+'" placeholder="NF de compra do cliente"></div>'+
+          '<div class="form-group"><label for="osDataCompra">Data da compra</label><input type="date" id="osDataCompra" value="'+esc(_osData.data_compra)+'"></div>'+
         '</div>'+
-        '<div class="form-group"><label>NF de compra (foto ou PDF)</label>'+
+        '<div class="form-group"><label for="fotoNF">NF de compra (foto ou PDF)</label>'+
           '<input type="file" id="fotoNF" accept="image/*,application/pdf" onchange="uploadFoto(\'nf\')" style="display:none">'+
           '<div id="previewNF" class="foto-preview" onclick="document.getElementById(\'fotoNF\').click()">'+
-            (_osData.foto_nf?previewNFHtml(_osData.foto_nf):'<svg viewBox="0 0 24 24" width="24" height="24" stroke="var(--text-d)" fill="none" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg><span class="text-xs text-muted">Toque para escolher foto ou PDF da NF</span>')+
+            (_osData.foto_nf?previewNFHtml(_osData.foto_nf):'<svg viewBox="0 0 24 24" width="24" height="24" stroke="var(--text-d)" fill="none" stroke-width="1.5" aria-hidden="true" focusable="false"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg><span class="text-xs text-muted">Toque para escolher foto ou PDF da NF</span>')+
           '</div>'+
         '</div>'+
         '<div class="flex justify-between mt-16"><button class="btn btn-ghost btn-sm" onclick="osVoltar()">'+ico('arrow-left',14)+' Voltar</button><button class="btn btn-primary btn-sm" onclick="osProximo(2)">Próximo '+ico('arrow-right',14)+'</button></div>';
@@ -1221,10 +1221,10 @@ function renderOsStep(){
       });
       area.innerHTML=
         '<div class="card-title">3. Diagnóstico e Serviço</div>'+
-        '<div class="form-group"><label>Código de erro <span class="text-xs text-muted">(se houver)</span></label><input type="text" id="osCodErro" value="'+esc(_osData.codigo_erro)+'" placeholder="Ex: E0, E1, EF..."></div>'+
-        '<div class="form-group"><label>Descrição do defeito</label><textarea id="osDefeito" placeholder="Descreva o problema relatado pelo cliente">'+esc(_osData.defeito_descricao)+'</textarea></div>'+
-        '<div class="form-group"><label>Diagnóstico técnico</label><textarea id="osDiag" placeholder="O que foi identificado na análise">'+esc(_osData.diagnostico)+'</textarea></div>'+
-        '<div class="form-group"><label>Data do serviço</label><input type="date" id="osSolData" value="'+(_osData.data_servico||new Date().toISOString().substring(0,10))+'"></div>'+
+        '<div class="form-group"><label for="osCodErro">Código de erro <span class="text-xs text-muted">(se houver)</span></label><input type="text" id="osCodErro" value="'+esc(_osData.codigo_erro)+'" placeholder="Ex: E0, E1, EF..."></div>'+
+        '<div class="form-group"><label for="osDefeito">Descrição do defeito</label><textarea id="osDefeito" placeholder="Descreva o problema relatado pelo cliente">'+esc(_osData.defeito_descricao)+'</textarea></div>'+
+        '<div class="form-group"><label for="osDiag">Diagnóstico técnico</label><textarea id="osDiag" placeholder="O que foi identificado na análise">'+esc(_osData.diagnostico)+'</textarea></div>'+
+        '<div class="form-group"><label for="osSolData">Data do serviço</label><input type="date" id="osSolData" value="'+(_osData.data_servico||new Date().toISOString().substring(0,10))+'"></div>'+
         '<hr style="border:0;border-top:1px solid var(--border);margin:16px 0">'+
         '<div class="card-title">Serviço realizado</div>'+
         '<div id="servicosArea">'+servHtml+'</div>'+
@@ -1964,7 +1964,7 @@ function mostrarListaOS(filtro){
   var lista=filtro?_todasOS.filter(function(o){return grupoStatus(o.status)===filtro}):_todasOS;
   var box=document.getElementById('listaOS');
   if(!lista.length){
-    box.innerHTML='<div class="empty-state"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><p>Nenhuma OS encontrada</p>'+(filtro?'':'<button class="btn btn-primary btn-sm" onclick="navegar(\'nova-os\')">Criar primeira OS</button>')+'</div>';
+    box.innerHTML='<div class="empty-state"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><p>Nenhuma OS encontrada</p>'+(filtro?'':'<button class="btn btn-primary btn-sm" onclick="navegar(\'nova-os\')">Criar primeira OS</button>')+'</div>';
     return;
   }
   var html='';
@@ -2057,9 +2057,9 @@ async function solicitarPecaOS(osId){
   var html='<div class="modal-overlay show" id="modalSolicPeca" onclick="if(event.target===this)this.classList.remove(\'show\')"><div class="modal">'+
     '<div class="modal-title">Solicitar peça<button class="modal-close" aria-label="Fechar" onclick="this.closest(\'.modal-overlay\').remove()">'+ico('x',20)+'</button></div>'+
     '<p class="text-sm text-muted mb-16">A Stonni analisa e envia a peça para você. Você reagenda com o cliente quando ela chegar.</p>'+
-    '<div class="field mb-16"><label class="text-xs text-muted">Peça</label>'+
+    '<div class="field mb-16"><label for="solicPecaRef" class="text-xs text-muted">Peça</label>'+
       '<select id="solicPecaRef" style="width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border-campo);border-radius:var(--radius-sm);color:var(--text);font-size:.9rem"><option value="">Selecione...</option>'+opts+'</select></div>'+
-    '<div class="field mb-16"><label class="text-xs text-muted">Quantidade</label>'+
+    '<div class="field mb-16"><label for="solicPecaQtd" class="text-xs text-muted">Quantidade</label>'+
       '<input type="number" id="solicPecaQtd" value="1" min="1" style="width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border-campo);border-radius:var(--radius-sm);color:var(--text);font-size:.9rem"></div>'+
     '<div class="flex gap-8 mt-16" style="justify-content:flex-end">'+
       '<button class="btn btn-ghost btn-sm" style="width:auto" onclick="this.closest(\'.modal-overlay\').remove()">Cancelar</button>'+
@@ -2096,7 +2096,7 @@ function cancelarOS(osId){
   var html='<div class="modal-overlay show" id="modalCancelarOS" onclick="if(event.target===this)this.classList.remove(\'show\')"><div class="modal">'+
     '<div class="modal-title">Cancelar OS<button class="modal-close" aria-label="Fechar" onclick="this.closest(\'.modal-overlay\').remove()">'+ico('x',20)+'</button></div>'+
     '<p class="text-sm text-muted mb-16">Confirma o cancelamento? Se já houver peça enviada, ela permanece no seu estoque.</p>'+
-    '<div class="field mb-16"><label class="text-xs text-muted">Motivo (opcional)</label>'+
+    '<div class="field mb-16"><label for="cancelMotivo" class="text-xs text-muted">Motivo (opcional)</label>'+
       '<textarea id="cancelMotivo" placeholder="Ex: cliente desistiu, peça incorreta..." style="width:100%;height:70px;padding:10px;background:var(--surface2);border:1px solid var(--border-campo);border-radius:var(--radius-sm);color:var(--text);font-size:.9rem;resize:vertical"></textarea></div>'+
     '<div class="flex gap-8 mt-16" style="justify-content:flex-end">'+
       '<button class="btn btn-ghost btn-sm" style="width:auto" onclick="this.closest(\'.modal-overlay\').remove()">Voltar</button>'+
@@ -2176,7 +2176,7 @@ function renderMaterialLista(){
     }
   }
   if(!mats.length){
-    html+='<div class="empty-state"><svg viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg><p>Nenhum material encontrado</p></div>';
+    html+='<div class="empty-state"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg><p>Nenhum material encontrado</p></div>';
   }else{
     mats.forEach(function(m){
       html+='<div class="card"><div class="card-title">'+(tipoIcon[m.tipo]?ico(tipoIcon[m.tipo],16)+' ':'')+m.titulo+'</div>'+
@@ -2200,7 +2200,7 @@ async function renderEstoque(el){
     if(!Array.isArray(pecas)) pecas=[];
     var box=document.getElementById('estoqueArea');
     if(!pecas.length){
-      box.innerHTML='<div class="empty-state"><svg viewBox="0 0 24 24"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/></svg><p>Nenhuma peça em estoque ainda</p><p class="text-xs text-muted">A Stonni enviará as peças quando seu credenciamento for concluído</p></div>';
+      box.innerHTML='<div class="empty-state"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/></svg><p>Nenhuma peça em estoque ainda</p><p class="text-xs text-muted">A Stonni enviará as peças quando seu credenciamento for concluído</p></div>';
     }else{
       var html='<div class="table-wrap"><table><thead><tr><th>Peça</th><th>Ref</th><th>Disponível</th><th>Último envio</th></tr></thead><tbody>';
       pecas.forEach(function(p){
@@ -2334,14 +2334,16 @@ async function encSetLinha(v){
 
 function encRenderForm(){
   var box=document.getElementById('encForm');if(!box)return;
-  var lbl=function(t){return '<label style="display:block;font-size:11.5px;font-weight:600;color:var(--text-m);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">'+t+'</label>'};
+  // recebe o id porque serve tres campos: sem isso o `for` apontaria sempre
+  // para o primeiro deles.
+  var lbl=function(t,alvo){return '<label for="'+alvo+'" style="display:block;font-size:11.5px;font-weight:600;color:var(--text-m);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">'+t+'</label>'};
   var st='width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:14px;background:var(--surface2);color:var(--text)';
   var linhas=Object.keys(LINHAS_PRODUTO);
   var h='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px">';
-  h+='<div>'+lbl('Linha do produto')+'<select id="encLinha" onchange="encSetLinha(this.value)" style="'+st+'"><option value="">Selecione...</option>'+
+  h+='<div>'+lbl('Linha do produto','encLinha')+'<select id="encLinha" onchange="encSetLinha(this.value)" style="'+st+'"><option value="">Selecione...</option>'+
      linhas.map(function(l){return '<option value="'+esc(l)+'"'+(l===_encLinha?' selected':'')+'>'+esc(l)+'</option>'}).join('')+'</select></div>';
   if(_encModo==='peca'){
-    h+='<div>'+lbl('Peça que falta')+'<select id="encPeca" style="'+st+'"'+(_encPecas.length?'':' disabled')+'>'+
+    h+='<div>'+lbl('Peça que falta','encPeca')+'<select id="encPeca" style="'+st+'"'+(_encPecas.length?'':' disabled')+'>'+
        (_encPecas.length
          ? '<option value="">Selecione...</option>'+_encPecas.map(function(p){return '<option value="'+esc(p.referencia)+'">'+esc(p.referencia)+' — '+esc(p.nome)+'</option>'}).join('')
          : '<option value="">'+(_encLinha?'Nenhuma peça no catálogo desta linha':'Escolha a linha primeiro')+'</option>')+
@@ -2349,7 +2351,7 @@ function encRenderForm(){
   }
   // No modo peça o serviço é opcional: o filtro principal é o estoque, mas quem
   // for receber o cliente também precisa fazer o serviço.
-  h+='<div>'+lbl(_encModo==='peca'?'Serviço (opcional)':'Serviço que o cliente precisa')+
+  h+='<div>'+lbl(_encModo==='peca'?'Serviço (opcional)':'Serviço que o cliente precisa','encCat')+
      '<select id="encCat" style="'+st+'"'+(_encCats.length?'':' disabled')+'>'+
      (_encCats.length
        ? (_encModo==='peca'?'<option value="">Qualquer serviço</option>':'<option value="">Selecione...</option>')+
@@ -2363,7 +2365,7 @@ function encRenderForm(){
 
 function encVazio(msg){
   return '<div class="card" style="margin-top:14px"><div class="empty-state">'+
-    '<svg viewBox="0 0 24 24"><circle cx="12" cy="10" r="3"/><path d="M12 2a8 8 0 0 0-8 8c0 5.4 8 12 8 12s8-6.6 8-12a8 8 0 0 0-8-8z"/></svg>'+
+    '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="10" r="3"/><path d="M12 2a8 8 0 0 0-8 8c0 5.4 8 12 8 12s8-6.6 8-12a8 8 0 0 0-8-8z"/></svg>'+
     '<p>'+msg+'</p></div></div>';
 }
 
@@ -2490,9 +2492,9 @@ function encAbrirModal(i){
   var html='<div class="modal-overlay show" id="modalEnc"><div class="modal">'+
     '<div class="modal-title">Encaminhar para '+esc(d.nome||'')+'<button class="modal-close" aria-label="Fechar" onclick="encFechar(this)">'+ico('x',20)+'</button></div>'+
     '<p class="text-sm text-muted mb-16">'+esc(local)+' · '+encKmTexto(d.km)+'<br>'+motivo+'</p>'+
-    '<div class="form-group"><label>Nome do cliente</label><input id="encCliNome" placeholder="Quem você está encaminhando"></div>'+
-    '<div class="form-group"><label>Telefone do cliente</label><input id="encCliTel" type="tel" inputmode="tel" maxlength="15" placeholder="(99) 99999-9999" oninput="mascaraTel(this)"></div>'+
-    '<div class="form-group"><label>Observação (opcional)</label><textarea id="encObs" rows="2" placeholder="Algo que a outra autorizada precise saber"></textarea></div>'+
+    '<div class="form-group"><label for="encCliNome">Nome do cliente</label><input id="encCliNome" placeholder="Quem você está encaminhando"></div>'+
+    '<div class="form-group"><label for="encCliTel">Telefone do cliente</label><input id="encCliTel" type="tel" inputmode="tel" maxlength="15" placeholder="(99) 99999-9999" oninput="mascaraTel(this)"></div>'+
+    '<div class="form-group"><label for="encObs">Observação (opcional)</label><textarea id="encObs" rows="2" placeholder="Algo que a outra autorizada precise saber"></textarea></div>'+
     '<div class="flex gap-8 mt-16" style="justify-content:flex-end">'+
       '<button class="btn btn-ghost btn-sm" style="width:auto" onclick="encFechar(this)">Cancelar</button>'+
       '<button class="btn btn-primary btn-sm" style="width:auto" id="encBtnReg" onclick="encRegistrar('+i+')">Registrar encaminhamento</button>'+
@@ -2687,7 +2689,7 @@ async function encRenderRecebidos(box){
     '<p class="text-sm">Clientes que <b>outra autorizada da rede mandou para você</b>, porque não podia atender. O telefone do cliente está aqui: ligue antes que ele apareça, confirme a peça e adiante o atendimento.</p></div>';
   if(!lista.length){
     h+='<div class="card"><div class="empty-state">'+
-       '<svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>'+
+       '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>'+
        '<p>Nenhum cliente encaminhado para você ainda</p>'+
        '<p class="text-xs text-muted">Quando outra autorizada não puder atender um cliente em garantia e indicar vocês, ele aparece aqui.</p>'+
        '</div></div>';
