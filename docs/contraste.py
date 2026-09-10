@@ -159,6 +159,38 @@ def hexof(c):
     return "#%02X%02X%02X" % tuple(int(round(v)) for v in c)
 
 
+# --------------------------------------------------------------------------
+# Uso PROIBIDO de token. A tabela PARES confere a matematica dos pares que eu
+# declarei -- ela nao tem como saber que um elemento esta usando o token
+# errado. Estas regras cobrem justamente isso: sao os tons que existem no
+# :root para papel decorativo e que nao podem virar cor de texto.
+#
+# Foi assim que .sidebar-label e .modal-close passaram batido na primeira
+# passada: os pares fechavam, mas as duas regras usavam --text-d como cor de
+# texto, 2,67:1.
+# --------------------------------------------------------------------------
+PROIBIDOS = [
+    (r"color\s*:\s*var\(--text-d\)",
+     "--text-d (2,67:1) como cor de TEXTO. Ele existe para o decorativo: "
+     "traco de svg e seta do accordion. Texto cinza usa --text-m."),
+    (r"background\s*:\s*var\(--primary\)\s*;\s*color\s*:\s*#(fff|FFF|ffffff|FFFFFF)\b",
+     "branco sobre o ciano da marca (2,00:1). O rotulo em cima de --primary "
+     "e --text."),
+]
+
+
+def usos_proibidos(caminho):
+    """Procura no arquivo inteiro (CSS e style inline do JS)."""
+    txt = io.open(caminho, encoding="utf-8").read()
+    # `stroke:` continua livre -- a proibicao e sobre `color:`.
+    achados = []
+    for i, linha in enumerate(txt.split("\n"), 1):
+        for padrao, motivo in PROIBIDOS:
+            if re.search(padrao, linha):
+                achados.append((i, motivo, linha.strip()[:100]))
+    return achados
+
+
 def main():
     tk = tokens_do_root(HTML)
     print("Portal do Parceiro -- contraste WCAG 2.1 AA")
@@ -173,12 +205,20 @@ def main():
         print("%-28s %-9s sobre %-9s %6.2f:1  min %.1f  %s" % (
             rotulo, hexof(f), hexof(b), r, minimo, "ok" if ok else "REPROVA"))
     print("")
+    proibidos = usos_proibidos(HTML)
+    if proibidos:
+        print("%d USO(S) PROIBIDO(S) DE TOKEN:" % len(proibidos))
+        for linha, motivo, trecho in proibidos:
+            print("  linha %-5d %s" % (linha, motivo))
+            print("            %s" % trecho)
+        print("")
     if reprovados:
         print("%d PAR(ES) ABAIXO DO MINIMO:" % len(reprovados))
         for rotulo, r, minimo, onde in reprovados:
             print("  %-28s %.2f:1 (precisa de %.1f) -- %s" % (rotulo, r, minimo, onde))
+    if reprovados or proibidos:
         return 1
-    print("todos os %d pares passam AA." % len(PARES))
+    print("todos os %d pares passam AA, e nenhum uso proibido de token." % len(PARES))
     return 0
 
 
