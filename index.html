@@ -718,6 +718,67 @@ function toggleSidebar(){
 }
 
 // ===== TOAST =====
+// ---------- modal como dialogo ----------
+// Os sete modais deste arquivo sao montados por concatenacao e inseridos no
+// body com a classe .modal-overlay.show. Um observador ativa todos, sem
+// precisar tocar em nenhum dos sete pontos de insercao.
+var _modalFoco = null, _modalSeq = 0;
+
+function modalAtivar(ov) {
+  if (!ov || ov.getAttribute('role') === 'dialog') return;
+  ov.setAttribute('role', 'dialog');
+  ov.setAttribute('aria-modal', 'true');
+  var tit = ov.querySelector('.modal-title');
+  if (tit) {
+    if (!tit.id) tit.id = 'modal-titulo-' + (++_modalSeq);
+    ov.setAttribute('aria-labelledby', tit.id);
+  }
+  if (!_modalFoco) _modalFoco = document.activeElement;
+  // primeiro campo se houver; senao o primeiro botao (costuma ser o de fechar)
+  var alvo = ov.querySelector('input:not([type=hidden]),select,textarea')
+          || ov.querySelector('.modal button,.modal a[href]');
+  if (alvo && alvo.focus) { try { alvo.focus(); } catch (e) {} }
+}
+
+function modalTopo() {
+  var abertos = document.querySelectorAll('.modal-overlay.show');
+  return abertos.length ? abertos[abertos.length - 1] : null;
+}
+
+// Escape aciona o botao de fechar que ja existe -- nunca remove nada por conta
+// propria, e por isso nunca confirma acao destrutiva: no modal de cancelar OS,
+// por exemplo, o Escape e o equivalente a "Voltar".
+document.addEventListener('keydown', function (ev) {
+  if (ev.key !== 'Escape' && ev.keyCode !== 27) return;
+  var ov = modalTopo(); if (!ov) return;
+  var fechar = ov.querySelector('.modal-close');
+  if (fechar) { ev.preventDefault(); fechar.click(); }
+});
+
+// Devolve o foco a quem abriu, seja qual for o caminho de fechamento: uns
+// modais saem por .remove(), outros por classList.remove('show'), e cada botao
+// de dentro fecha do seu jeito. Por isso a checagem e "nao ha mais modal
+// aberto", e nao "o modal X foi fechado".
+function modalDevolverFoco() {
+  if (modalTopo() || !_modalFoco) return;
+  var alvo = _modalFoco; _modalFoco = null;
+  if (document.body.contains(alvo) && alvo.focus) { try { alvo.focus(); } catch (e) {} }
+}
+document.addEventListener('click', function () { setTimeout(modalDevolverFoco, 0); });
+(function () {
+  if (!window.MutationObserver) return;
+  new MutationObserver(function (muts) {
+    for (var i = 0; i < muts.length; i++) {
+      var add = muts[i].addedNodes;
+      for (var j = 0; j < add.length; j++) {
+        var n = add[j];
+        if (n.nodeType === 1 && n.classList && n.classList.contains('modal-overlay')) modalAtivar(n);
+      }
+    }
+    modalDevolverFoco();
+  }).observe(document.body, { childList: true, subtree: true });
+})();
+
 // O icone sai do TIPO da mensagem, nunca da string. E o vocabulario tem alias
 // porque havia quatro palavras para tres estados: 'err' e 'ok' nao existiam no
 // CSS e saiam sem cor -- entre elas um erro de validacao de telefone.
