@@ -752,7 +752,8 @@ function renderDashboard(el){
 // ===== MEUS DADOS (perfil — a autorizada vê e PREENCHE seus dados) =====
 // Dados cadastrais editáveis pelo parceiro (assist_parceiros). Produtos atendidos = só leitura
 // (classificação da Stonni). Fonte da verdade central continua na app Assistência.
-var PERFIL_PROD_ICON={'Ar Condicionado':'❄️','Geladeira':'🧊','Gerador':'⚡','Outros':'🔧'};
+// nomes de icone (ver bloco ICONS), nao glifos
+var PERFIL_PROD_ICON={'Ar Condicionado':'snowflake','Geladeira':'refrigerator','Gerador':'zap','Outros':'wrench'};
 var PERFIL_PROD_ORDEM=['Ar Condicionado','Geladeira','Gerador','Outros'];
 async function renderPerfil(el){
   el.innerHTML='<div class="page-header"><h1>Meus dados</h1></div><div class="loading-full"><span class="spinner"></span> Carregando...</div>';
@@ -763,18 +764,18 @@ async function renderPerfil(el){
     var p=(Array.isArray(pr)&&pr.length)?pr[0]:{};
     var prods=await fetch(SB_URL+'/rest/v1/assist_parceiro_produtos?parceiro_id=eq.'+_parceiroId+'&select=produto_tag',h).then(function(r){return r.json()});
     var tags=(Array.isArray(prods)?prods:[]).map(function(x){return x.produto_tag}).sort(function(a,b){var ia=PERFIL_PROD_ORDEM.indexOf(a),ib=PERFIL_PROD_ORDEM.indexOf(b);return (ia<0?99:ia)-(ib<0?99:ib);});
-    var chip=function(t){return '<span style="display:inline-flex;align-items:center;gap:4px;padding:4px 12px;border-radius:999px;font-size:13px;font-weight:600;background:rgba(79,195,247,.12);color:var(--primary-txt)">'+(PERFIL_PROD_ICON[t]||'🏷️')+' '+esc(t)+'</span>'};
+    var chip=function(t){return '<span style="display:inline-flex;align-items:center;gap:4px;padding:4px 12px;border-radius:999px;font-size:13px;font-weight:600;background:rgba(79,195,247,.12);color:var(--primary-txt)">'+ico(PERFIL_PROD_ICON[t]||'tag',12)+' '+esc(t)+'</span>'};
     var statusNome={ativo:'Ativo',teste:'Em teste',suspenso:'Suspenso',inativo:'Inativo'};
     var credenciado=p.credenciado
-      ? '<div style="display:inline-flex;align-items:center;gap:6px;background:rgba(76,175,80,.12);color:var(--success);font-weight:700;font-size:12px;padding:5px 12px;border-radius:999px">⭐ Rede Autorizada Stonni</div>'
-      : '<div style="display:inline-flex;align-items:center;gap:6px;background:var(--surface2);color:var(--text-m);font-size:12px;padding:5px 12px;border-radius:999px">🔹 Não credenciado</div>';
+      ? '<div style="display:inline-flex;align-items:center;gap:6px;background:rgba(76,175,80,.12);color:var(--success);font-weight:700;font-size:12px;padding:5px 12px;border-radius:999px">'+ico('badge-check',12)+' Rede Autorizada Stonni</div>'
+      : '<div style="display:inline-flex;align-items:center;gap:6px;background:var(--surface2);color:var(--text-m);font-size:12px;padding:5px 12px;border-radius:999px">'+ico('circle-dashed',12)+' Não credenciado</div>';
 
     // Aviso: campos essenciais para pagamento / emissão de NF
     var obrig=[['cnpj','CNPJ'],['telefone','Telefone'],['endereco','Endereço'],['cep','CEP']];
     var faltando=obrig.filter(function(f){return !String(p[f[0]]||'').trim()}).map(function(f){return f[1]});
     var aviso=faltando.length
       ? '<div style="background:#FFF4E5;border:1px solid #F5B36B;border-radius:var(--radius);padding:14px 16px;margin-bottom:16px;display:flex;gap:10px;align-items:flex-start">'+
-          '<span style="font-size:20px;line-height:1">⚠️</span>'+
+          '<span style="line-height:1;color:#8a5a00">'+ico('triangle-alert',20)+'</span>'+
           '<div><div style="font-weight:700;color:#8a5a00;font-size:14px;margin-bottom:3px">Complete seu cadastro</div>'+
           '<div style="font-size:13px;color:#7a5410;line-height:1.4">Precisamos destes dados para <b>pagar você</b> e para você <b>emitir a Nota Fiscal</b>: <b>'+esc(faltando.join(', '))+'</b>. Preencha abaixo e clique em <b>Salvar</b>.</div></div>'+
         '</div>'
@@ -786,7 +787,7 @@ async function renderPerfil(el){
       '<div class="page-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px"><h1>Meus dados</h1>'+credenciado+'</div>'+
       aviso+
       '<div class="card">'+
-        '<div class="card-title">🏢 '+esc(p.nome||'Autorizada')+'</div>'+
+        '<div class="card-title">'+ico('building-2',16)+' '+esc(p.nome||'Autorizada')+'</div>'+
         '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">'+
           '<div style="grid-column:1/-1">'+inp('mp-responsavel','Responsável',p.responsavel,'Nome do responsável')+'</div>'+
           inp('mp-cnpj','CNPJ',p.cnpj,'00.000.000/0001-00')+
@@ -798,11 +799,11 @@ async function renderPerfil(el){
           '<div style="grid-column:1/-1">'+inp('mp-endereco','Endereço',p.endereco,'Rua, nº, bairro')+'</div>'+
           inp('mp-uf','UF',p.uf,'UF')+
         '</div>'+
-        '<div style="display:flex;justify-content:flex-end;margin-top:16px"><button onclick="salvarMeusDados()" style="padding:10px 20px;border:none;border-radius:var(--radius-sm);background:var(--primary);color:var(--text);font-weight:700;font-size:14px;cursor:pointer">💾 Salvar meus dados</button></div>'+
+        '<div style="display:flex;justify-content:flex-end;margin-top:16px"><button onclick="salvarMeusDados()" style="padding:10px 20px;border:none;border-radius:var(--radius-sm);background:var(--primary);color:var(--text);font-weight:700;font-size:14px;cursor:pointer">'+ico('save',14)+' Salvar meus dados</button></div>'+
         '<div style="font-size:12px;color:var(--text-m);margin-top:10px">Raio de atendimento e produtos atendidos são definidos pela Stonni. Situação: <b>'+esc(statusNome[p.status]||p.status||'—')+'</b>.</div>'+
       '</div>'+
       '<div class="card">'+
-        '<div class="card-title">🛠️ Produtos atendidos</div>'+
+        '<div class="card-title">'+ico('hammer',16)+' Produtos atendidos</div>'+
         (tags.length
           ? '<div style="display:flex;gap:8px;flex-wrap:wrap">'+tags.map(chip).join('')+'</div>'
           : '<div style="font-size:13px;color:var(--text-m)">Nenhum produto marcado ainda.</div>')+
@@ -1143,7 +1144,7 @@ function renderOsStep(){
           '</select></div>'+
         '</div>'+
         '<div class="form-group"><label>Cidade</label><input type="text" id="osCliCidade" value="'+esc(_osData.cliente_cidade)+'" placeholder="Cidade"></div>'+
-        '<div class="flex justify-between mt-16"><div></div><button class="btn btn-primary btn-sm" onclick="osProximo(1)">Próximo →</button></div>';
+        '<div class="flex justify-between mt-16"><div></div><button class="btn btn-primary btn-sm" onclick="osProximo(1)">Próximo '+ico('arrow-right',14)+'</button></div>';
       break;
     case 2: // Produto
       var modelos='<option value="">Selecione a linha primeiro</option>';
@@ -1168,7 +1169,7 @@ function renderOsStep(){
             (_osData.foto_nf?previewNFHtml(_osData.foto_nf):'<svg viewBox="0 0 24 24" width="24" height="24" stroke="var(--text-d)" fill="none" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg><span class="text-xs text-muted">Toque para escolher foto ou PDF da NF</span>')+
           '</div>'+
         '</div>'+
-        '<div class="flex justify-between mt-16"><button class="btn btn-ghost btn-sm" onclick="osVoltar()">← Voltar</button><button class="btn btn-primary btn-sm" onclick="osProximo(2)">Próximo →</button></div>';
+        '<div class="flex justify-between mt-16"><button class="btn btn-ghost btn-sm" onclick="osVoltar()">'+ico('arrow-left',14)+' Voltar</button><button class="btn btn-primary btn-sm" onclick="osProximo(2)">Próximo '+ico('arrow-right',14)+'</button></div>';
       break;
     case 3:
       var servHtml='<div class="loading-full" id="servicosLista"><span class="spinner"></span> Carregando serviços...</div>';
@@ -1195,9 +1196,9 @@ function renderOsStep(){
         '<div class="card-title">Fotos do equipamento</div>'+
         '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px" id="fotosEquipGrid">'+fotosEquipHtml+'</div>'+
         '<input type="file" id="fotoEquipInput" accept="image/*,application/pdf" onchange="uploadFotoEquip()" style="display:none" multiple>'+
-        '<button class="btn btn-ghost btn-sm" style="width:auto" onclick="document.getElementById(\'fotoEquipInput\').click()">📷 Adicionar foto</button>'+
+        '<button class="btn btn-ghost btn-sm" style="width:auto" onclick="document.getElementById(\'fotoEquipInput\').click()">'+ico('camera',14)+' Adicionar foto</button>'+
         '<p class="text-xs text-muted mt-8">Tire fotos do equipamento instalado no veículo. Você pode adicionar várias.</p>'+
-        '<div class="flex justify-between mt-16"><button class="btn btn-ghost btn-sm" onclick="osVoltar()">← Voltar</button><button class="btn btn-primary btn-sm" onclick="osProximo(3)">Revisar →</button></div>';
+        '<div class="flex justify-between mt-16"><button class="btn btn-ghost btn-sm" onclick="osVoltar()">'+ico('arrow-left',14)+' Voltar</button><button class="btn btn-primary btn-sm" onclick="osProximo(3)">Revisar '+ico('arrow-right',14)+'</button></div>';
       if(!_servicosCache.length) carregarServicos();
       carregarPecasCatalogo();
       break;
@@ -1226,7 +1227,7 @@ function renderOsStep(){
           '<p><strong>Fotos:</strong> NF '+(_osData.foto_nf?'✅':'❌')+' · Equipamento '+(Array.isArray(_osData.fotos_equipamento)?_osData.fotos_equipamento.length:(_osData.foto_equipamento?1:0))+' foto(s)</p>'+
         '</div>'+
         '<div class="flex justify-between mt-24" style="gap:8px;flex-wrap:wrap">'+
-          '<button class="btn btn-ghost btn-sm" onclick="osVoltar()">← Voltar</button>'+
+          '<button class="btn btn-ghost btn-sm" onclick="osVoltar()">'+ico('arrow-left',14)+' Voltar</button>'+
           '<button class="btn btn-ghost btn-sm" onclick="osSalvar(\'rascunho\')" id="btnRascunho">'+((_editandoStatusOrig&&_editandoStatusOrig!=='rascunho')?'Salvar alterações':'Salvar rascunho')+'</button>'+
           '<button class="btn btn-primary btn-sm" onclick="osSalvar(\'enviada\')" id="btnEnviar">Enviar para Stonni</button>'+
         '</div>';
@@ -1343,7 +1344,7 @@ function renderServicosHtml(){
     }
     html+='<div class="srv-total-bar"><div><div class="srv-total-label">Total serviços ('+_servicosSelecionados.length+')</div>'+detalheCat+'</div><div class="srv-total-valor">'+(capado?'<span style="text-decoration:line-through;color:var(--text-muted);font-size:13px;margin-right:6px">'+fmt(somaRaw)+'</span>':'')+fmt(valorEfetivo)+'</div></div>';
   }
-  html+='<button class="srv-add-btn" onclick="abrirPickerServico()">＋ Adicionar serviço</button>';
+  html+='<button class="srv-add-btn" onclick="abrirPickerServico()">'+ico('plus',14)+' Adicionar serviço</button>';
   if(_showAccordionPicker){
     html+=renderAccordionPicker();
   }
@@ -1378,11 +1379,11 @@ function renderAccordionPicker(){
     var isOpen=_accordionOpen===chave;
     html+='<div class="srv-accordion'+(isOpen?' open':'')+'" data-cat="'+chave+'">';
     html+='<div class="srv-accordion-header'+(catTemSel?' has-selected':'')+'" onclick="toggleAccordion(\''+chave+'\')">';
-    html+='<div class="srv-accordion-title">'+cat.nome+(catTotal>0?' ('+(catCapado?'<span style="text-decoration:line-through;font-size:11px">'+fmt(catTotal)+'</span> ':'')+fmt(catCapado?cat.valor_teto:catTotal)+')':'')+'</div><div class="srv-accordion-teto">teto '+fmt(cat.valor_teto)+'</div><div class="srv-accordion-arrow">▼</div></div>';
+    html+='<div class="srv-accordion-title">'+cat.nome+(catTotal>0?' ('+(catCapado?'<span style="text-decoration:line-through;font-size:11px">'+fmt(catTotal)+'</span> ':'')+fmt(catCapado?cat.valor_teto:catTotal)+')':'')+'</div><div class="srv-accordion-teto">teto '+fmt(cat.valor_teto)+'</div><div class="srv-accordion-arrow">'+ico('chevron-down',12)+'</div></div>';
     html+='<div class="srv-accordion-body">';
     items.forEach(function(s){
       var jaSel=_servicosSelecionados.some(function(x){return x.codigo===s.codigo});
-      html+='<div class="srv-item'+(jaSel?' selected':'')+'" onclick="'+(jaSel?'':'adicionarServico(\''+s.codigo+'\','+cat.id+',\''+esc(cat.nome)+'\')')+'"><div class="srv-item-code">'+s.codigo+'</div><div class="srv-item-desc">'+s.descricao+(jaSel?' ✓':'')+'</div><div class="srv-item-valor">'+fmt(s.valor)+'</div></div>';
+      html+='<div class="srv-item'+(jaSel?' selected':'')+'" onclick="'+(jaSel?'':'adicionarServico(\''+s.codigo+'\','+cat.id+',\''+esc(cat.nome)+'\')')+'"><div class="srv-item-code">'+s.codigo+'</div><div class="srv-item-desc">'+s.descricao+(jaSel?' '+ico('check',12):'')+'</div><div class="srv-item-valor">'+fmt(s.valor)+'</div></div>';
     });
     html+='</div></div>';
   });
@@ -1939,8 +1940,8 @@ function mostrarListaOS(filtro){
         '<span class="text-sm fw-600">'+fmt(o.valor_servico)+'</span>'+
       '</div>'+
       '<div class="flex gap-8 mt-8">'+
-        (osAtiva(o.status)?'<button class="btn btn-ghost btn-sm" style="width:auto;padding:6px 12px;font-size:.75rem" onclick="renderNovaOS(document.getElementById(\'mainContent\'),'+o.id+')">✏️ Editar</button>':'')+
-        '<button class="btn btn-ghost btn-sm" style="width:auto;padding:6px 12px;font-size:.75rem" onclick="gerarPdfOS('+o.id+')">🖨️ PDF</button>'+
+        (osAtiva(o.status)?'<button class="btn btn-ghost btn-sm" style="width:auto;padding:6px 12px;font-size:.75rem" onclick="renderNovaOS(document.getElementById(\'mainContent\'),'+o.id+')">'+ico('pencil',13)+' Editar</button>':'')+
+        '<button class="btn btn-ghost btn-sm" style="width:auto;padding:6px 12px;font-size:.75rem" onclick="gerarPdfOS('+o.id+')">'+ico('printer',13)+' PDF</button>'+
       '</div>'+
       (o.motivo_recusa?'<div class="text-sm text-danger mt-8">Motivo: '+o.motivo_recusa+'</div>':'')+
     '</div>';
@@ -1958,18 +1959,18 @@ async function abrirDetalheOS(id){
     var reps=await rp.json();
     if(Array.isArray(reps)&&reps.length){
       pecaBox='<div class="card" style="margin:12px 0;background:var(--primary-bg);border-color:var(--primary)">'+
-        '<div class="fw-700 mb-8" style="font-size:.9rem">🔧 Peças desta OS</div>';
+        '<div class="fw-700 mb-8" style="font-size:.9rem">'+ico('wrench',16)+' Peças desta OS</div>';
       reps.forEach(function(r){
         var env=r.prt_envios_pecas;
         if(env){
-          pecaBox+='<div class="text-sm mb-8">🚚 <strong>'+esc(r.nome_peca)+'</strong> — a caminho'+
+          pecaBox+='<div class="text-sm mb-8">'+ico('truck',14)+' <strong>'+esc(r.nome_peca)+'</strong> — a caminho'+
             (env.nf_envio?' · NF '+esc(env.nf_envio):'')+
             (env.transportadora?' · '+esc(env.transportadora):'')+
             (env.rastreio?' · rastreio '+esc(env.rastreio):'')+
             (env.data_envio?' <span class="text-muted">('+fmtData(env.data_envio)+')</span>':'')+
             '<br><span class="text-xs text-muted">Reagende a visita com o cliente quando a peça chegar.</span></div>';
         }else{
-          pecaBox+='<div class="text-sm mb-8">⏳ <strong>'+esc(r.nome_peca)+'</strong> — solicitada, aguardando envio da Stonni.</div>';
+          pecaBox+='<div class="text-sm mb-8">'+ico('clock',14)+' <strong>'+esc(r.nome_peca)+'</strong> — solicitada, aguardando envio da Stonni.</div>';
         }
       });
       pecaBox+='</div>';
@@ -1979,8 +1980,8 @@ async function abrirDetalheOS(id){
   var acoes='';
   if(osAtiva(o.status)){
     acoes='<div class="flex gap-8 mt-16" style="flex-wrap:wrap">'+
-      '<button class="btn btn-primary btn-sm" style="width:auto" onclick="solicitarPecaOS('+o.id+')">🔧 Solicitar peça</button>'+
-      '<button class="btn btn-ghost btn-sm" style="width:auto" onclick="this.closest(\'.modal-overlay\').classList.remove(\'show\');renderNovaOS(document.getElementById(\'mainContent\'),'+o.id+')">✏️ Editar OS</button>'+
+      '<button class="btn btn-primary btn-sm" style="width:auto" onclick="solicitarPecaOS('+o.id+')">'+ico('wrench',14)+' Solicitar peça</button>'+
+      '<button class="btn btn-ghost btn-sm" style="width:auto" onclick="this.closest(\'.modal-overlay\').classList.remove(\'show\');renderNovaOS(document.getElementById(\'mainContent\'),'+o.id+')">'+ico('pencil',13)+' Editar OS</button>'+
       '<button class="btn btn-ghost btn-sm" style="width:auto;color:var(--danger)" onclick="cancelarOS('+o.id+')">'+ico('x',13)+' Cancelar OS</button>'+
     '</div>';
   }
@@ -2121,7 +2122,7 @@ function renderMaterialLista(){
       return (m.titulo||'').toLowerCase().indexOf(_matBusca)>-1 || (m.descricao||'').toLowerCase().indexOf(_matBusca)>-1;
     });
   }
-  var tipoIcon={video:'🎥',pdf:'📄',imagem:'🖼️',link:'🔗'};
+  var tipoIcon={video:'film',pdf:'file-text',imagem:'image',link:'link'};
   var html='<div style="margin-bottom:12px"><input type="text" id="buscaMaterial" placeholder="Buscar material..." value="'+esc(_matBusca)+'" oninput="filtrarMaterial(this.value)" style="width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border-campo);border-radius:var(--radius-sm);color:var(--text)"></div>';
   html+='<div class="compra-filters"><div class="compra-filter-chip'+(!_matFiltroLinha?' active':'')+'" onclick="setMatFiltroLinha(\'\')">Todos</div>';
   _matLinhas.forEach(function(l){html+='<div class="compra-filter-chip'+(_matFiltroLinha===l.slug?' active':'')+'" onclick="setMatFiltroLinha(\''+l.slug+'\')">'+l.nome+'</div>'});
@@ -2138,10 +2139,10 @@ function renderMaterialLista(){
     html+='<div class="empty-state"><svg viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg><p>Nenhum material encontrado</p></div>';
   }else{
     mats.forEach(function(m){
-      html+='<div class="card"><div class="card-title">'+(tipoIcon[m.tipo]?tipoIcon[m.tipo]+' ':'')+m.titulo+'</div>'+
+      html+='<div class="card"><div class="card-title">'+(tipoIcon[m.tipo]?ico(tipoIcon[m.tipo],16)+' ':'')+m.titulo+'</div>'+
         (m.descricao?'<p class="text-sm text-muted mb-8">'+m.descricao+'</p>':'')+
         '<div class="flex items-center gap-8 text-xs text-muted">'+(m.linha_produto?(lnm[m.linha_produto]||m.linha_produto):'Geral')+(m.modelo?' — '+m.modelo:'')+'</div>'+
-        '<a href="'+m.url+'" target="_blank" class="btn btn-ghost btn-sm mt-16">Abrir material →</a></div>';
+        '<a href="'+m.url+'" target="_blank" class="btn btn-ghost btn-sm mt-16">Abrir material '+ico('arrow-right',14)+'</a></div>';
     });
   }
   box.innerHTML=html;
