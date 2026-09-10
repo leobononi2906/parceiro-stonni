@@ -140,7 +140,7 @@ input,select,textarea{font-family:inherit;font-size:1rem}
 }
 .sidebar-overlay.show{display:block;opacity:1}
 .sidebar-section{padding:0 16px;margin-bottom:24px}
-.sidebar-label{font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text-d);margin-bottom:8px}
+.sidebar-label{font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text-m);margin-bottom:8px}
 .nav-item{
   display:flex;align-items:center;gap:10px;
   padding:10px 16px;border-radius:var(--radius-sm);
@@ -244,7 +244,7 @@ tbody tr:hover{background:var(--primary-bg)}
 .srv-accordion-header.has-selected{background:rgba(79,195,247,.12);border-left:3px solid var(--primary);padding-left:13px}
 .srv-accordion-title{font-size:.85rem;font-weight:700;color:var(--text);flex:1}
 .srv-accordion-teto{font-size:.75rem;color:var(--text-m);white-space:nowrap}
-.srv-accordion-arrow{font-size:.7rem;color:var(--text-d);transition:transform .2s;flex-shrink:0}
+.srv-accordion-arrow{font-size:.7rem;color:var(--text-m);transition:transform .2s;flex-shrink:0}
 .srv-accordion.open .srv-accordion-arrow{transform:rotate(180deg)}
 .srv-accordion-body{display:none;padding:4px 8px 8px;background:var(--surface)}
 .srv-accordion.open .srv-accordion-body{display:block}
@@ -318,7 +318,7 @@ tbody tr:hover{background:var(--primary-bg)}
 }
 @media(min-width:600px){.modal{border-radius:var(--radius)}}
 .modal-title{font-size:1.1rem;font-weight:700;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between}
-.modal-close{background:none;color:var(--text-d);font-size:1.3rem;padding:4px}
+.modal-close{background:none;color:var(--text-m);font-size:1.3rem;padding:4px}
 
 /* ===== UTILITIES ===== */
 .mt-8{margin-top:8px}.mt-16{margin-top:16px}.mt-24{margin-top:24px}
@@ -648,7 +648,7 @@ async function renderPerfil(el){
     var p=(Array.isArray(pr)&&pr.length)?pr[0]:{};
     var prods=await fetch(SB_URL+'/rest/v1/assist_parceiro_produtos?parceiro_id=eq.'+_parceiroId+'&select=produto_tag',h).then(function(r){return r.json()});
     var tags=(Array.isArray(prods)?prods:[]).map(function(x){return x.produto_tag}).sort(function(a,b){var ia=PERFIL_PROD_ORDEM.indexOf(a),ib=PERFIL_PROD_ORDEM.indexOf(b);return (ia<0?99:ia)-(ib<0?99:ib);});
-    var chip=function(t){return '<span style="display:inline-flex;align-items:center;gap:4px;padding:4px 12px;border-radius:999px;font-size:13px;font-weight:600;background:rgba(79,195,247,.12);color:var(--primary)">'+(PERFIL_PROD_ICON[t]||'🏷️')+' '+esc(t)+'</span>'};
+    var chip=function(t){return '<span style="display:inline-flex;align-items:center;gap:4px;padding:4px 12px;border-radius:999px;font-size:13px;font-weight:600;background:rgba(79,195,247,.12);color:var(--primary-txt)">'+(PERFIL_PROD_ICON[t]||'🏷️')+' '+esc(t)+'</span>'};
     var statusNome={ativo:'Ativo',teste:'Em teste',suspenso:'Suspenso',inativo:'Inativo'};
     var credenciado=p.credenciado
       ? '<div style="display:inline-flex;align-items:center;gap:6px;background:rgba(76,175,80,.12);color:var(--success);font-weight:700;font-size:12px;padding:5px 12px;border-radius:999px">⭐ Rede Autorizada Stonni</div>'
@@ -665,7 +665,7 @@ async function renderPerfil(el){
         '</div>'
       : '';
 
-    var inp=function(id,lbl,val,ph,extra){return '<div><label style="display:block;font-size:11.5px;font-weight:600;color:var(--text-m);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">'+lbl+'</label><input id="'+id+'" value="'+esc(val||'')+'" placeholder="'+(ph||'')+'" '+(extra||'')+' style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:14px;background:var(--surface2);color:var(--text)"></div>'};
+    var inp=function(id,lbl,val,ph,extra){return '<div><label style="display:block;font-size:11.5px;font-weight:600;color:var(--text-m);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">'+lbl+'</label><input id="'+id+'" value="'+esc(val||'')+'" placeholder="'+(ph||'')+'" '+(extra||'')+' style="width:100%;padding:10px 12px;border:1px solid var(--border-campo);border-radius:var(--radius-sm);font-size:14px;background:var(--surface2);color:var(--text)"></div>'};
 
     el.innerHTML=
       '<div class="page-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px"><h1>Meus dados</h1>'+credenciado+'</div>'+
@@ -683,15 +683,15 @@ async function renderPerfil(el){
           '<div style="grid-column:1/-1">'+inp('mp-endereco','Endereço',p.endereco,'Rua, nº, bairro')+'</div>'+
           inp('mp-uf','UF',p.uf,'UF')+
         '</div>'+
-        '<div style="display:flex;justify-content:flex-end;margin-top:16px"><button onclick="salvarMeusDados()" style="padding:10px 20px;border:none;border-radius:var(--radius-sm);background:var(--primary);color:#fff;font-weight:700;font-size:14px;cursor:pointer">💾 Salvar meus dados</button></div>'+
-        '<div style="font-size:12px;color:var(--text-d);margin-top:10px">Raio de atendimento e produtos atendidos são definidos pela Stonni. Situação: <b>'+esc(statusNome[p.status]||p.status||'—')+'</b>.</div>'+
+        '<div style="display:flex;justify-content:flex-end;margin-top:16px"><button onclick="salvarMeusDados()" style="padding:10px 20px;border:none;border-radius:var(--radius-sm);background:var(--primary);color:var(--text);font-weight:700;font-size:14px;cursor:pointer">💾 Salvar meus dados</button></div>'+
+        '<div style="font-size:12px;color:var(--text-m);margin-top:10px">Raio de atendimento e produtos atendidos são definidos pela Stonni. Situação: <b>'+esc(statusNome[p.status]||p.status||'—')+'</b>.</div>'+
       '</div>'+
       '<div class="card">'+
         '<div class="card-title">🛠️ Produtos atendidos</div>'+
         (tags.length
           ? '<div style="display:flex;gap:8px;flex-wrap:wrap">'+tags.map(chip).join('')+'</div>'
           : '<div style="font-size:13px;color:var(--text-m)">Nenhum produto marcado ainda.</div>')+
-        '<div style="font-size:12px;color:var(--text-d);margin-top:12px">Os produtos que você atende são definidos pela Stonni. Se algo estiver errado, fale com a gente.</div>'+
+        '<div style="font-size:12px;color:var(--text-m);margin-top:12px">Os produtos que você atende são definidos pela Stonni. Se algo estiver errado, fale com a gente.</div>'+
       '</div>';
   }catch(e){
     el.innerHTML='<div class="page-header"><h1>Meus dados</h1></div><div class="card">Erro ao carregar seus dados. Tente de novo.</div>';
@@ -1312,11 +1312,11 @@ async function carregarPecasCatalogo(){
     }else{
       box.innerHTML=
         '<div class="flex gap-8 mb-8" style="flex-wrap:wrap">'+
-          '<select id="selPeca" style="flex:1;min-width:0;padding:8px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:.85rem">'+
+          '<select id="selPeca" style="flex:1;min-width:0;padding:8px 12px;background:var(--surface2);border:1px solid var(--border-campo);border-radius:var(--radius-sm);color:var(--text);font-size:.85rem">'+
             '<option value="">Selecione a peça...</option>'+
             _pecasCatalogo.map(function(p){return '<option value="'+p.id+'">'+p.referencia+' — '+p.nome+'</option>'}).join('')+
           '</select>'+
-          '<input type="number" id="qtdPeca" value="1" min="1" style="width:60px;padding:8px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);text-align:center;font-size:.85rem">'+
+          '<input type="number" id="qtdPeca" value="1" min="1" style="width:60px;padding:8px;background:var(--bg);border:1px solid var(--border-campo);border-radius:var(--radius-sm);color:var(--text);text-align:center;font-size:.85rem">'+
           '<button class="btn btn-primary btn-sm" style="width:auto;padding:8px 16px" onclick="adicionarPeca()">+ Adicionar</button>'+
         '</div>';
     }
@@ -1429,7 +1429,7 @@ function mascaraTel(el){
 function ehPdfUrl(u){return /[.]pdf([?]|$)/i.test(String(u||''))}
 function tipoNFAceito(f){return !!f&&(f.type==='application/pdf'||f.type.indexOf('image/')===0)}
 function previewNFHtml(url){
-  if(ehPdfUrl(url)) return '<span class="text-xs" style="color:var(--primary);font-weight:700">PDF</span><span class="text-xs text-muted">anexado</span><a href="'+url+'" target="_blank" onclick="event.stopPropagation()" class="text-xs" style="color:var(--primary);text-decoration:underline">abrir</a>';
+  if(ehPdfUrl(url)) return '<span class="text-xs" style="color:var(--primary-txt);font-weight:700">PDF</span><span class="text-xs text-muted">anexado</span><a href="'+url+'" target="_blank" onclick="event.stopPropagation()" class="text-xs" style="color:var(--primary);text-decoration:underline">abrir</a>';
   return '<img src="'+url+'" style="width:100%;height:100%;object-fit:cover;border-radius:var(--radius-sm)">';
 }
 async function uploadFoto(tipo){
@@ -1490,7 +1490,7 @@ function renderFotosEquipHtml(){
   var h='';
   fotos.forEach(function(url,i){
     var miolo = ehPdfUrl(url)
-      ? '<a href="'+url+'" target="_blank" style="display:flex;flex-direction:column;align-items:center;justify-content:center;width:100%;height:100%;text-decoration:none;color:var(--primary);background:var(--primary-bg);font-size:11px;font-weight:700">PDF</a>'
+      ? '<a href="'+url+'" target="_blank" style="display:flex;flex-direction:column;align-items:center;justify-content:center;width:100%;height:100%;text-decoration:none;color:var(--primary-txt);background:var(--primary-bg);font-size:11px;font-weight:700">PDF</a>'
       : '<img src="'+url+'" style="width:100%;height:100%;object-fit:cover">';
     h+='<div style="position:relative;width:100px;height:80px;border-radius:var(--radius-sm);overflow:hidden;border:1px solid var(--border);flex-shrink:0">'+miolo+
        '<button onclick="removerFotoEquip('+i+')" style="position:absolute;top:2px;right:2px;background:var(--danger);color:#fff;border:none;border-radius:50%;width:20px;height:20px;font-size:11px;cursor:pointer">\u2715</button></div>';
@@ -1902,9 +1902,9 @@ async function solicitarPecaOS(osId){
     '<div class="modal-title">Solicitar peça<button class="modal-close" onclick="this.closest(\'.modal-overlay\').remove()">✕</button></div>'+
     '<p class="text-sm text-muted mb-16">A Stonni analisa e envia a peça para você. Você reagenda com o cliente quando ela chegar.</p>'+
     '<div class="field mb-16"><label class="text-xs text-muted">Peça</label>'+
-      '<select id="solicPecaRef" style="width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:.9rem"><option value="">Selecione...</option>'+opts+'</select></div>'+
+      '<select id="solicPecaRef" style="width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border-campo);border-radius:var(--radius-sm);color:var(--text);font-size:.9rem"><option value="">Selecione...</option>'+opts+'</select></div>'+
     '<div class="field mb-16"><label class="text-xs text-muted">Quantidade</label>'+
-      '<input type="number" id="solicPecaQtd" value="1" min="1" style="width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:.9rem"></div>'+
+      '<input type="number" id="solicPecaQtd" value="1" min="1" style="width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border-campo);border-radius:var(--radius-sm);color:var(--text);font-size:.9rem"></div>'+
     '<div class="flex gap-8 mt-16" style="justify-content:flex-end">'+
       '<button class="btn btn-ghost btn-sm" style="width:auto" onclick="this.closest(\'.modal-overlay\').remove()">Cancelar</button>'+
       '<button class="btn btn-primary btn-sm" style="width:auto" id="btnSolicPeca" onclick="salvarSolicitacaoPeca('+osId+')">Solicitar</button>'+
@@ -1941,7 +1941,7 @@ function cancelarOS(osId){
     '<div class="modal-title">Cancelar OS<button class="modal-close" onclick="this.closest(\'.modal-overlay\').remove()">✕</button></div>'+
     '<p class="text-sm text-muted mb-16">Confirma o cancelamento? Se já houver peça enviada, ela permanece no seu estoque.</p>'+
     '<div class="field mb-16"><label class="text-xs text-muted">Motivo (opcional)</label>'+
-      '<textarea id="cancelMotivo" placeholder="Ex: cliente desistiu, peça incorreta..." style="width:100%;height:70px;padding:10px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:.9rem;resize:vertical"></textarea></div>'+
+      '<textarea id="cancelMotivo" placeholder="Ex: cliente desistiu, peça incorreta..." style="width:100%;height:70px;padding:10px;background:var(--surface2);border:1px solid var(--border-campo);border-radius:var(--radius-sm);color:var(--text);font-size:.9rem;resize:vertical"></textarea></div>'+
     '<div class="flex gap-8 mt-16" style="justify-content:flex-end">'+
       '<button class="btn btn-ghost btn-sm" style="width:auto" onclick="this.closest(\'.modal-overlay\').remove()">Voltar</button>'+
       '<button class="btn btn-sm" style="width:auto;background:var(--danger);color:#fff" id="btnCancelarOS" onclick="confirmarCancelarOS('+osId+')">Cancelar OS</button>'+
@@ -2007,7 +2007,7 @@ function renderMaterialLista(){
     });
   }
   var tipoIcon={video:'🎥',pdf:'📄',imagem:'🖼️',link:'🔗'};
-  var html='<div style="margin-bottom:12px"><input type="text" id="buscaMaterial" placeholder="Buscar material..." value="'+esc(_matBusca)+'" oninput="filtrarMaterial(this.value)" style="width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text)"></div>';
+  var html='<div style="margin-bottom:12px"><input type="text" id="buscaMaterial" placeholder="Buscar material..." value="'+esc(_matBusca)+'" oninput="filtrarMaterial(this.value)" style="width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border-campo);border-radius:var(--radius-sm);color:var(--text)"></div>';
   html+='<div class="compra-filters"><div class="compra-filter-chip'+(!_matFiltroLinha?' active':'')+'" onclick="setMatFiltroLinha(\'\')">Todos</div>';
   _matLinhas.forEach(function(l){html+='<div class="compra-filter-chip'+(_matFiltroLinha===l.slug?' active':'')+'" onclick="setMatFiltroLinha(\''+l.slug+'\')">'+l.nome+'</div>'});
   html+='</div>';
@@ -2304,7 +2304,7 @@ function encCardHtml(d,i){
         '<div style="font-weight:700;font-size:15px">'+esc(d.nome||'Autorizada')+(d.encaminhado?' <span class="badge badge-paga">encaminhado</span>':'')+'</div>'+
         '<div class="text-sm text-muted">'+esc(local)+(d.endereco?' · '+esc(d.endereco):'')+'</div>'+
       '</div>'+
-      '<div style="text-align:right"><div style="font-weight:700;font-size:16px;color:var(--primary)">'+encKmTexto(d.km)+'</div></div>'+
+      '<div style="text-align:right"><div style="font-weight:700;font-size:16px;color:var(--primary-txt)">'+encKmTexto(d.km)+'</div></div>'+
     '</div>';
   if(d.peca){
     h+='<div class="text-sm" style="margin-top:8px">🟢 <b>'+d.peca.quantidade_disponivel+'</b> em estoque — '+esc(d.peca.nome_peca||d.peca.referencia)+'</div>';
@@ -2421,7 +2421,7 @@ function encMensagemModal(i,telCliente,cliNome,obs){
   var zapAut=soDigitos(d.whatsapp||d.telefone||'');
   var waAut=zapAut?('https://wa.me/55'+zapAut+'?text='+encodeURIComponent(txtAut)):'';
   var waCli=telCliente?('https://wa.me/55'+telCliente+'?text='+encodeURIComponent(txtCli)):'';
-  var ta=function(id,txt){return '<textarea id="'+id+'" readonly rows="8" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px;background:var(--surface2);color:var(--text);resize:vertical">'+esc(txt)+'</textarea>'};
+  var ta=function(id,txt){return '<textarea id="'+id+'" readonly rows="8" style="width:100%;padding:10px 12px;border:1px solid var(--border-campo);border-radius:var(--radius-sm);font-size:13px;background:var(--surface2);color:var(--text);resize:vertical">'+esc(txt)+'</textarea>'};
   var html='<div class="modal-overlay show" id="modalEncMsg"><div class="modal">'+
     '<div class="modal-title">Encaminhamento registrado<button class="modal-close" onclick="encFechar(this)">✕</button></div>'+
     '<p class="text-sm text-muted mb-16">Falta avisar as duas pontas. A '+esc(d.nome||'autorizada')+' também vê este encaminhamento no portal dela, em <b>Recebidos</b>.</p>'+
@@ -2590,7 +2590,7 @@ async function renderFinanceiro(el){
       html+='<div class="card" style="margin-bottom:10px"><div class="flex justify-between items-center mb-8"><span class="fw-700" style="font-size:1rem">'+p.mes_referencia+'</span><span class="badge '+st+'">'+p.status+'</span></div>'+
         '<div class="flex justify-between text-sm mb-8"><span class="text-muted">'+p.qtd_os+' OS</span><span class="text-muted">Serviços: '+fmt(p.valor_servicos)+'</span><span class="fw-700 text-primary" style="font-size:1.1rem">'+fmt(p.valor_total)+'</span></div>'+
         (p.nf_parceiro?'<div class="text-sm text-success">NF informada: '+esc(p.nf_parceiro)+'</div>':'')+
-        (needNF?'<div class="flex gap-8 mt-8" style="flex-wrap:wrap"><input type="text" id="finNF'+p.id+'" placeholder="Nº da NF emitida" style="flex:1;min-width:140px;padding:8px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:.85rem"><button class="btn btn-primary btn-sm" style="width:auto" onclick="enviarNFParceiro('+p.id+')">Enviar NF</button></div>':'')+
+        (needNF?'<div class="flex gap-8 mt-8" style="flex-wrap:wrap"><input type="text" id="finNF'+p.id+'" placeholder="Nº da NF emitida" style="flex:1;min-width:140px;padding:8px 12px;background:var(--surface2);border:1px solid var(--border-campo);border-radius:var(--radius-sm);color:var(--text);font-size:.85rem"><button class="btn btn-primary btn-sm" style="width:auto" onclick="enviarNFParceiro('+p.id+')">Enviar NF</button></div>':'')+
       '</div>';
     });box.innerHTML=html;
   }catch(e){console.error(e)}
@@ -2662,7 +2662,7 @@ function renderCatalogoCompra(){
     }
   }
   fHtml+='<div class="card mb-16"><div class="card-title">Catálogo <span class="text-xs text-muted fw-600">('+pecas.length+' peças)</span></div>';
-  fHtml+='<div style="margin-bottom:12px"><input type="text" id="buscaPecaCompra" placeholder="Buscar por ref. ou nome..." oninput="filtrarPecasCompra()" style="width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text)"></div>';
+  fHtml+='<div style="margin-bottom:12px"><input type="text" id="buscaPecaCompra" placeholder="Buscar por ref. ou nome..." oninput="filtrarPecasCompra()" style="width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border-campo);border-radius:var(--radius-sm);color:var(--text)"></div>';
   fHtml+='<div id="listaPecasCompra" style="max-height:400px;overflow-y:auto">';
   pecas.forEach(function(p){var pd=p.preco_venda*(1-_descontoAutorizada/100);
     var estHtml=p.estoque_geral!==null?'<span style="color:'+(p.estoque_geral>0?'var(--green)':'var(--red)')+'">Estoque: '+p.estoque_geral+'</span>':'';
@@ -2672,7 +2672,7 @@ function renderCatalogoCompra(){
   fHtml+='<div class="card"><div class="card-title">Carrinho</div>';
   if(!_carrinhoCompra.length){fHtml+='<p class="text-sm text-muted">Toque em uma peça para adicionar.</p>'}
   else{var tt=0,ti=0;_carrinhoCompra.forEach(function(item,i){var sub=item.pf*item.q;var ipi=sub*(item.ip||0)/100;tt+=sub;ti+=ipi;
-    fHtml+='<div class="flex justify-between items-center" style="padding:6px 0;border-bottom:1px solid var(--border);gap:8px"><div style="flex:1;min-width:0"><div class="text-sm fw-600">'+item.ref+'</div><div class="text-xs text-muted">'+item.nm+'</div></div><div class="flex items-center gap-8" style="flex-shrink:0"><input type="number" value="'+item.q+'" min="1" style="width:50px;padding:4px;text-align:center;background:var(--surface2);border:1px solid var(--border);border-radius:4px;color:var(--text)" onchange="updQC('+i+',this.value)"><span class="text-sm fw-600">'+fmt(sub)+'</span><button style="background:none;color:var(--danger);padding:4px" onclick="rmC('+i+')">✕</button></div></div>'});
+    fHtml+='<div class="flex justify-between items-center" style="padding:6px 0;border-bottom:1px solid var(--border);gap:8px"><div style="flex:1;min-width:0"><div class="text-sm fw-600">'+item.ref+'</div><div class="text-xs text-muted">'+item.nm+'</div></div><div class="flex items-center gap-8" style="flex-shrink:0"><input type="number" value="'+item.q+'" min="1" style="width:50px;padding:4px;text-align:center;background:var(--surface2);border:1px solid var(--border-campo);border-radius:4px;color:var(--text)" onchange="updQC('+i+',this.value)"><span class="text-sm fw-600">'+fmt(sub)+'</span><button style="background:none;color:var(--danger);padding:4px" onclick="rmC('+i+')">✕</button></div></div>'});
     fHtml+='<div class="flex justify-between mt-16"><span>Subtotal</span><span class="fw-600">'+fmt(tt)+'</span></div>';
     if(ti>0)fHtml+='<div class="flex justify-between"><span>IPI</span><span>'+fmt(ti)+'</span></div>';
     fHtml+='<div class="flex justify-between mt-8" style="font-size:1.1rem"><span class="fw-700">Total</span><span class="fw-700 text-primary">'+fmt(tt+ti)+'</span></div><button class="btn btn-primary mt-16" onclick="enviarPC()">Enviar pedido</button>'}
