@@ -65,8 +65,13 @@ PARES = [
     # ---- sistema: componente -------------------------------------------
     ("borda de campo",            "var(--border-campo)", "var(--surface2)", 3.0, "limite visual de input/select/textarea"),
     ("borda de campo no card",    "var(--border-campo)", CARD,              3.0, "campos com estilo inline"),
-    ("anel de foco",              "var(--primary-txt)",  "var(--surface2)", 3.0, ":focus dos campos"),
-    ("anel de foco no card",      "var(--primary-txt)",  CARD,              3.0, ":focus sobre fundo branco"),
+    # O anel deixou de valer so para o que esta dentro de .form-group: com
+    # :focus-visible ele alcanca botao, link e os campos de estilo inline, que
+    # antes caiam no anel padrao do navegador (ambar #E59700, 2,4:1). Sao tres
+    # superficies, e cada uma e um par.
+    ("anel de foco no campo",     "var(--primary-txt)",  "var(--surface2)", 3.0, ":focus-visible sobre o fundo do campo"),
+    ("anel de foco no card",      "var(--primary-txt)",  CARD,              3.0, ":focus-visible de botao em card e em modal"),
+    ("anel de foco no fundo",     "var(--primary-txt)",  "var(--bg)",       3.0, ":focus-visible de botao solto na pagina"),
     ("passo ativo do wizard",     "var(--primary-txt)",  "var(--border)",   3.0, ".step-dot.active na barra de passos"),
 
     # ---- alerta: texto sobre branco ------------------------------------

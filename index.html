@@ -244,6 +244,16 @@ tbody tr:hover{background:var(--primary-bg)}
 }
 .form-group textarea:focus{outline:2px solid var(--primary-txt);outline-offset:1px;border-color:var(--primary-txt)}
 
+/* Anel de foco para TUDO O RESTO. As tres regras acima só alcançam o que está
+   dentro de .form-group; botão, link e os campos com estilo INLINE (a função
+   inp() e os inputs do encaminhamento e do carrinho) ficavam com o anel padrão
+   do navegador, que aqui é âmbar #E59700 — 2,4:1 sobre branco, abaixo do
+   mínimo de 3:1 para indicador de foco, e nem é cor nossa.
+   :focus-visible só aparece para quem chega por teclado: nada muda no mouse.
+   O offset de 2px importa no .btn-primary — o anel cai FORA do ciano, sobre o
+   fundo claro, em vez de azul sobre azul. */
+:focus-visible{outline:2px solid var(--primary-txt);outline-offset:2px}
+
 /* ===== ACCORDION SERVIÇOS ===== */
 .srv-accordion{border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:8px}
 .srv-accordion-header{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;cursor:pointer;background:var(--surface2);transition:background .15s;user-select:none;gap:8px}
