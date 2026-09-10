@@ -34,12 +34,28 @@ atende** e registra a indicação.
   copiar e link `wa.me` quando o telefone dele foi informado.
 - Rodapé da tela: os 5 últimos encaminhamentos feitos por esta autorizada.
 
+**Como a autorizada de destino recebe** (10/09, segunda parte — a primeira versão não
+avisava ninguém do outro lado: `prt_encaminhamentos` era lida só por `origem_parceiro_id`):
+- Aba **Recebidos** na mesma tela, com **contador no menu** (`badgeEnc`). Cada card traz o
+  **telefone do cliente** — a ação útil é ligar antes de ele aparecer —, o que ele precisa,
+  quem indicou e por quê, mais botões de WhatsApp do cliente e de quem indicou. O telefone
+  de quem indicou vem de `assist_parceiros` na hora (o registro guarda só nome/cidade, e
+  para ligar o certo é o contato de hoje).
+- O "novo" do contador mora no **localStorage do aparelho** (`stonni_enc_visto_<parceiro>`):
+  é aviso, não fonte de verdade. Abrir a aba zera. Se a Stonni precisar saber se a
+  destinatária abriu, aí sim é coluna nova em `prt_encaminhamentos`.
+- Ao registrar, a janela oferece **duas mensagens prontas**: uma para a autorizada de destino
+  (cliente, telefone, o que precisa, motivo, obs, quem encaminhou) e uma para o cliente. Cada
+  uma com Copiar e `wa.me`. **Quem aperta enviar é a pessoa** — mesmo padrão de todo WhatsApp
+  destes apps, sem integração nova. Aviso automático (API/Umbler ou e-mail) ficou de fora: dá
+  Edge Function, secret e consentimento de parceiro.
+
 **Migration** `2026-09-10_encaminhamento_rede.sql` (repo `stonni-assistencia`, `docs/sql/`)
 já **aplicada em produção em 10/09/2026** — `prt_parceiro_categorias` e `prt_encaminhamentos`
 existem, vazias. Esta tela pode subir.
 
 ## Telas (função `navegar()`)
-Início/dashboard (Últimas OS) · Nova OS · Minhas OS · **Encaminhar cliente** · Material Técnico · Meu Estoque · Comprar Peças · Financeiro · Perfil.
+Início/dashboard (Últimas OS) · Nova OS · Minhas OS · **Encaminhar cliente** (abas Encaminhar / Recebidos) · Material Técnico · Meu Estoque · Comprar Peças · Financeiro · Perfil.
 
 ## Dados
 - **Próprias `prt_`:** `prt_usuarios`, `prt_ordens_servico`, `prt_os_pecas`, `prt_os_servicos`, `prt_categorias_servico`, `prt_tabela_servicos`, `prt_teto_produto`, `prt_pecas_catalogo`, `prt_estoque_parceiro`, `prt_configuracoes`, `prt_reposicao_pecas`, `prt_envios_pecas`, `prt_materiais`, `prt_linhas_produto`, `prt_modelos_produto`, `prt_pagamentos`, `prt_compras_pecas`, `prt_compras_pecas_itens`, `prt_logs`, `prt_parceiro_categorias`, `prt_encaminhamentos`.

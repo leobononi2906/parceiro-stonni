@@ -385,6 +385,7 @@ tbody tr:hover{background:var(--primary-bg)}
       <div class="nav-item" onclick="navegar('encaminhar')">
         <svg viewBox="0 0 24 24"><circle cx="12" cy="10" r="3"/><path d="M12 2a8 8 0 0 0-8 8c0 5.4 8 12 8 12s8-6.6 8-12a8 8 0 0 0-8-8z"/></svg>
         Encaminhar cliente
+        <span class="nav-badge hidden" id="badgeEnc">0</span>
       </div>
       <div class="nav-item" onclick="navegar('material')">
         <svg viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
@@ -486,6 +487,7 @@ function iniciarApp(){
   // avatar
   var iniciais=(_parceiro&&_parceiro.nome?_parceiro.nome:'??').split(' ').map(function(p){return p[0]}).join('').substring(0,2).toUpperCase();
   document.getElementById('userAvatar').textContent=iniciais;
+  encBadgeAoEntrar();   // sem await: o contador nao pode atrasar a entrada
   navegar('dashboard');
 }
 
@@ -2075,11 +2077,40 @@ function encFechar(el){var m=el.closest('.modal-overlay');if(m)m.remove()}
 function encCatId(){var v=(document.getElementById('encCat')||{}).value;var n=parseInt(v||'',10);return isNaN(n)?null:n}
 function encCatNome(){var id=encCatId();if(!id)return null;var c=_encCats.filter(function(x){return x.id===id})[0];return c?c.nome:null}
 
+var _encAba='buscar';        // 'buscar' | 'recebidos'
+var _encRecebidos=null;      // null = ainda não buscado
+var _encOrigens={};          // parceiro_id -> contato de quem indicou
+
 async function renderEncaminhar(el){
   _encAchados=[];
-  var semGeo=!_parceiro||_parceiro.lat==null||_parceiro.lng==null;
   el.innerHTML=
     '<div class="page-header"><h1>Encaminhar cliente</h1></div>'+
+    '<div class="filter-chips" id="encAbas" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px"></div>'+
+    '<div id="encConteudo"><div class="loading-full"><span class="spinner"></span> Carregando...</div></div>';
+  // Os recebidos entram antes das abas para a aba já nascer com o número.
+  await encBuscarRecebidos();
+  encRenderAbas();
+  await encRenderAba();
+}
+
+function encRenderAbas(){
+  var box=document.getElementById('encAbas');if(!box)return;
+  var n=(_encRecebidos||[]).length;
+  box.innerHTML=
+    '<div class="filter-chip'+(_encAba==='buscar'?' active':'')+'" onclick="encSetAba(0)">Encaminhar</div>'+
+    '<div class="filter-chip'+(_encAba==='recebidos'?' active':'')+'" onclick="encSetAba(1)">Recebidos'+(n?' ('+n+')':'')+'</div>';
+}
+async function encSetAba(i){
+  _encAba=i===1?'recebidos':'buscar';
+  encRenderAbas();
+  await encRenderAba();
+}
+
+async function encRenderAba(){
+  var box=document.getElementById('encConteudo');if(!box)return;
+  if(_encAba==='recebidos'){ await encRenderRecebidos(box); return; }
+  var semGeo=!_parceiro||_parceiro.lat==null||_parceiro.lng==null;
+  box.innerHTML=
     '<div class="card" style="margin-bottom:14px;background:var(--primary-bg)">'+
       '<p class="text-sm">Cliente com produto em garantia que você não vai conseguir atender? Ache aqui a autorizada mais próxima que atende e registre a indicação — assim a Stonni sabe que essa demanda apareceu na sua região.</p>'+
     '</div>'+
@@ -2338,7 +2369,7 @@ async function encRegistrar(i){
     encRenderResultado();
     encCarregarHistorico();
     toast('Encaminhamento registrado','success');
-    encMensagemModal(i,tel);
+    encMensagemModal(i,tel,nome,obs);
   }catch(e){
     console.error(e);
     if(btn){btn.disabled=false;btn.textContent='Registrar encaminhamento'}
@@ -2354,24 +2385,50 @@ function encTextoCliente(d){
   t+=' Leve a nota fiscal do produto.';
   return t;
 }
-function encMensagemModal(i,telCliente){
+// Texto para a autorizada de DESTINO: ela precisa do cliente e do contexto,
+// não do endereço dela mesma. É a mensagem que fecha o buraco de "e como ela
+// fica sabendo?" -- quem aperta enviar é a pessoa, como em todo wa.me do app.
+function encTextoAutorizada(d,cliNome,cliTel,obs){
+  var t='Encaminhei um cliente em garantia para vocês.\n\n';
+  if(cliNome||cliTel) t+='Cliente: '+[cliNome,cliTel?fmtTelefone(cliTel):''].filter(function(x){return !!x}).join(' — ')+'\n';
+  t+='Produto: '+(_encLinha||'—')+'\n';
+  if(_encModo==='peca'&&d.peca) t+='Precisa da peça: '+d.peca.referencia+(d.peca.nome_peca?' — '+d.peca.nome_peca:'')+'\nMotivo: estou sem essa peça.\n';
+  else t+='Precisa de: '+(encCatNome()||'serviço em garantia')+'\nMotivo: não faço esse serviço.\n';
+  if(obs) t+='Obs: '+obs+'\n';
+  var eu=[(_parceiro&&_parceiro.nome)||'',[(_parceiro&&_parceiro.cidade)||'',(_parceiro&&_parceiro.uf)||''].filter(function(x){return !!x}).join('/')].filter(function(x){return !!x}).join(' — ');
+  t+='\nQuem encaminhou: '+eu+((_parceiro&&_parceiro.telefone)?' — '+fmtTelefone(_parceiro.telefone):'');
+  return t;
+}
+function encMensagemModal(i,telCliente,cliNome,obs){
   var d=_encAchados[i];if(!d)return;
-  var txt=encTextoCliente(d);
-  var wa=telCliente?('https://wa.me/55'+telCliente+'?text='+encodeURIComponent(txt)):'';
+  var txtAut=encTextoAutorizada(d,cliNome,telCliente,obs);
+  var txtCli=encTextoCliente(d);
+  var zapAut=soDigitos(d.whatsapp||d.telefone||'');
+  var waAut=zapAut?('https://wa.me/55'+zapAut+'?text='+encodeURIComponent(txtAut)):'';
+  var waCli=telCliente?('https://wa.me/55'+telCliente+'?text='+encodeURIComponent(txtCli)):'';
+  var ta=function(id,txt){return '<textarea id="'+id+'" readonly rows="8" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px;background:var(--surface2);color:var(--text);resize:vertical">'+esc(txt)+'</textarea>'};
   var html='<div class="modal-overlay show" id="modalEncMsg"><div class="modal">'+
-    '<div class="modal-title">Avise o cliente<button class="modal-close" onclick="encFechar(this)">✕</button></div>'+
-    '<p class="text-sm text-muted mb-16">Mensagem pronta com o endereço e o telefone de quem vai atender.</p>'+
-    '<textarea id="encMsgTxt" readonly rows="5" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:14px;background:var(--surface2);color:var(--text);resize:vertical">'+esc(txt)+'</textarea>'+
-    '<div class="flex gap-8 mt-16" style="justify-content:flex-end;flex-wrap:wrap">'+
-      '<button class="btn btn-ghost btn-sm" style="width:auto" onclick="encCopiar()">Copiar</button>'+
-      (wa?'<a class="btn btn-primary btn-sm" style="width:auto" href="'+wa+'" target="_blank" rel="noopener">Abrir WhatsApp do cliente</a>':'')+
+    '<div class="modal-title">Encaminhamento registrado<button class="modal-close" onclick="encFechar(this)">✕</button></div>'+
+    '<p class="text-sm text-muted mb-16">Falta avisar as duas pontas. A '+esc(d.nome||'autorizada')+' também vê este encaminhamento no portal dela, em <b>Recebidos</b>.</p>'+
+    '<div class="card-title" style="margin-bottom:6px">1. Avise a '+esc(d.nome||'autorizada')+'</div>'+
+    ta('encMsgAut',txtAut)+
+    '<div class="flex gap-8 mt-8" style="justify-content:flex-end;flex-wrap:wrap">'+
+      '<button class="btn btn-ghost btn-sm" style="width:auto" onclick="encCopiar(0)">Copiar</button>'+
+      (waAut?'<a class="btn btn-primary btn-sm" style="width:auto" href="'+waAut+'" target="_blank" rel="noopener">Abrir WhatsApp dela</a>'
+            :'<span class="text-xs text-muted" style="align-self:center">Sem WhatsApp no cadastro dela — use o telefone.</span>')+
+    '</div>'+
+    '<div class="card-title" style="margin:18px 0 6px">2. Avise o cliente</div>'+
+    ta('encMsgCli',txtCli)+
+    '<div class="flex gap-8 mt-8" style="justify-content:flex-end;flex-wrap:wrap">'+
+      '<button class="btn btn-ghost btn-sm" style="width:auto" onclick="encCopiar(1)">Copiar</button>'+
+      (waCli?'<a class="btn btn-primary btn-sm" style="width:auto" href="'+waCli+'" target="_blank" rel="noopener">Abrir WhatsApp do cliente</a>':'')+
       '<button class="btn btn-ghost btn-sm" style="width:auto" onclick="encFechar(this)">Fechar</button>'+
     '</div>'+
   '</div></div>';
   document.body.insertAdjacentHTML('beforeend',html);
 }
-function encCopiar(){
-  var ta=document.getElementById('encMsgTxt');if(!ta)return;
+function encCopiar(qual){
+  var ta=document.getElementById(qual===1?'encMsgCli':'encMsgAut');if(!ta)return;
   if(navigator.clipboard&&navigator.clipboard.writeText){
     navigator.clipboard.writeText(ta.value).then(function(){toast('Mensagem copiada','success')},function(){encCopiarLegado(ta)});
   }else encCopiarLegado(ta);
@@ -2403,6 +2460,102 @@ async function encCarregarHistorico(){
     h+='</tbody></table></div></div>';
     box.innerHTML=h;
   }catch(e){console.error(e);box.innerHTML=''}
+}
+
+// ---------- Recebidos: o outro lado do encaminhamento ----------
+// prt_encaminhamentos guarda origem/destino desnormalizados, mas o TELEFONE de
+// quem indicou não: para ligar de volta, o certo é o contato de hoje, então
+// busco em assist_parceiros.
+async function encBuscarRecebidos(){
+  _encRecebidos=[];_encOrigens={};
+  if(!_parceiroId) return _encRecebidos;
+  var H={headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY},cache:'no-store'};
+  try{
+    var r=await fetch(SB_URL+'/rest/v1/prt_encaminhamentos?destino_parceiro_id=eq.'+_parceiroId+'&order=criado_em.desc&limit=50&select=*',H);
+    var j=await r.json();
+    _encRecebidos=Array.isArray(j)?j:[];
+    var ids=[];
+    _encRecebidos.forEach(function(e){if(e.origem_parceiro_id&&ids.indexOf(e.origem_parceiro_id)<0)ids.push(e.origem_parceiro_id)});
+    if(ids.length){
+      var ro=await fetch(SB_URL+'/rest/v1/assist_parceiros?id=in.('+ids.join(',')+')&select=id,nome,cidade,uf,telefone,whatsapp',H);
+      var os=await ro.json();
+      if(Array.isArray(os)) os.forEach(function(p){_encOrigens[p.id]=p});
+    }
+  }catch(e){console.error(e)}
+  return _encRecebidos;
+}
+
+// "Novo" é por aparelho, no localStorage: é um aviso, não fonte de verdade.
+function encVistoKey(){return 'stonni_enc_visto_'+_parceiroId}
+function encVistoEm(){try{return localStorage.getItem(encVistoKey())||''}catch(e){return ''}}
+function encMarcarVisto(){try{localStorage.setItem(encVistoKey(),new Date().toISOString())}catch(e){}}
+function encNovosDesde(ts){
+  return (_encRecebidos||[]).filter(function(e){
+    return isNaN(ts) ? true : Date.parse(e.criado_em)>ts;
+  }).length;
+}
+function encAtualizarBadge(){
+  var b=document.getElementById('badgeEnc');if(!b)return;
+  var n=encNovosDesde(Date.parse(encVistoEm()||''));
+  b.textContent=n;
+  if(n>0) b.classList.remove('hidden'); else b.classList.add('hidden');
+}
+async function encBadgeAoEntrar(){
+  try{ await encBuscarRecebidos(); encAtualizarBadge(); }catch(e){}
+}
+
+async function encRenderRecebidos(box){
+  box.innerHTML='<div class="loading-full"><span class="spinner"></span> Carregando...</div>';
+  var visto=Date.parse(encVistoEm()||'');   // captura ANTES de marcar como visto
+  await encBuscarRecebidos();
+  var lista=_encRecebidos||[];
+  var h='<div class="card" style="margin-bottom:14px;background:var(--primary-bg)">'+
+    '<p class="text-sm">Clientes que <b>outra autorizada da rede mandou para você</b>, porque não podia atender. O telefone do cliente está aqui: ligue antes que ele apareça, confirme a peça e adiante o atendimento.</p></div>';
+  if(!lista.length){
+    h+='<div class="card"><div class="empty-state">'+
+       '<svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>'+
+       '<p>Nenhum cliente encaminhado para você ainda</p>'+
+       '<p class="text-xs text-muted">Quando outra autorizada não puder atender um cliente em garantia e indicar vocês, ele aparece aqui.</p>'+
+       '</div></div>';
+    box.innerHTML=h;
+    encMarcarVisto();encAtualizarBadge();encRenderAbas();
+    return;
+  }
+  h+='<div class="card">';
+  lista.forEach(function(e){
+    var novo=isNaN(visto)||Date.parse(e.criado_em)>visto;
+    var o=_encOrigens[e.origem_parceiro_id]||{};
+    var quem=e.origem_nome||o.nome||'outra autorizada';
+    var ondeQuem=[e.origem_cidade||o.cidade,e.origem_uf||o.uf].filter(function(x){return !!x}).join('/');
+    var precisa=e.motivo==='peca'
+      ? 'peça '+esc(e.peca_referencia||'')+(e.peca_nome?' — '+esc(e.peca_nome):'')
+      : esc(e.categoria_nome||'serviço em garantia');
+    var porque=e.motivo==='peca'
+      ? 'A '+esc(quem)+' faz o serviço, mas está sem a peça.'
+      : 'A '+esc(quem)+' não faz esse serviço.';
+    var cliTel=soDigitos(e.cliente_telefone||'');
+    var zapQuem=soDigitos(o.whatsapp||o.telefone||'');
+    h+='<div style="border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:10px'+(novo?';border-color:var(--primary)':'')+'">'+
+      '<div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:flex-start">'+
+        '<div style="min-width:0;flex:1">'+
+          '<div style="font-weight:700;font-size:15px">'+esc(e.cliente_nome||'Cliente não identificado')+(novo?' <span class="badge badge-enviada">novo</span>':'')+'</div>'+
+          '<div class="text-sm text-muted">'+(cliTel?esc(fmtTelefone(e.cliente_telefone)):'sem telefone informado')+'</div>'+
+        '</div>'+
+        '<div class="text-xs text-muted" style="text-align:right;white-space:nowrap">'+fmtData(e.criado_em)+'</div>'+
+      '</div>'+
+      '<div class="text-sm" style="margin-top:8px"><b>'+esc(e.linha_produto||'')+'</b> — '+precisa+'</div>'+
+      '<div class="text-xs text-muted" style="margin-top:4px">'+porque+' Encaminhado por '+esc(quem)+(ondeQuem?' ('+esc(ondeQuem)+')':'')+'.</div>'+
+      (e.observacao?'<div class="text-sm" style="margin-top:6px;padding:8px 10px;background:var(--surface2);border-radius:var(--radius-sm)">'+esc(e.observacao)+'</div>':'')+
+      '<div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">'+
+        (cliTel?'<a class="btn btn-primary btn-sm" style="width:auto" href="tel:+55'+cliTel+'">Ligar para o cliente</a>':'')+
+        (cliTel?'<a class="btn btn-ghost btn-sm" style="width:auto" href="https://wa.me/55'+cliTel+'" target="_blank" rel="noopener">WhatsApp do cliente</a>':'')+
+        (zapQuem?'<a class="btn btn-ghost btn-sm" style="width:auto" href="https://wa.me/55'+zapQuem+'" target="_blank" rel="noopener">Falar com a '+esc(quem)+'</a>':'')+
+      '</div>'+
+    '</div>';
+  });
+  h+='</div>';
+  box.innerHTML=h;
+  encMarcarVisto();encAtualizarBadge();encRenderAbas();
 }
 
 // ===== FINANCEIRO (melhorado) =====
