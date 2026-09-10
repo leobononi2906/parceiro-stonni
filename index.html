@@ -2904,7 +2904,7 @@ async function encRenderRecebidos(box){
 // ===== FINANCEIRO (melhorado) =====
 async function renderFinanceiro(el){
   el.innerHTML='<div class="page-header"><h1>Financeiro</h1></div>'+
-    '<div class="card" style="margin-bottom:16px;background:var(--primary-bg);border-color:var(--primary)"><p class="text-sm" style="color:var(--text)">Os pagamentos são realizados <strong>até o dia 10 do mês seguinte</strong>. Após o fechamento, envie sua NF para liberação do pagamento.</p></div>'+
+    '<div class="card" style="margin-bottom:16px;background:var(--primary-bg);border-color:var(--primary)"><p class="text-sm" style="color:var(--text)">A Stonni fecha o mês, envia o <strong>orçamento</strong> e você aprova; o pagamento sai depois disso, <strong>até o dia 10 do mês seguinte</strong>. Confira os valores antes de aprovar.</p></div>'+
     '<div id="finArea"><div class="loading-full"><span class="spinner"></span> Carregando...</div></div>';
   try{
     var r=await fetch(SB_URL+'/rest/v1/prt_pagamentos?parceiro_id=eq.'+_parceiroId+'&order=mes_referencia.desc&select=*',{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
@@ -2913,17 +2913,72 @@ async function renderFinanceiro(el){
     if(!pags.length){box.innerHTML='<div class="empty-state"><p>Nenhum fechamento financeiro ainda</p><p class="text-xs text-muted">Os pagamentos aparecem aqui após o fechamento mensal pela Stonni</p></div>';return}
     var html='';
     pags.forEach(function(p){
-      var st=p.status==='pago'?'badge-paga':p.status==='aprovado'?'badge-aprovada':'badge-enviada';
-      var needNF=!p.nf_parceiro&&p.status==='pendente';
-      html+='<div class="card" style="margin-bottom:10px"><div class="flex justify-between items-center mb-8"><span class="fw-700" style="font-size:1rem">'+p.mes_referencia+'</span><span class="badge '+st+'">'+p.status+'</span></div>'+
+      var st=p.status==='pago'?'badge-paga':p.status==='aprovado'?'badge-aprovada':p.status==='cancelado'?'badge-recusada':'badge-enviada';
+      // Aprovar sai quando a Stonni JA enviou o orcamento e ele ainda nao foi
+      // aceito. Antes havia aqui o campo "nº da NF emitida", que ela preenchia
+      // ANTES de receber; a nota passa a ser consequencia do orcamento
+      // aprovado, e sai do sistema.
+      var podeAprovar=(p.status==='pendente'&&p.relatorio_enviado);
+      var etapa=p.status==='pago'
+        ? '<span style="color:var(--success)">Pago em '+fmtData(p.data_pagamento)+'.</span>'
+        : p.status==='aprovado'
+          ? '<span style="color:var(--primary-txt)">Você aprovou em '+fmtData(p.data_aprovacao)+'. Aguardando o pagamento da Stonni.</span>'
+          : p.status==='cancelado'
+            ? '<span class="text-muted">Fechamento cancelado.</span>'
+            : p.relatorio_enviado
+              ? '<span style="color:var(--warning)">Orçamento enviado em '+fmtData(p.data_envio_relatorio)+'. Confira os valores e aprove.</span>'
+              : '<span class="text-muted">Aguardando o orçamento da Stonni.</span>';
+      html+='<div class="card" style="margin-bottom:10px"><div class="flex justify-between items-center mb-8"><span class="fw-700" style="font-size:1rem">'+esc(fmtMes(p.mes_referencia))+'</span><span class="badge '+st+'">'+esc(PAG_ROTULO[p.status]||p.status)+'</span></div>'+
         '<div class="flex justify-between text-sm mb-8"><span class="text-muted">'+p.qtd_os+' OS</span><span class="text-muted">Serviços: '+fmt(p.valor_servicos)+'</span><span class="fw-700 text-primary" style="font-size:1.1rem">'+fmt(p.valor_total)+'</span></div>'+
-        (p.nf_parceiro?'<div class="text-sm text-success">NF informada: '+esc(p.nf_parceiro)+'</div>':'')+
-        (needNF?'<div class="flex gap-8 mt-8" style="flex-wrap:wrap"><input type="text" id="finNF'+p.id+'" placeholder="Nº da NF emitida" style="flex:1;min-width:140px;padding:8px 12px;background:var(--surface2);border:1px solid var(--border-campo);border-radius:var(--radius-sm);color:var(--text);font-size:.85rem"><button class="btn btn-primary btn-sm" style="width:auto" onclick="enviarNFParceiro('+p.id+')">Enviar NF</button></div>':'')+
+        '<div class="text-xs" style="line-height:1.5">'+etapa+'</div>'+
+        (podeAprovar?'<div class="flex gap-8 mt-8" style="flex-wrap:wrap"><button class="btn btn-primary btn-sm" style="width:auto" onclick="aprovarOrcamento('+p.id+')">'+ico('circle-check',13)+' Aprovar orçamento</button></div>'+
+          '<p class="text-xs text-muted" style="margin-top:4px">Aprovando, você confirma os valores das '+p.qtd_os+' OS deste mês. A Stonni paga depois disso.</p>':'')+
       '</div>';
     });box.innerHTML=html;
   }catch(e){console.error(e)}
 }
-async function enviarNFParceiro(pagId){var nf=document.getElementById('finNF'+pagId).value.trim();if(!nf){toast('Informe o número da NF','error');return}try{await fetch(SB_URL+'/rest/v1/prt_pagamentos?id=eq.'+pagId,{method:'PATCH',headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'},body:JSON.stringify({nf_parceiro:nf})});toast('NF informada!','success');navegar('financeiro')}catch(e){toast('Erro','error')}}
+// Rotulo publico do fechamento e competencia por extenso. Mesmas palavras da
+// tela da Stonni: a autorizada pode estar ao telefone com ela.
+var PAG_ROTULO={pendente:'Pendente',aprovado:'Aprovado',pago:'Pago',cancelado:'Cancelado'};
+function fmtMes(m){var q=String(m||'').split('-');return q.length===2?q[1]+'/'+q[0]:(m||'-')}
+
+// O aceite do orcamento. Confirmacao em modal de proposito: e o ponto em que
+// ela declara concordar com o valor, e um clique sem volta ali gera discussao
+// depois. Modal proprio -- o app nao usa confirm() nativo (Safari iOS).
+function aprovarOrcamento(pagId){
+  document.querySelectorAll('.modal-overlay.show').forEach(function(m){m.classList.remove('show')});
+  var html='<div class="modal-overlay show" id="modalAprovaOrc"><div class="modal">'+
+    '<div class="modal-title">Aprovar orçamento?<button class="modal-close" aria-label="Fechar" onclick="this.closest(\'.modal-overlay\').remove()">'+ico('x',20)+'</button></div>'+
+    '<p class="text-sm text-muted mb-16">Você confirma os valores deste fechamento. A Stonni libera o pagamento depois do seu aceite.</p>'+
+    '<div class="flex gap-8 mt-16" style="justify-content:flex-end">'+
+      '<button class="btn btn-ghost btn-sm" style="width:auto" onclick="this.closest(\'.modal-overlay\').remove()">Voltar</button>'+
+      '<button class="btn btn-primary btn-sm" style="width:auto" onclick="confirmarAprovacaoOrcamento('+pagId+')">Aprovar orçamento</button>'+
+    '</div>'+
+  '</div></div>';
+  document.body.insertAdjacentHTML('beforeend',html);
+}
+async function confirmarAprovacaoOrcamento(pagId){
+  var m=document.getElementById('modalAprovaOrc');
+  if(m)m.remove();
+  try{
+    // Só {status, data_aprovacao}: quem carimba o resto é a Stonni, do lado dela.
+    var r=await fetch(SB_URL+'/rest/v1/prt_pagamentos?id=eq.'+pagId,{
+      method:'PATCH',
+      headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json','Prefer':'return=minimal'},
+      body:JSON.stringify({status:'aprovado',data_aprovacao:new Date().toISOString()})
+    });
+    if(!r.ok){
+      var j=await r.json().catch(function(){return null});
+      throw new Error((j&&j.message)?j.message:('HTTP '+r.status));
+    }
+    bononiLog('ACAO','pagamento','APROVAR_ORCAMENTO',String(pagId),null);
+    toast('Orçamento aprovado!','success');
+    navegar('financeiro');
+  }catch(e){
+    console.error(e);
+    toast('Não deu para aprovar: '+(e&&e.message),'error');
+  }
+}
 
 // ===== COMPRAR PEÇAS =====
 var _carrinhoCompra=[],_pecasCompra=[],_descontoAutorizada=15;
