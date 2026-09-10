@@ -382,6 +382,10 @@ tbody tr:hover{background:var(--primary-bg)}
         Minhas OS
         <span class="nav-badge hidden" id="badgeOS">0</span>
       </div>
+      <div class="nav-item" onclick="navegar('encaminhar')">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="10" r="3"/><path d="M12 2a8 8 0 0 0-8 8c0 5.4 8 12 8 12s8-6.6 8-12a8 8 0 0 0-8-8z"/></svg>
+        Encaminhar cliente
+      </div>
       <div class="nav-item" onclick="navegar('material')">
         <svg viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
         Material Técnico
@@ -468,7 +472,7 @@ async function carregarPerfil(){
   _perfil=row.perfil;
   _parceiroId=row.parceiro_id;
   // 2. busca dados do parceiro
-  var r2=await fetch(SB_URL+'/rest/v1/assist_parceiros?id=eq.'+_parceiroId+'&select=id,nome,cidade,uf,telefone,email,status',{
+  var r2=await fetch(SB_URL+'/rest/v1/assist_parceiros?id=eq.'+_parceiroId+'&select=id,nome,cidade,uf,telefone,email,status,lat,lng',{
     headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}
   });
   var parceiros=await r2.json();
@@ -536,6 +540,7 @@ function renderPagina(pagina){
     case 'dashboard': renderDashboard(el);break;
     case 'nova-os': renderNovaOS(el,window._editOsId);window._editOsId=null;break;
     case 'minhas-os': renderMinhasOS(el);break;
+    case 'encaminhar': renderEncaminhar(el);break;
     case 'material': renderMaterial(el);break;
     case 'estoque': renderEstoque(el);break;
     case 'comprar-pecas': renderComprarPecas(el);break;
@@ -2034,6 +2039,370 @@ async function renderEstoque(el){
       box.innerHTML=html;
     }
   }catch(e){console.error(e)}
+}
+
+// ===== ENCAMINHAR CLIENTE PARA OUTRA AUTORIZADA =====
+// O cliente está na sua frente com um produto em garantia e você não vai
+// resolver: ou não faz aquele serviço, ou faz e está sem a peça. Esta tela acha
+// quem, mais perto, resolve — e registra a indicação.
+//
+// Regra do cadastro (docs/sql/2026-09-10_encaminhamento_rede.sql, no repo da
+// Assistência): autorizada SEM categoria marcada em prt_parceiro_categorias
+// presta TODAS as categorias das linhas dela. Sem essa regra a busca nasceria
+// vazia enquanto ninguém tivesse cadastrado categoria nenhuma.
+var _encModo='servico';   // 'servico' | 'peca'
+var _encModos=['servico','peca'];
+var _encLinha='';
+var _encCats=[];          // categorias da linha escolhida
+var _encPecas=[];         // catálogo de peças da linha escolhida
+var _encAchados=[];       // resultado da última busca (os botões referenciam por índice)
+
+// Haversine — distância em linha reta. Não há PostGIS no projeto e são 13
+// credenciadas: índice geoespacial aqui seria peso morto.
+function encKm(lat1,lng1,lat2,lng2){
+  if(lat1==null||lng1==null||lat2==null||lng2==null) return null;
+  var R=6371,r=Math.PI/180;
+  var a=Math.sin((lat2-lat1)*r/2),b=Math.sin((lng2-lng1)*r/2);
+  var h=a*a+Math.cos(lat1*r)*Math.cos(lat2*r)*b*b;
+  return R*2*Math.atan2(Math.sqrt(h),Math.sqrt(1-h));
+}
+function encNum(v){return v==null||v===''?null:parseFloat(v)}
+function encKmTexto(km){
+  if(km==null) return 'distância indisponível';
+  return (km<10?km.toFixed(1).replace('.',','):String(Math.round(km)))+' km';
+}
+function encFechar(el){var m=el.closest('.modal-overlay');if(m)m.remove()}
+function encCatId(){var v=(document.getElementById('encCat')||{}).value;var n=parseInt(v||'',10);return isNaN(n)?null:n}
+function encCatNome(){var id=encCatId();if(!id)return null;var c=_encCats.filter(function(x){return x.id===id})[0];return c?c.nome:null}
+
+async function renderEncaminhar(el){
+  _encAchados=[];
+  var semGeo=!_parceiro||_parceiro.lat==null||_parceiro.lng==null;
+  el.innerHTML=
+    '<div class="page-header"><h1>Encaminhar cliente</h1></div>'+
+    '<div class="card" style="margin-bottom:14px;background:var(--primary-bg)">'+
+      '<p class="text-sm">Cliente com produto em garantia que você não vai conseguir atender? Ache aqui a autorizada mais próxima que atende e registre a indicação — assim a Stonni sabe que essa demanda apareceu na sua região.</p>'+
+    '</div>'+
+    (semGeo?'<div class="card" style="margin-bottom:14px;background:#FFF4E5;border-color:#F5B36B"><p class="text-sm" style="color:#7a5410">Sua oficina ainda não tem localização no mapa, então a lista sai sem distância — a ordem fica por nome. Preencha o <b>CEP</b> em <b>Meus dados</b> para a Stonni completar.</p></div>':'')+
+    '<div class="card">'+
+      '<div class="card-title">O que trava o atendimento?</div>'+
+      '<div id="encChips" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px"></div>'+
+      '<div id="encForm"></div>'+
+    '</div>'+
+    '<div id="encResultado"></div>'+
+    '<div id="encHistorico"></div>';
+  encRenderChips();
+  encRenderForm();
+  encCarregarHistorico();
+}
+
+function encRenderChips(){
+  var box=document.getElementById('encChips');if(!box)return;
+  var rotulos=['Não faço este serviço','Faço, mas estou sem a peça'];
+  var h='';
+  for(var i=0;i<_encModos.length;i++){
+    h+='<div class="compra-filter-chip'+(_encModo===_encModos[i]?' active':'')+'" onclick="encSetModo('+i+')">'+rotulos[i]+'</div>';
+  }
+  box.innerHTML=h;
+}
+function encSetModo(i){
+  _encModo=_encModos[i]||'servico';
+  _encAchados=[];
+  encRenderChips();encRenderForm();
+  var r=document.getElementById('encResultado');if(r)r.innerHTML='';
+}
+
+async function encSetLinha(v){
+  _encLinha=v;_encCats=[];_encPecas=[];_encAchados=[];
+  var r=document.getElementById('encResultado');if(r)r.innerHTML='';
+  var linhaDb=LINHAS_DB[v]||'';
+  if(linhaDb){
+    var H={headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY},cache:'no-store'};
+    try{
+      var rc=await fetch(SB_URL+'/rest/v1/prt_categorias_servico?linha_produto=eq.'+linhaDb+'&ativo=eq.true&order=ordem.asc&select=id,nome',H);
+      _encCats=await rc.json();if(!Array.isArray(_encCats))_encCats=[];
+      var rp=await fetch(SB_URL+'/rest/v1/prt_pecas_catalogo?linha_produto=eq.'+linhaDb+'&ativo=eq.true&order=nome.asc&select=referencia,nome',H);
+      _encPecas=await rp.json();if(!Array.isArray(_encPecas))_encPecas=[];
+    }catch(e){console.error(e)}
+  }
+  encRenderForm();
+}
+
+function encRenderForm(){
+  var box=document.getElementById('encForm');if(!box)return;
+  var lbl=function(t){return '<label style="display:block;font-size:11.5px;font-weight:600;color:var(--text-m);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">'+t+'</label>'};
+  var st='width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:14px;background:var(--surface2);color:var(--text)';
+  var linhas=Object.keys(LINHAS_PRODUTO);
+  var h='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px">';
+  h+='<div>'+lbl('Linha do produto')+'<select id="encLinha" onchange="encSetLinha(this.value)" style="'+st+'"><option value="">Selecione...</option>'+
+     linhas.map(function(l){return '<option value="'+esc(l)+'"'+(l===_encLinha?' selected':'')+'>'+esc(l)+'</option>'}).join('')+'</select></div>';
+  if(_encModo==='peca'){
+    h+='<div>'+lbl('Peça que falta')+'<select id="encPeca" style="'+st+'"'+(_encPecas.length?'':' disabled')+'>'+
+       (_encPecas.length
+         ? '<option value="">Selecione...</option>'+_encPecas.map(function(p){return '<option value="'+esc(p.referencia)+'">'+esc(p.referencia)+' — '+esc(p.nome)+'</option>'}).join('')
+         : '<option value="">'+(_encLinha?'Nenhuma peça no catálogo desta linha':'Escolha a linha primeiro')+'</option>')+
+       '</select></div>';
+  }
+  // No modo peça o serviço é opcional: o filtro principal é o estoque, mas quem
+  // for receber o cliente também precisa fazer o serviço.
+  h+='<div>'+lbl(_encModo==='peca'?'Serviço (opcional)':'Serviço que o cliente precisa')+
+     '<select id="encCat" style="'+st+'"'+(_encCats.length?'':' disabled')+'>'+
+     (_encCats.length
+       ? (_encModo==='peca'?'<option value="">Qualquer serviço</option>':'<option value="">Selecione...</option>')+
+         _encCats.map(function(c){return '<option value="'+c.id+'">'+esc(c.nome)+'</option>'}).join('')
+       : '<option value="">'+(_encLinha?'Nenhum serviço cadastrado nesta linha':'Escolha a linha primeiro')+'</option>')+
+     '</select></div>';
+  h+='</div>';
+  h+='<button class="btn btn-primary" style="margin-top:16px" onclick="encBuscar()">Buscar autorizada</button>';
+  box.innerHTML=h;
+}
+
+function encVazio(msg){
+  return '<div class="card" style="margin-top:14px"><div class="empty-state">'+
+    '<svg viewBox="0 0 24 24"><circle cx="12" cy="10" r="3"/><path d="M12 2a8 8 0 0 0-8 8c0 5.4 8 12 8 12s8-6.6 8-12a8 8 0 0 0-8-8z"/></svg>'+
+    '<p>'+msg+'</p></div></div>';
+}
+
+async function encBuscar(){
+  var box=document.getElementById('encResultado');if(!box)return;
+  var linha=(document.getElementById('encLinha')||{}).value||'';
+  var catId=encCatId();
+  var pecaRef=(document.getElementById('encPeca')||{}).value||'';
+  if(!linha){toast('Escolha a linha do produto','error');return}
+  if(_encModo==='servico'&&!catId){toast('Escolha o serviço que o cliente precisa','error');return}
+  if(_encModo==='peca'&&!pecaRef){toast('Escolha a peça que falta','error');return}
+  box.innerHTML='<div class="loading-full"><span class="spinner"></span> Procurando na rede...</div>';
+  try{
+    var H={headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY},cache:'no-store'};
+    // Só credenciada e ativa: garantia é atendimento da Rede Autorizada.
+    var rp=await fetch(SB_URL+'/rest/v1/assist_parceiros?credenciado=eq.true&status=eq.ativo&id=neq.'+_parceiroId+'&select=id,nome,cidade,uf,telefone,whatsapp,endereco,lat,lng',H);
+    var cand=await rp.json();if(!Array.isArray(cand))cand=[];
+    if(!cand.length){box.innerHTML=encVazio('A sua é a única autorizada credenciada na rede hoje. Fale com a Stonni para orientar o cliente.');return}
+    var ids=cand.map(function(p){return p.id});
+    // Atende a linha? assist_parceiro_produtos guarda o nome de exibição.
+    var rt=await fetch(SB_URL+'/rest/v1/assist_parceiro_produtos?parceiro_id=in.('+ids.join(',')+')&produto_tag=eq.'+encodeURIComponent(linha)+'&select=parceiro_id',H);
+    var tags=await rt.json();if(!Array.isArray(tags))tags=[];
+    var atendeLinha={};tags.forEach(function(t){atendeLinha[t.parceiro_id]=true});
+    // Categorias declaradas. Nenhuma NESTA LINHA = faz todas as desta linha.
+    // Tem de ser por linha: quem declarou as categorias do ar condicionado e
+    // nada da geladeira nao esta dizendo que deixou de fazer geladeira.
+    var rc=await fetch(SB_URL+'/rest/v1/prt_parceiro_categorias?parceiro_id=in.('+ids.join(',')+')&select=parceiro_id,categoria_id',H);
+    var vinc=await rc.json();if(!Array.isArray(vinc))vinc=[];
+    var idsDaLinha={};_encCats.forEach(function(c){idsDaLinha[c.id]=true});
+    var catsDe={};
+    vinc.forEach(function(v){
+      if(!idsDaLinha[v.categoria_id])return;
+      (catsDe[v.parceiro_id]=catsDe[v.parceiro_id]||[]).push(v.categoria_id);
+    });
+    // Peça em estoque (só no modo peça).
+    var estoqueDe={};
+    if(_encModo==='peca'){
+      var re=await fetch(SB_URL+'/rest/v1/prt_estoque_parceiro?parceiro_id=in.('+ids.join(',')+')&referencia=eq.'+encodeURIComponent(pecaRef)+'&quantidade_disponivel=gt.0&select=parceiro_id,referencia,nome_peca,quantidade_disponivel',H);
+      var est=await re.json();if(!Array.isArray(est))est=[];
+      est.forEach(function(e){estoqueDe[e.parceiro_id]=e});
+    }
+    var meuLat=encNum(_parceiro?_parceiro.lat:null),meuLng=encNum(_parceiro?_parceiro.lng:null);
+    var achados=[];
+    cand.forEach(function(p){
+      if(!atendeLinha[p.id])return;
+      var marcadas=catsDe[p.id];
+      var declarou=!!(marcadas&&marcadas.length);   // declarou ALGO nesta linha
+      if(catId&&declarou&&marcadas.indexOf(catId)<0)return;
+      if(_encModo==='peca'&&!estoqueDe[p.id])return;
+      p.km=encKm(meuLat,meuLng,encNum(p.lat),encNum(p.lng));
+      p.peca=estoqueDe[p.id]||null;
+      p.declarou=declarou;
+      p.encaminhado=false;
+      achados.push(p);
+    });
+    achados.sort(function(a,b){
+      if(a.km==null&&b.km==null)return String(a.nome||'').localeCompare(String(b.nome||''));
+      if(a.km==null)return 1;
+      if(b.km==null)return -1;
+      return a.km-b.km;
+    });
+    _encAchados=achados;
+    encRenderResultado();
+  }catch(e){
+    console.error(e);
+    box.innerHTML=encVazio('Não foi possível buscar agora. Tente de novo em instantes.');
+  }
+}
+
+function encRenderResultado(){
+  var box=document.getElementById('encResultado');if(!box)return;
+  if(!_encAchados.length){
+    var qual=_encModo==='peca'?'tem essa peça em estoque e faz o serviço':'faz esse serviço';
+    box.innerHTML=encVazio('Nenhuma autorizada da rede '+qual+' na linha '+esc(_encLinha)+'. Fale com a Stonni para orientar o cliente.');
+    return;
+  }
+  var perto=_encAchados[0].km;
+  var alerta=(perto!=null&&perto>200)
+    ? '<p class="text-sm" style="color:#7a5410;background:#FFF4E5;border:1px solid #F5B36B;border-radius:var(--radius-sm);padding:10px 12px;margin-bottom:12px">A mais próxima está a '+encKmTexto(perto)+' daqui. Confirme com o cliente que ele consegue chegar antes de indicar.</p>'
+    : '';
+  var h='<div class="card" style="margin-top:14px">'+
+    '<div class="card-title">'+_encAchados.length+(_encAchados.length===1?' autorizada atende':' autorizadas atendem')+'</div>'+alerta;
+  for(var i=0;i<_encAchados.length;i++) h+=encCardHtml(_encAchados[i],i);
+  h+='<p class="text-xs text-muted" style="margin-top:6px">Distância em linha reta, da sua oficina até a outra — pela estrada é sempre um pouco mais.</p>'+
+     '</div>';
+  box.innerHTML=h;
+}
+
+function encCardHtml(d,i){
+  var tel=soDigitos(d.telefone||'');
+  var wpp=soDigitos(d.whatsapp||d.telefone||'');
+  var local=[d.cidade,d.uf].filter(function(x){return !!x}).join('/');
+  var h='<div style="border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:10px'+(d.encaminhado?';background:var(--primary-bg)':'')+'">'+
+    '<div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:flex-start">'+
+      '<div style="min-width:0;flex:1">'+
+        '<div style="font-weight:700;font-size:15px">'+esc(d.nome||'Autorizada')+(d.encaminhado?' <span class="badge badge-paga">encaminhado</span>':'')+'</div>'+
+        '<div class="text-sm text-muted">'+esc(local)+(d.endereco?' · '+esc(d.endereco):'')+'</div>'+
+      '</div>'+
+      '<div style="text-align:right"><div style="font-weight:700;font-size:16px;color:var(--primary)">'+encKmTexto(d.km)+'</div></div>'+
+    '</div>';
+  if(d.peca){
+    h+='<div class="text-sm" style="margin-top:8px">🟢 <b>'+d.peca.quantidade_disponivel+'</b> em estoque — '+esc(d.peca.nome_peca||d.peca.referencia)+'</div>';
+  }
+  // Honestidade sobre a origem do "atende": declaração explícita no cadastro vs.
+  // dedução pela linha. Quem vai falar com o cliente precisa saber a diferença.
+  h+='<div class="text-xs text-muted" style="margin-top:6px">'+
+     (d.declarou?'Ela declarou este serviço no cadastro.':'Atende '+esc(_encLinha)+', mas não detalhou os serviços dessa linha no cadastro — confirme por telefone.')+
+     '</div>';
+  h+='<div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">';
+  if(tel) h+='<a class="btn btn-ghost btn-sm" style="width:auto" href="tel:+55'+tel+'">Ligar</a>';
+  if(wpp) h+='<a class="btn btn-ghost btn-sm" style="width:auto" href="https://wa.me/55'+wpp+'" target="_blank" rel="noopener">WhatsApp dela</a>';
+  h+='<button class="btn btn-primary btn-sm" style="width:auto" onclick="encAbrirModal('+i+')">Encaminhar cliente</button>';
+  h+='</div></div>';
+  return h;
+}
+
+function encAbrirModal(i){
+  var d=_encAchados[i];if(!d)return;
+  var local=[d.cidade,d.uf].filter(function(x){return !!x}).join('/');
+  var motivo=_encModo==='peca'
+    ? 'Você faz o serviço, mas está sem '+esc((d.peca&&(d.peca.nome_peca||d.peca.referencia))||'a peça')+'.'
+    : 'Você não faz '+esc(encCatNome()||'este serviço')+'.';
+  var html='<div class="modal-overlay show" id="modalEnc"><div class="modal">'+
+    '<div class="modal-title">Encaminhar para '+esc(d.nome||'')+'<button class="modal-close" onclick="encFechar(this)">✕</button></div>'+
+    '<p class="text-sm text-muted mb-16">'+esc(local)+' · '+encKmTexto(d.km)+'<br>'+motivo+'</p>'+
+    '<div class="form-group"><label>Nome do cliente</label><input id="encCliNome" placeholder="Quem você está encaminhando"></div>'+
+    '<div class="form-group"><label>Telefone do cliente</label><input id="encCliTel" type="tel" inputmode="tel" maxlength="15" placeholder="(99) 99999-9999" oninput="mascaraTel(this)"></div>'+
+    '<div class="form-group"><label>Observação (opcional)</label><textarea id="encObs" rows="2" placeholder="Algo que a outra autorizada precise saber"></textarea></div>'+
+    '<div class="flex gap-8 mt-16" style="justify-content:flex-end">'+
+      '<button class="btn btn-ghost btn-sm" style="width:auto" onclick="encFechar(this)">Cancelar</button>'+
+      '<button class="btn btn-primary btn-sm" style="width:auto" id="encBtnReg" onclick="encRegistrar('+i+')">Registrar encaminhamento</button>'+
+    '</div>'+
+  '</div></div>';
+  document.body.insertAdjacentHTML('beforeend',html);
+  var n=document.getElementById('encCliNome');if(n)n.focus();
+}
+
+async function encRegistrar(i){
+  var d=_encAchados[i];if(!d)return;
+  var btn=document.getElementById('encBtnReg');
+  var nome=((document.getElementById('encCliNome')||{}).value||'').trim();
+  var tel=soDigitos((document.getElementById('encCliTel')||{}).value||'');
+  var obs=((document.getElementById('encObs')||{}).value||'').trim();
+  var payload={
+    origem_parceiro_id:_parceiroId,
+    origem_nome:(_parceiro&&_parceiro.nome)||null,
+    origem_cidade:(_parceiro&&_parceiro.cidade)||null,
+    origem_uf:(_parceiro&&_parceiro.uf)||null,
+    destino_parceiro_id:d.id,
+    destino_nome:d.nome||null,
+    destino_cidade:d.cidade||null,
+    destino_uf:d.uf||null,
+    motivo:_encModo,
+    linha_produto:_encLinha||null,
+    categoria_id:encCatId(),
+    categoria_nome:encCatNome(),
+    peca_referencia:d.peca?d.peca.referencia:null,
+    peca_nome:d.peca?(d.peca.nome_peca||null):null,
+    cliente_nome:nome||null,
+    cliente_telefone:tel||null,
+    observacao:obs||null,
+    distancia_km:d.km==null?null:Math.round(d.km*10)/10,
+    criado_por_email:_user?_user.email:null
+  };
+  if(btn){btn.disabled=true;btn.textContent='Registrando...'}
+  try{
+    var r=await fetch(SB_URL+'/rest/v1/prt_encaminhamentos',{
+      method:'POST',
+      headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json','Prefer':'return=minimal'},
+      body:JSON.stringify(payload)
+    });
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    bononiLog('ACAO','prt_encaminhamentos','ENCAMINHAR',String(d.id),d.nome||null,payload);
+    var m=document.getElementById('modalEnc');if(m)m.remove();
+    d.encaminhado=true;
+    encRenderResultado();
+    encCarregarHistorico();
+    toast('Encaminhamento registrado','success');
+    encMensagemModal(i,tel);
+  }catch(e){
+    console.error(e);
+    if(btn){btn.disabled=false;btn.textContent='Registrar encaminhamento'}
+    toast('Não foi possível registrar agora. Tente de novo.','error');
+  }
+}
+
+// Texto pronto para o cliente: é ele que precisa saber para onde ir.
+function encTextoCliente(d){
+  var t='Sobre a garantia do seu '+(_encLinha||'produto')+': quem atende esse caso mais perto de você é a '+(d.nome||'')+', em '+[d.cidade,d.uf].filter(function(x){return !!x}).join('/')+'.';
+  if(d.endereco) t+=' Endereço: '+d.endereco+'.';
+  if(d.telefone) t+=' Telefone: '+fmtTelefone(d.telefone)+'.';
+  t+=' Leve a nota fiscal do produto.';
+  return t;
+}
+function encMensagemModal(i,telCliente){
+  var d=_encAchados[i];if(!d)return;
+  var txt=encTextoCliente(d);
+  var wa=telCliente?('https://wa.me/55'+telCliente+'?text='+encodeURIComponent(txt)):'';
+  var html='<div class="modal-overlay show" id="modalEncMsg"><div class="modal">'+
+    '<div class="modal-title">Avise o cliente<button class="modal-close" onclick="encFechar(this)">✕</button></div>'+
+    '<p class="text-sm text-muted mb-16">Mensagem pronta com o endereço e o telefone de quem vai atender.</p>'+
+    '<textarea id="encMsgTxt" readonly rows="5" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:14px;background:var(--surface2);color:var(--text);resize:vertical">'+esc(txt)+'</textarea>'+
+    '<div class="flex gap-8 mt-16" style="justify-content:flex-end;flex-wrap:wrap">'+
+      '<button class="btn btn-ghost btn-sm" style="width:auto" onclick="encCopiar()">Copiar</button>'+
+      (wa?'<a class="btn btn-primary btn-sm" style="width:auto" href="'+wa+'" target="_blank" rel="noopener">Abrir WhatsApp do cliente</a>':'')+
+      '<button class="btn btn-ghost btn-sm" style="width:auto" onclick="encFechar(this)">Fechar</button>'+
+    '</div>'+
+  '</div></div>';
+  document.body.insertAdjacentHTML('beforeend',html);
+}
+function encCopiar(){
+  var ta=document.getElementById('encMsgTxt');if(!ta)return;
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(ta.value).then(function(){toast('Mensagem copiada','success')},function(){encCopiarLegado(ta)});
+  }else encCopiarLegado(ta);
+}
+// Safari iOS antigo e contexto sem clipboard API: seleção + execCommand.
+function encCopiarLegado(ta){
+  ta.removeAttribute('readonly');ta.focus();ta.select();
+  try{ta.setSelectionRange(0,99999)}catch(e){}
+  var ok=false;
+  try{ok=document.execCommand('copy')}catch(e){}
+  ta.setAttribute('readonly','readonly');
+  toast(ok?'Mensagem copiada':'Selecione o texto e copie',ok?'success':'error');
+}
+
+// Histórico curto: prova para a autorizada de que a indicação ficou registrada.
+async function encCarregarHistorico(){
+  var box=document.getElementById('encHistorico');if(!box)return;
+  try{
+    var r=await fetch(SB_URL+'/rest/v1/prt_encaminhamentos?origem_parceiro_id=eq.'+_parceiroId+'&order=criado_em.desc&limit=5&select=criado_em,destino_nome,destino_cidade,destino_uf,motivo,categoria_nome,peca_nome,cliente_nome',{
+      headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY},cache:'no-store'
+    });
+    var linhas=await r.json();if(!Array.isArray(linhas))linhas=[];
+    if(!linhas.length){box.innerHTML='';return}
+    var h='<div class="card" style="margin-top:14px"><div class="card-title">Últimos encaminhamentos que você fez</div><div class="table-wrap"><table><thead><tr><th>Quando</th><th>Cliente</th><th>Motivo</th><th>Para quem</th></tr></thead><tbody>';
+    linhas.forEach(function(e){
+      var motivo=e.motivo==='peca'?('sem a peça'+(e.peca_nome?' — '+esc(e.peca_nome):'')):('não faz'+(e.categoria_nome?' — '+esc(e.categoria_nome):''));
+      h+='<tr><td class="text-muted">'+fmtData(e.criado_em)+'</td><td>'+esc(e.cliente_nome||'—')+'</td><td class="text-sm">'+motivo+'</td><td>'+esc(e.destino_nome||'')+'<span class="text-muted text-xs"> '+esc([e.destino_cidade,e.destino_uf].filter(function(x){return !!x}).join('/'))+'</span></td></tr>';
+    });
+    h+='</tbody></table></div></div>';
+    box.innerHTML=h;
+  }catch(e){console.error(e);box.innerHTML=''}
 }
 
 // ===== FINANCEIRO (melhorado) =====
