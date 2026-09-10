@@ -606,6 +606,30 @@ var _parceiro=null;   // dados do parceiro vinculado
 var _parceiroId=null;
 var _paginaAtual='dashboard';
 
+// ---- a pagina sobrevive ao reload ---------------------------------------
+// iniciarApp() mandava sempre para o dashboard, entao F5 (ou um deploy novo)
+// tirava do lugar quem estava no meio de um cadastro.
+var PG_CHAVE='prt:pagina';
+function pgGuardar(p){
+  // aba privada ou dados de site bloqueados fazem o acesso levantar: perder a
+  // memoria da pagina nao pode derrubar a entrada no app
+  try{ localStorage.setItem(PG_CHAVE,p) }catch(e){}
+}
+function pgGuardada(){
+  var p=null;
+  try{ p=localStorage.getItem(PG_CHAVE) }catch(e){ return null }
+  if(!p) return null;
+  // so vale se houver item de menu para ela no documento -- rota removida num
+  // deploy nao pode deixar a tela em branco
+  var itens=document.querySelectorAll('.nav-item');
+  for(var i=0;i<itens.length;i++){
+    var oc=itens[i].getAttribute('onclick')||'';
+    if(oc.indexOf("navegar('"+p+"')")>-1) return p;
+  }
+  // 'perfil' nao esta no menu lateral: fica no menu do avatar
+  return p==='perfil'?p:null;
+}
+
 // ===== AUTH =====
 async function fazerLogin(){
   var email=document.getElementById('loginEmail').value.trim();
@@ -662,7 +686,7 @@ function iniciarApp(){
   var iniciais=(_parceiro&&_parceiro.nome?_parceiro.nome:'??').split(' ').map(function(p){return p[0]}).join('').substring(0,2).toUpperCase();
   document.getElementById('userAvatar').textContent=iniciais;
   encBadgeAoEntrar();   // sem await: o contador nao pode atrasar a entrada
-  navegar('dashboard');
+  navegar(pgGuardada()||'dashboard');   // a guardada, ou o dashboard como antes
 }
 
 async function fazerLogout(){
@@ -693,6 +717,7 @@ function navegar(pagina,forcar){
   }
   window._guardaSaida=null;
   _paginaAtual=pagina;
+  pgGuardar(pagina);
   // atualizar nav
   document.querySelectorAll('.nav-item').forEach(function(el){el.classList.remove('active')});
   var items=document.querySelectorAll('.nav-item');

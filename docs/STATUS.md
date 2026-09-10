@@ -11,6 +11,22 @@ Portal do **parceiro da rede de assistência técnica autorizada Stonni**: o par
 - **Supabase:** `vishxwdxqiygbxmtpfoy` (prefixo `prt_`).
 - **Código:** `index.html` único (~196KB). Sem build. `vercel.json` com SPA rewrite + headers de segurança (X-Frame-Options DENY, nosniff). Chama Supabase por `fetch` em `/rest/v1/`.
 
+## 10/09/2026 — Recarregar não tira mais do lugar
+
+`iniciarApp()` mandava sempre para `navegar('dashboard')`. Então F5, um deploy novo, ou o
+navegador recarregando a aba tiravam do lugar quem estava no meio de um cadastro.
+
+A página agora fica em `localStorage` (`prt:pagina`), gravada em `navegar()`, que é o ponto
+único por onde a navegação passa. Na volta ela **só vale se houver item de menu para ela no
+documento** (mais `perfil`, que fica no menu do avatar) — rota removida num deploy não pode
+deixar a tela em branco. Sem página válida guardada, volta ao dashboard como antes.
+
+Todo acesso a `localStorage` em `try/catch`: em aba privada ou com dados de site bloqueados o
+acesso **levanta**, e perder a memória da página não pode derrubar a entrada no app.
+
+`nova-os` é restaurada de propósito — o wizard já tem rascunho local, então voltar para ele
+é o comportamento útil.
+
 ## 10/09/2026 — Contraste AA, ícones no lugar dos emojis, acessibilidade
 
 A auditoria mediu **32 pares reais de cor e reprovou 20**. Não eram casos de borda: o botão
