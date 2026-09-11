@@ -464,6 +464,27 @@ var SB_URL='https://vishxwdxqiygbxmtpfoy.supabase.co';
 var SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZpc2h4d2R4cWl5Z2J4bXRwZm95Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI0Njg2MjIsImV4cCI6MjA4ODA0NDYyMn0.J647m3ieDHahNQYBWMRESl0aPFXsT_zt_7ZcDvyB-SA';
 var sb=window.supabase.createClient(SB_URL,SB_KEY);
 
+// Valor corrente do cabecalho Authorization. Comeca na chave ANONIMA porque a
+// tela de login precisa falar com o banco antes de existir usuario; a partir
+// do login passa a ser o token da pessoa.
+//
+// Por que isso importa: a chave anonima e publica (esta no codigo-fonte desta
+// pagina). Enquanto o app escreve com ela, o banco nao tem como saber quem
+// esta do outro lado -- e nenhuma regra de permissao consegue existir.
+//
+// A troca nao muda comportamento nenhum hoje: as policies sao para o papel
+// `public`, que cobre anon e authenticated. E a pre-condicao para poder
+// fechar a escrita depois.
+var AUTHZ='Bearer '+SB_KEY;
+
+// O token VENCE (1h por padrao) e o supabase-js renova sozinho -- mas renova a
+// sessao DELE, nao este AUTHZ. Sem acompanhar, passado o vencimento toda
+// chamada leva 401 e as telas ficam vazias sem explicacao.
+sb.auth.onAuthStateChange(function(evento,sessao){
+  if(sessao&&sessao.access_token) AUTHZ='Bearer '+sessao.access_token;
+  else if(evento==='SIGNED_OUT') AUTHZ='Bearer '+SB_KEY;
+});
+
 // ===== ICONS v1 -- subconjunto do lucide 0.462.0 (ISC), a mesma versao que os
 // apps React do grupo usam. Espelho de stonni-assistencia/modules/icones.js:
 // os dois arquivos sao IDENTICOS entre os marcadores -- sem build nao ha como
@@ -652,6 +673,9 @@ async function fazerLogin(){
     if(!res.ok) throw new Error(data.error_description||data.msg||'Credenciais inválidas');
     // set session
     await sb.auth.setSession({access_token:data.access_token,refresh_token:data.refresh_token});
+    // Explicito aqui de proposito: carregarPerfil() roda logo abaixo e ja
+    // consulta o banco. Nao da para depender da ordem em que o evento chega.
+    AUTHZ='Bearer '+data.access_token;
     _user=data.user;
     bononiLog('ACAO','auth','LOGIN',_user.id,_user.email);
     await carregarPerfil();
@@ -664,7 +688,7 @@ async function fazerLogin(){
 async function carregarPerfil(){
   // 1. busca vínculo na prt_usuarios
   var r=await fetch(SB_URL+'/rest/v1/prt_usuarios?user_id=eq.'+_user.id+'&ativo=eq.true&select=id,parceiro_id,perfil',{
-    headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}
+    headers:{'apikey':SB_KEY,'Authorization':AUTHZ}
   });
   var rows=await r.json();
   if(!Array.isArray(rows)||!rows.length){
@@ -677,7 +701,7 @@ async function carregarPerfil(){
   _parceiroId=row.parceiro_id;
   // 2. busca dados do parceiro
   var r2=await fetch(SB_URL+'/rest/v1/assist_parceiros?id=eq.'+_parceiroId+'&select=id,nome,cidade,uf,telefone,email,status,lat,lng',{
-    headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}
+    headers:{'apikey':SB_KEY,'Authorization':AUTHZ}
   });
   var parceiros=await r2.json();
   _parceiro=(Array.isArray(parceiros)&&parceiros.length)?parceiros[0]:{nome:'Admin Stonni'};
@@ -698,6 +722,7 @@ function iniciarApp(){
 
 async function fazerLogout(){
   await sb.auth.signOut();
+  AUTHZ='Bearer '+SB_KEY;   // explicito: nao depender da ordem do evento
   _user=null;_perfil=null;_parceiro=null;_parceiroId=null;
   document.getElementById('appShell').style.display='none';
   document.getElementById('loginScreen').style.display='flex';
@@ -708,6 +733,7 @@ async function fazerLogout(){
 (async function(){
   var sess=await sb.auth.getSession();
   if(sess&&sess.data&&sess.data.session){
+    AUTHZ='Bearer '+sess.data.session.access_token;
     _user=sess.data.session.user;
     await carregarPerfil();
   }
@@ -970,7 +996,7 @@ async function renderPerfil(el){
   el.innerHTML='<div class="page-header"><h1>Meus dados</h1></div><div class="loading-full"><span class="spinner"></span> Carregando...</div>';
   if(!_parceiroId){ el.innerHTML='<div class="page-header"><h1>Meus dados</h1></div><div class="card">Seu usuário não está vinculado a uma autorizada. Contate a Stonni.</div>'; return; }
   try{
-    var h={headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}};
+    var h={headers:{'apikey':SB_KEY,'Authorization':AUTHZ}};
     var pr=await fetch(SB_URL+'/rest/v1/assist_parceiros?id=eq.'+_parceiroId+'&select=nome,responsavel,cnpj,telefone,whatsapp,email,cep,endereco,cidade,uf,raio_km,status,credenciado,data_credenciamento,chave_pix,tipo_chave_pix',h).then(function(r){return r.json()});
     var p=(Array.isArray(pr)&&pr.length)?pr[0]:{};
     var prods=await fetch(SB_URL+'/rest/v1/assist_parceiro_produtos?parceiro_id=eq.'+_parceiroId+'&select=produto_tag',h).then(function(r){return r.json()});
@@ -1063,7 +1089,7 @@ async function salvarMeusDados(){
   try{
     var r=await fetch(SB_URL+'/rest/v1/assist_parceiros?id=eq.'+_parceiroId,{
       method:'PATCH',
-      headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json','Prefer':'return=minimal'},
+      headers:{'apikey':SB_KEY,'Authorization':AUTHZ,'Content-Type':'application/json','Prefer':'return=minimal'},
       body:JSON.stringify(payload)
     });
     if(!r.ok){ throw new Error('HTTP '+r.status); }
@@ -1079,7 +1105,7 @@ async function carregarDashboardKPIs(){
   try{
     // OS do mês
     var r=await fetch(SB_URL+'/rest/v1/prt_ordens_servico?parceiro_id=eq.'+_parceiroId+'&data_servico=gte.'+inicioMes+'&select=id,status,valor_servico',{
-      headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}
+      headers:{'apikey':SB_KEY,'Authorization':AUTHZ}
     });
     var os=await r.json();
     if(!Array.isArray(os)) os=[];
@@ -1092,7 +1118,7 @@ async function carregarDashboardKPIs(){
     
     // peças disponíveis
     var r2=await fetch(SB_URL+'/rest/v1/prt_estoque_parceiro?parceiro_id=eq.'+_parceiroId+'&select=quantidade_disponivel',{
-      headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}
+      headers:{'apikey':SB_KEY,'Authorization':AUTHZ}
     });
     var pecas=await r2.json();
     if(!Array.isArray(pecas)) pecas=[];
@@ -1101,7 +1127,7 @@ async function carregarDashboardKPIs(){
 
     // últimas OS
     var r3=await fetch(SB_URL+'/rest/v1/prt_ordens_servico?parceiro_id=eq.'+_parceiroId+'&order=criado_em.desc&limit=5&select=id,protocolo,cliente_nome,produto_modelo,produto_linha,status,data_servico,valor_servico',{
-      headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}
+      headers:{'apikey':SB_KEY,'Authorization':AUTHZ}
     });
     var ultimas=await r3.json();
     if(!Array.isArray(ultimas)) ultimas=[];
@@ -1326,7 +1352,7 @@ var _editandoStatusOrig=null;
 async function carregarOsParaEditar(el,id){
   el.innerHTML='<div class="loading-full"><span class="spinner"></span> Carregando OS...</div>';
   try{
-    var r=await fetch(SB_URL+'/rest/v1/prt_ordens_servico?id=eq.'+id+'&select=*',{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
+    var r=await fetch(SB_URL+'/rest/v1/prt_ordens_servico?id=eq.'+id+'&select=*',{headers:{'apikey':SB_KEY,'Authorization':AUTHZ}});
     var rows=await r.json();
     if(!rows.length){toast('OS não encontrada','error');navegar('minhas-os');return}
     var o=rows[0];
@@ -1340,12 +1366,12 @@ async function carregarOsParaEditar(el,id){
       codigo_servico:o.codigo_servico,categoria_servico:o.categoria_servico,valor_servico:o.valor_servico,
       foto_nf:o.foto_nf,foto_equipamento:o.foto_equipamento};
     // carregar peças da OS
-    var r2=await fetch(SB_URL+'/rest/v1/prt_os_pecas?os_id=eq.'+id+'&select=*',{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
+    var r2=await fetch(SB_URL+'/rest/v1/prt_os_pecas?os_id=eq.'+id+'&select=*',{headers:{'apikey':SB_KEY,'Authorization':AUTHZ}});
     var pecas=await r2.json();
     if(Array.isArray(pecas))_pecasSelecionadas=pecas.map(function(p){return{id:p.id,referencia:p.referencia,nome:p.nome_peca,quantidade:p.quantidade,custo_unitario:p.custo_unitario,osOrigId:p.id}});
     // carregar serviços da OS (multi)
     _servicosSelecionados=[];_showAccordionPicker=false;
-    var r3s=await fetch(SB_URL+'/rest/v1/prt_os_servicos?os_id=eq.'+id+'&select=*',{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
+    var r3s=await fetch(SB_URL+'/rest/v1/prt_os_servicos?os_id=eq.'+id+'&select=*',{headers:{'apikey':SB_KEY,'Authorization':AUTHZ}});
     var svArr=await r3s.json();
     if(Array.isArray(svArr)&&svArr.length){_servicosSelecionados=svArr.map(function(sv){return{codigo:sv.codigo,descricao:sv.descricao,valor:parseFloat(sv.valor)||0,categoria_id:sv.categoria_id,categoria_nome:sv.categoria_nome||''}})}
     else if(o.codigo_servico){_servicosSelecionados=[{codigo:o.codigo_servico,descricao:o.codigo_servico,valor:parseFloat(o.valor_servico)||0,categoria_id:null,categoria_nome:o.categoria_servico||''}]}
@@ -1476,7 +1502,7 @@ async function tetoDetalhar(servs,linhaDb,valorPago){
   var r={grupos:[],somaBruta:0,somaCategorias:0,tetoProduto:null,capadoCategoria:false,capadoProduto:false,total:0,divergente:false};
   if(!Array.isArray(servs))servs=[];
   servs.forEach(function(s){r.somaBruta+=parseFloat(s.valor)||0});
-  var H={'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY};
+  var H={'apikey':SB_KEY,'Authorization':AUTHZ};
   // Categorias pelos IDs da OS, nao por linha/ativo: filtrar perderia o teto
   // de categoria remanejada ou desativada depois da OS.
   var ids=[];
@@ -1524,12 +1550,12 @@ async function carregarServicos(){
   if(!linhaDb){document.getElementById('servicosArea').innerHTML='<p class="text-muted text-sm">Selecione uma linha de produto primeiro</p>';return}
   _servicosCarregando=true;
   try{
-    var rc=await fetch(SB_URL+'/rest/v1/prt_categorias_servico?linha_produto=eq.'+linhaDb+'&ativo=eq.true&order=ordem.asc&select=*',{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
+    var rc=await fetch(SB_URL+'/rest/v1/prt_categorias_servico?linha_produto=eq.'+linhaDb+'&ativo=eq.true&order=ordem.asc&select=*',{headers:{'apikey':SB_KEY,'Authorization':AUTHZ}});
     _categoriasCache=await rc.json();if(!Array.isArray(_categoriasCache))_categoriasCache=[];
-    var r=await fetch(SB_URL+'/rest/v1/prt_tabela_servicos?linha_produto=eq.'+linhaDb+'&ativo=eq.true&order=codigo.asc&select=*',{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
+    var r=await fetch(SB_URL+'/rest/v1/prt_tabela_servicos?linha_produto=eq.'+linhaDb+'&ativo=eq.true&order=codigo.asc&select=*',{headers:{'apikey':SB_KEY,'Authorization':AUTHZ}});
     _servicosCache=await r.json();if(!Array.isArray(_servicosCache))_servicosCache=[];
     // buscar teto do produto
-    var rt=await fetch(SB_URL+'/rest/v1/prt_teto_produto?linha_produto=eq.'+linhaDb+'&ativo=eq.true&select=valor_maximo',{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
+    var rt=await fetch(SB_URL+'/rest/v1/prt_teto_produto?linha_produto=eq.'+linhaDb+'&ativo=eq.true&select=valor_maximo',{headers:{'apikey':SB_KEY,'Authorization':AUTHZ}});
     var tArr=await rt.json();_tetoProduto=(Array.isArray(tArr)&&tArr.length)?parseFloat(tArr[0].valor_maximo):null;
     document.getElementById('servicosArea').innerHTML=renderServicosHtml();
   }catch(e){
@@ -1661,7 +1687,7 @@ async function carregarPecasCatalogo(){
   try{
     var url=SB_URL+'/rest/v1/prt_pecas_catalogo?ativo=eq.true&order=nome.asc&select=id,referencia,nome,linha_produto,aplicacao,custo_unitario';
     if(linhaDb) url+='&linha_produto=eq.'+linhaDb;
-    var r=await fetch(url,{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
+    var r=await fetch(url,{headers:{'apikey':SB_KEY,'Authorization':AUTHZ}});
     _pecasCatalogo=await r.json();
     if(!Array.isArray(_pecasCatalogo))_pecasCatalogo=[];
     var box=document.getElementById('pecasArea');
@@ -1939,7 +1965,7 @@ async function osSalvar(status){
       method='PATCH';
       // deletar peças antigas antes de reinserir
       await fetch(SB_URL+'/rest/v1/prt_os_pecas?os_id=eq.'+_editandoOsId,{
-        method:'DELETE',headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}
+        method:'DELETE',headers:{'apikey':SB_KEY,'Authorization':AUTHZ}
       });
     }else{
       url=SB_URL+'/rest/v1/prt_ordens_servico';
@@ -1947,7 +1973,7 @@ async function osSalvar(status){
     }
     r=await fetch(url,{
       method:method,
-      headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json','Prefer':'return=representation'},
+      headers:{'apikey':SB_KEY,'Authorization':AUTHZ,'Content-Type':'application/json','Prefer':'return=representation'},
       body:JSON.stringify(payload)
     });
     var res=await r.json();
@@ -1957,10 +1983,10 @@ async function osSalvar(status){
     // salvar serviços da OS (multi)
     if(osId){
       // deletar serviços antigos
-      await fetch(SB_URL+'/rest/v1/prt_os_servicos?os_id=eq.'+osId,{method:'DELETE',headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
+      await fetch(SB_URL+'/rest/v1/prt_os_servicos?os_id=eq.'+osId,{method:'DELETE',headers:{'apikey':SB_KEY,'Authorization':AUTHZ}});
       if(_servicosSelecionados.length){
         var svPayload=_servicosSelecionados.map(function(sv){return{os_id:osId,codigo:sv.codigo,descricao:sv.descricao,valor:sv.valor,categoria_id:sv.categoria_id||null,categoria_nome:sv.categoria_nome||null}});
-        await fetch(SB_URL+'/rest/v1/prt_os_servicos',{method:'POST',headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'},body:JSON.stringify(svPayload)});
+        await fetch(SB_URL+'/rest/v1/prt_os_servicos',{method:'POST',headers:{'apikey':SB_KEY,'Authorization':AUTHZ,'Content-Type':'application/json'},body:JSON.stringify(svPayload)});
       }
     }
     // salvar peças utilizadas
@@ -1970,7 +1996,7 @@ async function osSalvar(status){
       });
       await fetch(SB_URL+'/rest/v1/prt_os_pecas',{
         method:'POST',
-        headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'},
+        headers:{'apikey':SB_KEY,'Authorization':AUTHZ,'Content-Type':'application/json'},
         body:JSON.stringify(pecasPayload)
       });
     }
@@ -2000,13 +2026,13 @@ async function gerarPdfOS(id){
   if(!o)return;
   // Buscar serviços detalhados
   var servicos=[];
-  try{var rs=await fetch(SB_URL+'/rest/v1/prt_os_servicos?os_id=eq.'+id+'&select=*',{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});servicos=await rs.json();if(!Array.isArray(servicos))servicos=[];}catch(e){}
+  try{var rs=await fetch(SB_URL+'/rest/v1/prt_os_servicos?os_id=eq.'+id+'&select=*',{headers:{'apikey':SB_KEY,'Authorization':AUTHZ}});servicos=await rs.json();if(!Array.isArray(servicos))servicos=[];}catch(e){}
   // Buscar peças
   var pecas=[];
-  try{var rp=await fetch(SB_URL+'/rest/v1/prt_os_pecas?os_id=eq.'+id+'&select=*',{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});pecas=await rp.json();if(!Array.isArray(pecas))pecas=[];}catch(e){}
+  try{var rp=await fetch(SB_URL+'/rest/v1/prt_os_pecas?os_id=eq.'+id+'&select=*',{headers:{'apikey':SB_KEY,'Authorization':AUTHZ}});pecas=await rp.json();if(!Array.isArray(pecas))pecas=[];}catch(e){}
   // Buscar dados da empresa
   var cfgs={};
-  try{var rc=await fetch(SB_URL+'/rest/v1/prt_configuracoes?select=chave,valor',{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});var cv=await rc.json();if(Array.isArray(cv))cv.forEach(function(c){cfgs[c.chave]=c.valor||''});}catch(e){}
+  try{var rc=await fetch(SB_URL+'/rest/v1/prt_configuracoes?select=chave,valor',{headers:{'apikey':SB_KEY,'Authorization':AUTHZ}});var cv=await rc.json();if(Array.isArray(cv))cv.forEach(function(c){cfgs[c.chave]=c.valor||''});}catch(e){}
   // Nome do parceiro
   var parcNome=_usuario?_usuario.parceiro_nome||_usuario.nome||'':'';
   // Formatar telefone
@@ -2153,7 +2179,7 @@ var _todasOS=[];
 async function carregarMinhasOS(filtro){
   try{
     var url=SB_URL+'/rest/v1/prt_ordens_servico?parceiro_id=eq.'+_parceiroId+'&order=criado_em.desc&select=id,protocolo,cliente_nome,cliente_telefone,cliente_cidade,cliente_uf,produto_linha,produto_modelo,numero_serie,numero_nf,data_compra,status,data_servico,valor_servico,codigo_erro,defeito_descricao,solucao_tipo,diagnostico,motivo_recusa,codigo_servico,foto_nf,foto_equipamento';
-    var r=await fetch(url,{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
+    var r=await fetch(url,{headers:{'apikey':SB_KEY,'Authorization':AUTHZ}});
     _todasOS=await r.json();
     if(!Array.isArray(_todasOS)) _todasOS=[];
     mostrarListaOS(filtro);
@@ -2201,7 +2227,7 @@ async function abrirDetalheOS(id){
   // buscar peças solicitadas/enviadas para esta OS (antecipadas)
   var pecaBox='';
   try{
-    var rp=await fetch(SB_URL+'/rest/v1/prt_reposicao_pecas?os_id=eq.'+id+'&tipo=eq.antecipada&order=criado_em.desc&select=*,prt_envios_pecas(nf_envio,transportadora,rastreio,data_envio,status)',{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
+    var rp=await fetch(SB_URL+'/rest/v1/prt_reposicao_pecas?os_id=eq.'+id+'&tipo=eq.antecipada&order=criado_em.desc&select=*,prt_envios_pecas(nf_envio,transportadora,rastreio,data_envio,status)',{headers:{'apikey':SB_KEY,'Authorization':AUTHZ}});
     var reps=await rp.json();
     if(Array.isArray(reps)&&reps.length){
       pecaBox='<div class="card" style="margin:12px 0;background:var(--primary-bg);border-color:var(--primary)">'+
@@ -2256,7 +2282,7 @@ async function solicitarPecaOS(osId){
   document.querySelectorAll('.modal-overlay.show').forEach(function(m){m.classList.remove('show')});
   var cat=[];
   try{
-    var r=await fetch(SB_URL+'/rest/v1/prt_pecas_catalogo?ativo=eq.true&order=nome.asc&select=referencia,nome&limit=10000',{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
+    var r=await fetch(SB_URL+'/rest/v1/prt_pecas_catalogo?ativo=eq.true&order=nome.asc&select=referencia,nome&limit=10000',{headers:{'apikey':SB_KEY,'Authorization':AUTHZ}});
     cat=await r.json();if(!Array.isArray(cat))cat=[];
   }catch(e){console.error(e)}
   var opts=cat.map(function(p){return '<option value="'+esc(p.referencia)+'" data-nome="'+esc(p.nome)+'">'+esc(p.referencia)+' — '+esc(p.nome)+'</option>'}).join('');
@@ -2283,11 +2309,11 @@ async function salvarSolicitacaoPeca(osId){
   var qtd=parseInt(document.getElementById('solicPecaQtd').value)||1;
   var btn=document.getElementById('btnSolicPeca');btn.disabled=true;btn.innerHTML='<span class="spinner"></span>';
   try{
-    await fetch(SB_URL+'/rest/v1/prt_reposicao_pecas',{method:'POST',headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'},body:JSON.stringify({parceiro_id:_parceiroId,os_id:osId,referencia:ref,nome_peca:nome,quantidade:qtd,status:'pendente',tipo:'antecipada'})});
+    await fetch(SB_URL+'/rest/v1/prt_reposicao_pecas',{method:'POST',headers:{'apikey':SB_KEY,'Authorization':AUTHZ,'Content-Type':'application/json'},body:JSON.stringify({parceiro_id:_parceiroId,os_id:osId,referencia:ref,nome_peca:nome,quantidade:qtd,status:'pendente',tipo:'antecipada'})});
     // OS passa a aguardar a peça (sai da fila de aprovação de valor da Stonni)
     var o=_todasOS.find(function(x){return x.id===osId});
     if(o&&(o.status==='rascunho'||o.status==='enviada')){
-      await fetch(SB_URL+'/rest/v1/prt_ordens_servico?id=eq.'+osId,{method:'PATCH',headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'},body:JSON.stringify({status:'aguardando_peca',atualizado_em:new Date().toISOString()})});
+      await fetch(SB_URL+'/rest/v1/prt_ordens_servico?id=eq.'+osId,{method:'PATCH',headers:{'apikey':SB_KEY,'Authorization':AUTHZ,'Content-Type':'application/json'},body:JSON.stringify({status:'aguardando_peca',atualizado_em:new Date().toISOString()})});
     }
     bononiLog('ACAO','os','SOLICITAR_PECA',String(osId),ref+' x'+qtd);
     document.getElementById('modalSolicPeca').remove();
@@ -2316,7 +2342,7 @@ async function confirmarCancelarOS(osId){
   var motivo=(document.getElementById('cancelMotivo').value||'').trim();
   var btn=document.getElementById('btnCancelarOS');btn.disabled=true;btn.innerHTML='<span class="spinner"></span>';
   try{
-    await fetch(SB_URL+'/rest/v1/prt_ordens_servico?id=eq.'+osId,{method:'PATCH',headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'},body:JSON.stringify({status:'cancelada',atualizado_em:new Date().toISOString()})});
+    await fetch(SB_URL+'/rest/v1/prt_ordens_servico?id=eq.'+osId,{method:'PATCH',headers:{'apikey':SB_KEY,'Authorization':AUTHZ,'Content-Type':'application/json'},body:JSON.stringify({status:'cancelada',atualizado_em:new Date().toISOString()})});
     bononiLog('ACAO','os','CANCELAR_OS',String(osId),motivo||'sem motivo');
     document.getElementById('modalCancelarOS').remove();
     toast('OS cancelada.','success');
@@ -2331,13 +2357,13 @@ async function renderMaterial(el){
     '<div id="materialArea"><div class="loading-full"><span class="spinner"></span> Carregando...</div></div>';
   try{
     var r=await fetch(SB_URL+'/rest/v1/prt_materiais?ativo=eq.true&order=ordem.asc,criado_em.desc&select=*',{
-      headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}
+      headers:{'apikey':SB_KEY,'Authorization':AUTHZ}
     });
     _materiaisAll=await r.json();
     if(!Array.isArray(_materiaisAll)) _materiaisAll=[];
-    var rl=await fetch(SB_URL+'/rest/v1/prt_linhas_produto?ativo=eq.true&order=ordem.asc&select=id,slug,nome',{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
+    var rl=await fetch(SB_URL+'/rest/v1/prt_linhas_produto?ativo=eq.true&order=ordem.asc&select=id,slug,nome',{headers:{'apikey':SB_KEY,'Authorization':AUTHZ}});
     _matLinhas=await rl.json();if(!Array.isArray(_matLinhas))_matLinhas=[];
-    var rm=await fetch(SB_URL+'/rest/v1/prt_modelos_produto?ativo=eq.true&order=ordem.asc&select=id,linha_id,nome',{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
+    var rm=await fetch(SB_URL+'/rest/v1/prt_modelos_produto?ativo=eq.true&order=ordem.asc&select=id,linha_id,nome',{headers:{'apikey':SB_KEY,'Authorization':AUTHZ}});
     var modelos=await rm.json();if(!Array.isArray(modelos))modelos=[];
     _matLinhas.forEach(function(l){l.modelos=modelos.filter(function(m){return m.linha_id===l.id})});
     _matFiltroLinha='';_matFiltroModelo='';_matBusca='';
@@ -2400,7 +2426,7 @@ async function renderEstoque(el){
     '<div id="estoqueArea"><div class="loading-full"><span class="spinner"></span> Carregando...</div></div>';
   try{
     var r=await fetch(SB_URL+'/rest/v1/prt_estoque_parceiro?parceiro_id=eq.'+_parceiroId+'&order=nome_peca.asc&select=*',{
-      headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}
+      headers:{'apikey':SB_KEY,'Authorization':AUTHZ}
     });
     var pecas=await r.json();
     if(!Array.isArray(pecas)) pecas=[];
@@ -2527,7 +2553,7 @@ async function encSetLinha(v){
   var r=document.getElementById('encResultado');if(r)r.innerHTML='';
   var linhaDb=LINHAS_DB[v]||'';
   if(linhaDb){
-    var H={headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY},cache:'no-store'};
+    var H={headers:{'apikey':SB_KEY,'Authorization':AUTHZ},cache:'no-store'};
     try{
       var rc=await fetch(SB_URL+'/rest/v1/prt_categorias_servico?linha_produto=eq.'+linhaDb+'&ativo=eq.true&order=ordem.asc&select=id,nome',H);
       _encCats=await rc.json();if(!Array.isArray(_encCats))_encCats=[];
@@ -2585,7 +2611,7 @@ async function encBuscar(){
   if(_encModo==='peca'&&!pecaRef){toast('Escolha a peça que falta','error');return}
   box.innerHTML='<div class="loading-full"><span class="spinner"></span> Procurando na rede...</div>';
   try{
-    var H={headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY},cache:'no-store'};
+    var H={headers:{'apikey':SB_KEY,'Authorization':AUTHZ},cache:'no-store'};
     // Só credenciada e ativa: garantia é atendimento da Rede Autorizada.
     var rp=await fetch(SB_URL+'/rest/v1/assist_parceiros?credenciado=eq.true&status=eq.ativo&id=neq.'+_parceiroId+'&select=id,nome,cidade,uf,telefone,whatsapp,endereco,lat,lng',H);
     var cand=await rp.json();if(!Array.isArray(cand))cand=[];
@@ -2741,7 +2767,7 @@ async function encRegistrar(i){
   try{
     var r=await fetch(SB_URL+'/rest/v1/prt_encaminhamentos',{
       method:'POST',
-      headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json','Prefer':'return=minimal'},
+      headers:{'apikey':SB_KEY,'Authorization':AUTHZ,'Content-Type':'application/json','Prefer':'return=minimal'},
       body:JSON.stringify(payload)
     });
     if(!r.ok) throw new Error('HTTP '+r.status);
@@ -2830,7 +2856,7 @@ async function encCarregarHistorico(){
   var box=document.getElementById('encHistorico');if(!box)return;
   try{
     var r=await fetch(SB_URL+'/rest/v1/prt_encaminhamentos?origem_parceiro_id=eq.'+_parceiroId+'&order=criado_em.desc&limit=5&select=criado_em,destino_nome,destino_cidade,destino_uf,motivo,categoria_nome,peca_nome,cliente_nome',{
-      headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY},cache:'no-store'
+      headers:{'apikey':SB_KEY,'Authorization':AUTHZ},cache:'no-store'
     });
     var linhas=await r.json();if(!Array.isArray(linhas))linhas=[];
     if(!linhas.length){box.innerHTML='';return}
@@ -2851,7 +2877,7 @@ async function encCarregarHistorico(){
 async function encBuscarRecebidos(){
   _encRecebidos=[];_encOrigens={};
   if(!_parceiroId) return _encRecebidos;
-  var H={headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY},cache:'no-store'};
+  var H={headers:{'apikey':SB_KEY,'Authorization':AUTHZ},cache:'no-store'};
   try{
     var r=await fetch(SB_URL+'/rest/v1/prt_encaminhamentos?destino_parceiro_id=eq.'+_parceiroId+'&order=criado_em.desc&limit=50&select=*',H);
     var j=await r.json();
@@ -2948,7 +2974,7 @@ async function renderFinanceiro(el){
     '<div class="card" style="margin-bottom:16px;background:var(--primary-bg);border-color:var(--primary)"><p class="text-sm" style="color:var(--text)">A Stonni fecha o mês, envia o <strong>orçamento</strong> e você aprova; o pagamento sai depois disso, <strong>até o dia 10 do mês seguinte</strong>. Confira os valores antes de aprovar.</p></div>'+
     '<div id="finArea"><div class="loading-full"><span class="spinner"></span> Carregando...</div></div>';
   try{
-    var r=await fetch(SB_URL+'/rest/v1/prt_pagamentos?parceiro_id=eq.'+_parceiroId+'&order=mes_referencia.desc&select=*',{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
+    var r=await fetch(SB_URL+'/rest/v1/prt_pagamentos?parceiro_id=eq.'+_parceiroId+'&order=mes_referencia.desc&select=*',{headers:{'apikey':SB_KEY,'Authorization':AUTHZ}});
     var pags=await r.json();if(!Array.isArray(pags))pags=[];
     var box=document.getElementById('finArea');
     if(!pags.length){box.innerHTML='<div class="empty-state"><p>Nenhum fechamento financeiro ainda</p><p class="text-xs text-muted">Os pagamentos aparecem aqui após o fechamento mensal pela Stonni</p></div>';return}
@@ -3040,7 +3066,7 @@ function nfseAnexar(pagId){
       // falha no upload deixaria o banco apontando para arquivo que nao existe.
       var r=await fetch(SB_URL+'/rest/v1/prt_pagamentos?id=eq.'+pagId,{
         method:'PATCH',
-        headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json','Prefer':'return=minimal'},
+        headers:{'apikey':SB_KEY,'Authorization':AUTHZ,'Content-Type':'application/json','Prefer':'return=minimal'},
         body:JSON.stringify({nfse_arquivo_path:path,nfse_arquivo_nome:file.name,nfse_enviada_em:new Date().toISOString()})
       });
       if(!r.ok){var j=await r.json().catch(function(){return null});throw new Error((j&&j.message)||('HTTP '+r.status))}
@@ -3057,7 +3083,7 @@ function nfseAnexar(pagId){
 }
 async function nfseAbrir(pagId){
   try{
-    var q=await fetch(SB_URL+'/rest/v1/prt_pagamentos?id=eq.'+pagId+'&select=nfse_arquivo_path',{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
+    var q=await fetch(SB_URL+'/rest/v1/prt_pagamentos?id=eq.'+pagId+'&select=nfse_arquivo_path',{headers:{'apikey':SB_KEY,'Authorization':AUTHZ}});
     var arr=await q.json();
     var path=(Array.isArray(arr)&&arr.length)?arr[0].nfse_arquivo_path:null;
     if(!path)throw new Error('a NFS-e não está mais anexada');
@@ -3089,7 +3115,7 @@ var _pendComprov = [];  // pedidos de peça esperando o comprovante dela
 
 async function pendenciasCarregar(){
   if(!_parceiroId){ _pendAprov=[]; _pendComprov=[]; pendenciasRender(); return; }
-  var H={headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY},cache:'no-store'};
+  var H={headers:{'apikey':SB_KEY,'Authorization':AUTHZ},cache:'no-store'};
   // As duas consultas em paralelo e cada uma com o seu catch: uma falhando não
   // pode apagar o aviso da outra.
   var a=fetch(SB_URL+'/rest/v1/prt_pagamentos?parceiro_id=eq.'+_parceiroId
@@ -3219,7 +3245,7 @@ async function confirmarAprovacaoOrcamento(pagId){
     // Só {status, data_aprovacao}: quem carimba o resto é a Stonni, do lado dela.
     var r=await fetch(SB_URL+'/rest/v1/prt_pagamentos?id=eq.'+pagId,{
       method:'PATCH',
-      headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json','Prefer':'return=minimal'},
+      headers:{'apikey':SB_KEY,'Authorization':AUTHZ,'Content-Type':'application/json','Prefer':'return=minimal'},
       body:JSON.stringify({status:'aprovado',data_aprovacao:new Date().toISOString()})
     });
     if(!r.ok){
@@ -3255,10 +3281,10 @@ async function renderComprarPecas(el){
   // vitrine de peças em vez do pedido que espera por ela.
   if(window._focarPedido) pcAba('pedidos');
   try{
-    var cfgR=await fetch(SB_URL+'/rest/v1/prt_configuracoes?chave=eq.desconto_autorizada_perc&select=valor',{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
+    var cfgR=await fetch(SB_URL+'/rest/v1/prt_configuracoes?chave=eq.desconto_autorizada_perc&select=valor',{headers:{'apikey':SB_KEY,'Authorization':AUTHZ}});
     var cfgArr=await cfgR.json();if(Array.isArray(cfgArr)&&cfgArr.length)_descontoAutorizada=parseFloat(cfgArr[0].valor)||15;
     // Fonte principal: prt_pecas_catalogo (catálogo curado pela gestão)
-    var r=await fetch(SB_URL+'/rest/v1/prt_pecas_catalogo?ativo=eq.true&order=nome.asc&select=id,referencia,nome,linha_produto,aplicacao,preco_venda,ipi_perc',{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
+    var r=await fetch(SB_URL+'/rest/v1/prt_pecas_catalogo?ativo=eq.true&order=nome.asc&select=id,referencia,nome,linha_produto,aplicacao,preco_venda,ipi_perc',{headers:{'apikey':SB_KEY,'Authorization':AUTHZ}});
     _pecasCompra=await r.json();if(!Array.isArray(_pecasCompra))_pecasCompra=[];
     _pecasCompra=_pecasCompra.filter(function(p){return parseFloat(p.preco_venda||0)>0});
     // Buscar estoque geral (comp_produtos_consolidado) para cada peça
@@ -3267,7 +3293,7 @@ async function renderComprarPecas(el){
         var refs=_pecasCompra.map(function(p){return p.referencia});
         for(var bi=0;bi<refs.length;bi+=30){
           var batch=refs.slice(bi,bi+30);
-          var re=await fetch(SB_URL+'/rest/v1/comp_produtos_consolidado?referencia=in.('+batch.join(',')+ ')&select=referencia,estoque_total',{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
+          var re=await fetch(SB_URL+'/rest/v1/comp_produtos_consolidado?referencia=in.('+batch.join(',')+ ')&select=referencia,estoque_total',{headers:{'apikey':SB_KEY,'Authorization':AUTHZ}});
           var estData=await re.json();
           if(Array.isArray(estData)){
             estData.forEach(function(e){
@@ -3279,9 +3305,9 @@ async function renderComprarPecas(el){
       }catch(e){console.error('Estoque geral:',e)}
     }
     // buscar linhas e modelos do banco
-    var rl=await fetch(SB_URL+'/rest/v1/prt_linhas_produto?ativo=eq.true&order=ordem.asc&select=id,slug,nome',{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
+    var rl=await fetch(SB_URL+'/rest/v1/prt_linhas_produto?ativo=eq.true&order=ordem.asc&select=id,slug,nome',{headers:{'apikey':SB_KEY,'Authorization':AUTHZ}});
     _compraLinhas=await rl.json();if(!Array.isArray(_compraLinhas))_compraLinhas=[];
-    var rm=await fetch(SB_URL+'/rest/v1/prt_modelos_produto?ativo=eq.true&order=ordem.asc&select=id,linha_id,nome',{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
+    var rm=await fetch(SB_URL+'/rest/v1/prt_modelos_produto?ativo=eq.true&order=ordem.asc&select=id,linha_id,nome',{headers:{'apikey':SB_KEY,'Authorization':AUTHZ}});
     var modelos=await rm.json();if(!Array.isArray(modelos))modelos=[];
     _compraLinhas.forEach(function(l){l.modelos=modelos.filter(function(m){return m.linha_id===l.id})});
     _compraFiltroLinha='';_compraFiltroModelo='';
@@ -3336,7 +3362,7 @@ function filtrarPecasCompra(){var q=(document.getElementById('buscaPecaCompra')?
 function adicionarCompra(id){var p=_pecasCompra.find(function(x){return x.id===id});if(!p)return;var e=_carrinhoCompra.find(function(x){return x.id===id});if(e){e.q++;renderCatalogoCompra();return}_carrinhoCompra.push({id:p.id,ref:p.referencia,nm:p.nome,pt:p.preco_venda,pf:p.preco_venda*(1-_descontoAutorizada/100),ip:p.ipi_perc||0,q:1,_fromView:!!p._fromView});renderCatalogoCompra()}
 function updQC(i,v){_carrinhoCompra[i].q=Math.max(1,parseInt(v)||1);renderCatalogoCompra()}
 function rmC(i){_carrinhoCompra.splice(i,1);renderCatalogoCompra()}
-async function enviarPC(){if(!_carrinhoCompra.length){toast('Carrinho vazio','error');return}var tt=0,ti=0;_carrinhoCompra.forEach(function(x){var s=x.pf*x.q;tt+=s;ti+=s*(x.ip||0)/100});try{var r=await fetch(SB_URL+'/rest/v1/prt_compras_pecas',{method:'POST',headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json','Prefer':'return=representation'},body:JSON.stringify({parceiro_id:_parceiroId,valor_total:tt,ipi_total:ti,desconto_perc:_descontoAutorizada,valor_final:tt+ti,status:'pendente'})});var res=await r.json();if(!r.ok)throw new Error('Erro');var c=Array.isArray(res)?res[0]:res;var itens=_carrinhoCompra.map(function(x){return{compra_id:c.id,peca_catalogo_id:x._fromView?null:x.id,referencia:x.ref,nome:x.nm,quantidade:x.q,preco_unitario:x.pt,ipi_perc:x.ip,desconto_perc:_descontoAutorizada,preco_final:x.pf}});await fetch(SB_URL+'/rest/v1/prt_compras_pecas_itens',{method:'POST',headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'},body:JSON.stringify(itens)});toast('Pedido '+(c.codigo||'#'+c.id)+' enviado!','success');_carrinhoCompra=[];// cai na aba do pedido que ela acabou de criar, nao no catalogo vazio
+async function enviarPC(){if(!_carrinhoCompra.length){toast('Carrinho vazio','error');return}var tt=0,ti=0;_carrinhoCompra.forEach(function(x){var s=x.pf*x.q;tt+=s;ti+=s*(x.ip||0)/100});try{var r=await fetch(SB_URL+'/rest/v1/prt_compras_pecas',{method:'POST',headers:{'apikey':SB_KEY,'Authorization':AUTHZ,'Content-Type':'application/json','Prefer':'return=representation'},body:JSON.stringify({parceiro_id:_parceiroId,valor_total:tt,ipi_total:ti,desconto_perc:_descontoAutorizada,valor_final:tt+ti,status:'pendente'})});var res=await r.json();if(!r.ok)throw new Error('Erro');var c=Array.isArray(res)?res[0]:res;var itens=_carrinhoCompra.map(function(x){return{compra_id:c.id,peca_catalogo_id:x._fromView?null:x.id,referencia:x.ref,nome:x.nm,quantidade:x.q,preco_unitario:x.pt,ipi_perc:x.ip,desconto_perc:_descontoAutorizada,preco_final:x.pf}});await fetch(SB_URL+'/rest/v1/prt_compras_pecas_itens',{method:'POST',headers:{'apikey':SB_KEY,'Authorization':AUTHZ,'Content-Type':'application/json'},body:JSON.stringify(itens)});toast('Pedido '+(c.codigo||'#'+c.id)+' enviado!','success');_carrinhoCompra=[];// cai na aba do pedido que ela acabou de criar, nao no catalogo vazio
     navegar('comprar-pecas');setTimeout(function(){pcAba('pedidos')},400)}catch(e){console.error(e);toast('Erro ao enviar','error')}}
 
 // ===== PEDIDO DE PEÇA — CICLO DE NF E PAGAMENTO =====
@@ -3404,7 +3430,7 @@ async function pcTransicionar(id,novo){
   try{
     var r=await fetch(SB_URL+'/rest/v1/prt_compras_pecas?id=eq.'+id,{
       method:'PATCH',
-      headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json','Prefer':'return=minimal'},
+      headers:{'apikey':SB_KEY,'Authorization':AUTHZ,'Content-Type':'application/json','Prefer':'return=minimal'},
       body:JSON.stringify({status:novo})
     });
     if(r.ok){
@@ -3506,7 +3532,7 @@ async function pcAnexar(compraId,categoria){
       if(!up.ok)throw new Error('Upload falhou (HTTP '+up.status+')');
       var ins=await fetch(SB_URL+'/rest/v1/prt_compras_anexos',{
         method:'POST',
-        headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json','Prefer':'return=minimal'},
+        headers:{'apikey':SB_KEY,'Authorization':AUTHZ,'Content-Type':'application/json','Prefer':'return=minimal'},
         body:JSON.stringify({
           compra_id:compraId,categoria:categoria,nome_arquivo:file.name,storage_path:path,
           mime_type:file.type||null,extensao:ext,tamanho_bytes:file.size,
@@ -3577,7 +3603,7 @@ function pcAnexosHtml(lista){
 async function renderPcPedidos(box){
   if(!_parceiroId){box.innerHTML='<div class="empty-state"><p>Usuário sem vínculo de autorizada.</p></div>';return}
   try{
-    var H={headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY},cache:'no-store'};
+    var H={headers:{'apikey':SB_KEY,'Authorization':AUTHZ},cache:'no-store'};
     // A view já traz o nome da autorizada, a contagem de itens e quantos anexos
     // de cada tipo existem — evita uma consulta por cartão só para saber se o
     // botão "Já paguei" pode aparecer.
@@ -3683,7 +3709,7 @@ function bononiLog(tipo,entidade,acao,idEntidade,nomeEntidade,extra){
     contexto:extra||null,url:window.location.href,user_agent:navigator.userAgent
   };
   fetch(SB_URL+'/rest/v1/prt_logs',{
-    method:'POST',headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'},
+    method:'POST',headers:{'apikey':SB_KEY,'Authorization':AUTHZ,'Content-Type':'application/json'},
     body:JSON.stringify(payload)
   }).catch(function(e){console.error('Log falhou:',e)});
 }
