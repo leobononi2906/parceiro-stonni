@@ -961,7 +961,7 @@ async function renderPerfil(el){
   if(!_parceiroId){ el.innerHTML='<div class="page-header"><h1>Meus dados</h1></div><div class="card">Seu usuário não está vinculado a uma autorizada. Contate a Stonni.</div>'; return; }
   try{
     var h={headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}};
-    var pr=await fetch(SB_URL+'/rest/v1/assist_parceiros?id=eq.'+_parceiroId+'&select=nome,responsavel,cnpj,telefone,whatsapp,email,cep,endereco,cidade,uf,raio_km,status,credenciado,data_credenciamento',h).then(function(r){return r.json()});
+    var pr=await fetch(SB_URL+'/rest/v1/assist_parceiros?id=eq.'+_parceiroId+'&select=nome,responsavel,cnpj,telefone,whatsapp,email,cep,endereco,cidade,uf,raio_km,status,credenciado,data_credenciamento,chave_pix,tipo_chave_pix',h).then(function(r){return r.json()});
     var p=(Array.isArray(pr)&&pr.length)?pr[0]:{};
     var prods=await fetch(SB_URL+'/rest/v1/assist_parceiro_produtos?parceiro_id=eq.'+_parceiroId+'&select=produto_tag',h).then(function(r){return r.json()});
     var tags=(Array.isArray(prods)?prods:[]).map(function(x){return x.produto_tag}).sort(function(a,b){var ia=PERFIL_PROD_ORDEM.indexOf(a),ib=PERFIL_PROD_ORDEM.indexOf(b);return (ia<0?99:ia)-(ib<0?99:ib);});
@@ -972,7 +972,10 @@ async function renderPerfil(el){
       : '<div style="display:inline-flex;align-items:center;gap:6px;background:var(--surface2);color:var(--text-m);font-size:12px;padding:5px 12px;border-radius:999px">'+ico('circle-dashed',12)+' Não credenciado</div>';
 
     // Aviso: campos essenciais para pagamento / emissão de NF
-    var obrig=[['cnpj','CNPJ'],['telefone','Telefone'],['endereco','Endereço'],['cep','CEP']];
+    // A chave PIX entra aqui porque o aviso logo abaixo diz, com estas
+    // palavras, "precisamos destes dados para PAGAR VOCE" -- e sem o PIX a
+    // Stonni nao tem para onde transferir.
+    var obrig=[['cnpj','CNPJ'],['telefone','Telefone'],['endereco','Endereço'],['cep','CEP'],['chave_pix','Chave PIX']];
     var faltando=obrig.filter(function(f){return !String(p[f[0]]||'').trim()}).map(function(f){return f[1]});
     var aviso=faltando.length
       ? '<div style="background:#FFF4E5;border:1px solid #F5B36B;border-radius:var(--radius);padding:14px 16px;margin-bottom:16px;display:flex;gap:10px;align-items:flex-start">'+
@@ -982,6 +985,12 @@ async function renderPerfil(el){
         '</div>'
       : '';
 
+    // O tipo existe porque quem paga digita a chave em OUTRO aplicativo, e la
+    // precisa escolher CPF/CNPJ/e-mail/telefone/aleatoria. Saber o tipo evita
+    // errar na hora da transferencia.
+    var TIPOS_PIX=[['','(tipo)'],['cpf','CPF'],['cnpj','CNPJ'],['email','E-mail'],['telefone','Telefone'],['aleatoria','Aleatória']];
+    var optsPix=TIPOS_PIX.map(function(t){return '<option value="'+t[0]+'"'+(String(p.tipo_chave_pix||'')===t[0]?' selected':'')+'>'+t[1]+'</option>'}).join('');
+    var estiloCampo='padding:10px 12px;border:1px solid var(--border-campo);border-radius:var(--radius-sm);font-size:14px;background:var(--surface2);color:var(--text)';
     var inp=function(id,lbl,val,ph,extra){return '<div><label for="'+id+'" style="display:block;font-size:11.5px;font-weight:600;color:var(--text-m);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">'+lbl+'</label><input id="'+id+'" value="'+esc(val||'')+'" placeholder="'+(ph||'')+'" '+(extra||'')+' style="width:100%;padding:10px 12px;border:1px solid var(--border-campo);border-radius:var(--radius-sm);font-size:14px;background:var(--surface2);color:var(--text)"></div>'};
 
     el.innerHTML=
@@ -999,6 +1008,14 @@ async function renderPerfil(el){
           inp('mp-cidade','Cidade',p.cidade,'Cidade')+
           '<div style="grid-column:1/-1">'+inp('mp-endereco','Endereço',p.endereco,'Rua, nº, bairro')+'</div>'+
           inp('mp-uf','UF',p.uf,'UF')+
+          '<div style="grid-column:1/-1">'+
+            '<label for="mp-pix" style="display:block;font-size:11.5px;font-weight:600;color:var(--text-m);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">Chave PIX — é para cá que a Stonni transfere</label>'+
+            '<div style="display:flex;gap:8px;flex-wrap:wrap">'+
+              '<select id="mp-pix-tipo" aria-label="Tipo da chave PIX" style="flex:0 0 140px;'+estiloCampo+'">'+optsPix+'</select>'+
+              '<input id="mp-pix" value="'+esc(p.chave_pix||'')+'" placeholder="sua chave PIX" style="flex:1 1 220px;'+estiloCampo+'">'+
+            '</div>'+
+            '<div style="font-size:12px;color:var(--text-m);margin-top:5px">Confira com calma: é esta chave que a Stonni vai usar para te pagar.</div>'+
+          '</div>'+
         '</div>'+
         '<div style="display:flex;justify-content:flex-end;margin-top:16px"><button onclick="salvarMeusDados()" style="padding:10px 20px;border:none;border-radius:var(--radius-sm);background:var(--primary);color:var(--text);font-weight:700;font-size:14px;cursor:pointer">'+ico('save',14)+' Salvar meus dados</button></div>'+
         '<div style="font-size:12px;color:var(--text-m);margin-top:10px">Raio de atendimento e produtos atendidos são definidos pela Stonni. Situação: <b>'+esc(statusNome[p.status]||p.status||'—')+'</b>.</div>'+
@@ -1027,7 +1044,11 @@ async function salvarMeusDados(){
     responsavel:g('mp-responsavel'), cnpj:g('mp-cnpj'),
     telefone:soDigitos(g('mp-telefone'))||null, whatsapp:soDigitos(g('mp-whatsapp'))||null,
     email:g('mp-email'), cep:g('mp-cep'),
-    endereco:g('mp-endereco'), cidade:g('mp-cidade'), uf:g('mp-uf').toUpperCase()
+    endereco:g('mp-endereco'), cidade:g('mp-cidade'), uf:g('mp-uf').toUpperCase(),
+    // Vazio vira null de proposito: '' ficaria gravado como texto vazio e
+    // apareceria para quem paga como se a chave estivesse cadastrada.
+    chave_pix:g('mp-pix')||null,
+    tipo_chave_pix:((document.getElementById('mp-pix-tipo')||{}).value||'')||null
   };
   try{
     var r=await fetch(SB_URL+'/rest/v1/assist_parceiros?id=eq.'+_parceiroId,{
@@ -2924,29 +2945,115 @@ async function renderFinanceiro(el){
     var html='';
     pags.forEach(function(p){
       var st=p.status==='pago'?'badge-paga':p.status==='aprovado'?'badge-aprovada':p.status==='cancelado'?'badge-recusada':'badge-enviada';
-      // Aprovar sai quando a Stonni JA enviou o orcamento e ele ainda nao foi
-      // aceito. Antes havia aqui o campo "nº da NF emitida", que ela preenchia
-      // ANTES de receber; a nota passa a ser consequencia do orcamento
-      // aprovado, e sai do sistema.
-      var podeAprovar=(p.status==='pendente'&&p.relatorio_enviado);
+      // A NFS-e do servico prestado passa a ser condicao para aprovar: e o
+      // documento que a Bononi precisa ter em maos para pagar. Antes havia aqui
+      // um campo com o NUMERO da NF, que ela preenchia ANTES de receber -- e que
+      // nunca foi usado (0 de 8 fechamentos). Agora e o arquivo, no momento certo.
+      var temNfse=!!p.nfse_arquivo_path;
+      var naEtapaDoAceite=(p.status==='pendente'&&p.relatorio_enviado);
+      var podeAprovar=(naEtapaDoAceite&&temNfse);
       var etapa=p.status==='pago'
         ? '<span style="color:var(--success)">Pago em '+fmtData(p.data_pagamento)+'.</span>'
         : p.status==='aprovado'
           ? '<span style="color:var(--primary-txt)">Você aprovou em '+fmtData(p.data_aprovacao)+'. Aguardando o pagamento da Stonni.</span>'
           : p.status==='cancelado'
             ? '<span class="text-muted">Fechamento cancelado.</span>'
-            : p.relatorio_enviado
-              ? '<span style="color:var(--warning)">Orçamento enviado em '+fmtData(p.data_envio_relatorio)+'. Confira os valores e aprove.</span>'
+            : naEtapaDoAceite
+              ? (temNfse
+                  ? '<span style="color:var(--warning)">Orçamento enviado em '+fmtData(p.data_envio_relatorio)+'. NFS-e anexada — confira os valores e aprove.</span>'
+                  : '<span style="color:var(--warning)">Orçamento enviado em '+fmtData(p.data_envio_relatorio)+'. Confira os valores e <b>anexe a NFS-e</b> para poder aprovar.</span>')
               : '<span class="text-muted">Aguardando o orçamento da Stonni.</span>';
+      // Ver a NFS-e continua disponivel depois de aprovado e de pago: e o
+      // comprovante do que foi cobrado, nao so um passo do fluxo.
+      var linhaNfse=temNfse
+        ? '<div class="text-xs mt-8" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span class="text-muted">NFS-e:</span><a href="#" onclick="nfseAbrir('+p.id+');return false" style="color:var(--primary-txt);font-weight:600">'+esc(p.nfse_arquivo_nome||'ver arquivo')+'</a><span class="text-muted">'+(p.nfse_enviada_em?'enviada em '+fmtData(p.nfse_enviada_em):'')+'</span></div>'
+        : '';
+      var botoes='';
+      if(naEtapaDoAceite){
+        botoes='<div class="flex gap-8 mt-8" style="flex-wrap:wrap">'+
+          '<button class="btn btn-outline btn-sm" style="width:auto" onclick="nfseAnexar('+p.id+')">'+ico('paperclip',13)+(temNfse?' Trocar NFS-e':' Anexar NFS-e')+'</button>'+
+          (podeAprovar?'<button class="btn btn-primary btn-sm" style="width:auto" onclick="aprovarOrcamento('+p.id+')">'+ico('circle-check',13)+' Aprovar orçamento</button>':'')+
+        '</div>'+
+        (podeAprovar
+          ? '<p class="text-xs text-muted" style="margin-top:4px">Aprovando, você confirma os valores das '+p.qtd_os+' OS deste mês. A Stonni paga depois disso.</p>'
+          : '<p class="text-xs text-muted" style="margin-top:4px">A NFS-e do serviço prestado é obrigatória para aprovar — é o documento que a Bononi precisa para pagar.</p>');
+      }
       html+='<div class="card" style="margin-bottom:10px"><div class="flex justify-between items-center mb-8"><span class="fw-700" style="font-size:1rem">'+esc(fmtMes(p.mes_referencia))+'</span><span class="badge '+st+'">'+esc(PAG_ROTULO[p.status]||p.status)+'</span></div>'+
         '<div class="flex justify-between text-sm mb-8"><span class="text-muted">'+p.qtd_os+' OS</span><span class="text-muted">Serviços: '+fmt(p.valor_servicos)+'</span><span class="fw-700 text-primary" style="font-size:1.1rem">'+fmt(p.valor_total)+'</span></div>'+
         '<div class="text-xs" style="line-height:1.5">'+etapa+'</div>'+
-        (podeAprovar?'<div class="flex gap-8 mt-8" style="flex-wrap:wrap"><button class="btn btn-primary btn-sm" style="width:auto" onclick="aprovarOrcamento('+p.id+')">'+ico('circle-check',13)+' Aprovar orçamento</button></div>'+
-          '<p class="text-xs text-muted" style="margin-top:4px">Aprovando, você confirma os valores das '+p.qtd_os+' OS deste mês. A Stonni paga depois disso.</p>':'')+
+        linhaNfse+
+        botoes+
       '</div>';
     });box.innerHTML=html;
   }catch(e){console.error(e)}
 }
+// ---------------------------------------------- NFS-e do servico prestado
+// Bucket PRIVADO: nota fiscal nao fica em link publico. A tela abre por URL
+// assinada, de uma hora, do mesmo jeito que os anexos do ciclo de compra.
+var NFSE_BUCKET='assist-parceiros-docs';
+// parceiro_id na 1a pasta: e o que vai permitir escopar o bucket por autorizada
+// quando a RLS de storage entrar.
+function nfseAnexar(pagId){
+  var inp=document.createElement('input');
+  inp.type='file';
+  inp.accept='application/pdf,image/*';
+  inp.onchange=async function(){
+    var file=inp.files&&inp.files[0];
+    if(!file)return;
+    if(file.size>10*1024*1024){toast('Arquivo muito grande — máximo 10 MB','error');return}
+    toast('Enviando a NFS-e...','aviso');
+    try{
+      var limpo=file.name.replace(/[^a-zA-Z0-9._-]/g,'_');
+      var path=(_parceiroId||0)+'/nfse/'+pagId+'/'+Date.now()+'-'+limpo;
+      var sess=await sb.auth.getSession();
+      var token=(sess&&sess.data&&sess.data.session)?sess.data.session.access_token:SB_KEY;
+      var up=await fetch(SB_URL+'/storage/v1/object/'+NFSE_BUCKET+'/'+path,{
+        method:'POST',
+        headers:{'apikey':SB_KEY,'Authorization':'Bearer '+token,'Content-Type':file.type||'application/octet-stream','x-upsert':'true'},
+        body:file
+      });
+      if(!up.ok)throw new Error('o upload falhou (HTTP '+up.status+')');
+      // So grava a referencia DEPOIS que o arquivo subiu: na ordem inversa, uma
+      // falha no upload deixaria o banco apontando para arquivo que nao existe.
+      var r=await fetch(SB_URL+'/rest/v1/prt_pagamentos?id=eq.'+pagId,{
+        method:'PATCH',
+        headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json','Prefer':'return=minimal'},
+        body:JSON.stringify({nfse_arquivo_path:path,nfse_arquivo_nome:file.name,nfse_enviada_em:new Date().toISOString()})
+      });
+      if(!r.ok){var j=await r.json().catch(function(){return null});throw new Error((j&&j.message)||('HTTP '+r.status))}
+      bononiLog('ACAO','pagamento','ANEXAR_NFSE',String(pagId),file.name);
+      toast('NFS-e anexada! Agora você pode aprovar o orçamento.','success');
+      navegar('financeiro');
+    }catch(e){
+      console.error(e);
+      bononiLog('ERRO','pagamento','ANEXAR_NFSE',String(pagId),file.name,e&&e.message);
+      toast('Não deu para anexar a NFS-e: '+(e&&e.message),'error');
+    }
+  };
+  inp.click();
+}
+async function nfseAbrir(pagId){
+  try{
+    var q=await fetch(SB_URL+'/rest/v1/prt_pagamentos?id=eq.'+pagId+'&select=nfse_arquivo_path',{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
+    var arr=await q.json();
+    var path=(Array.isArray(arr)&&arr.length)?arr[0].nfse_arquivo_path:null;
+    if(!path)throw new Error('a NFS-e não está mais anexada');
+    var sess=await sb.auth.getSession();
+    var token=(sess&&sess.data&&sess.data.session)?sess.data.session.access_token:SB_KEY;
+    var r=await fetch(SB_URL+'/storage/v1/object/sign/'+NFSE_BUCKET+'/'+path,{
+      method:'POST',
+      headers:{'apikey':SB_KEY,'Authorization':'Bearer '+token,'Content-Type':'application/json'},
+      body:JSON.stringify({expiresIn:3600})
+    });
+    var d=await r.json().catch(function(){return null});
+    if(!r.ok||!d||!d.signedURL)throw new Error((d&&d.message)||('HTTP '+r.status));
+    window.open(SB_URL+'/storage/v1'+d.signedURL,'_blank');
+  }catch(e){
+    console.error(e);
+    toast('Não deu para abrir a NFS-e: '+(e&&e.message),'error');
+  }
+}
+
 // Rotulo publico do fechamento e competencia por extenso. Mesmas palavras da
 // tela da Stonni: a autorizada pode estar ao telefone com ela.
 var PAG_ROTULO={pendente:'Pendente',aprovado:'Aprovado',pago:'Pago',cancelado:'Cancelado'};
