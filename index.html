@@ -1501,7 +1501,17 @@ async function carregarServicos(){
     var rt=await fetch(SB_URL+'/rest/v1/prt_teto_produto?linha_produto=eq.'+linhaDb+'&ativo=eq.true&select=valor_maximo',{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
     var tArr=await rt.json();_tetoProduto=(Array.isArray(tArr)&&tArr.length)?parseFloat(tArr[0].valor_maximo):null;
     document.getElementById('servicosArea').innerHTML=renderServicosHtml();
-  }catch(e){console.error(e)}
+  }catch(e){
+    // Antes isto era so console.error: a tabela falhava, a lista ficava vazia
+    // e quem estava usando nao recebia explicacao nenhuma.
+    console.error(e);
+    toast('Não deu para carregar a tabela de serviços. Tente de novo.','error');
+  }
+  // O BUG: sem este finally a flag travava em true na PRIMEIRA chamada, e o
+  // guard do passo 3 passava a barrar toda abertura de OS -- de todas as
+  // autorizadas, nao so de uma. O app interno (modules/os.js) sempre teve o
+  // finally; ele se perdeu ao portar o guard para ca (commit ff2c395).
+  finally{_servicosCarregando=false}
 }
 
 function totalServicosRaw(){return _servicosSelecionados.reduce(function(s,x){return s+x.valor},0)}
