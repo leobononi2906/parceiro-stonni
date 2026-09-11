@@ -436,6 +436,7 @@ tbody tr:hover{background:var(--primary-bg)}
       <div class="nav-item" onclick="navegar('financeiro')">
         <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
         Financeiro
+        <span class="nav-badge hidden" id="badgeFin">0</span>
       </div>
     </div>
 
@@ -444,7 +445,10 @@ tbody tr:hover{background:var(--primary-bg)}
 
   <!-- MAIN CONTENT -->
   <main class="content" id="mainContent">
-    <!-- Conteúdo injetado via JS -->
+    <!-- O aviso fica FORA de #paginaConteudo de propósito: renderPagina()
+         reescreve o conteúdo a cada navegação e apagaria a faixa junto. -->
+    <div id="avisoPendencia"></div>
+    <div id="paginaConteudo"><!-- Conteúdo injetado via JS --></div>
   </main>
 </div>
 
@@ -686,6 +690,8 @@ function iniciarApp(){
   var iniciais=(_parceiro&&_parceiro.nome?_parceiro.nome:'??').split(' ').map(function(p){return p[0]}).join('').substring(0,2).toUpperCase();
   document.getElementById('userAvatar').textContent=iniciais;
   encBadgeAoEntrar();   // sem await: o contador nao pode atrasar a entrada
+  // pendenciasCarregar() nao entra aqui: o navegar() logo abaixo ja chama, e
+  // duas vezes seria a mesma consulta duplicada em todo login.
   navegar(pgGuardada()||'dashboard');   // a guardada, ou o dashboard como antes
 }
 
@@ -736,10 +742,13 @@ function navegar(pagina,forcar){
   document.getElementById('userDropdown').classList.remove('show');
   // carregar página
   renderPagina(pagina);
+  // Reconsulta a cada navegação: se a Stonni enviar um orçamento enquanto ela
+  // está logada, o aviso aparece sem precisar recarregar a página.
+  pendenciasCarregar();
 }
 
 function renderPagina(pagina){
-  var el=document.getElementById('mainContent');
+  var el=document.getElementById('paginaConteudo');
   switch(pagina){
     case 'dashboard': renderDashboard(el);break;
     case 'nova-os': renderNovaOS(el,window._editOsId);window._editOsId=null;break;
@@ -1058,7 +1067,7 @@ async function salvarMeusDados(){
     });
     if(!r.ok){ throw new Error('HTTP '+r.status); }
     toast('Dados salvos!','ok');
-    renderPerfil(document.getElementById('mainContent'));
+    renderPerfil(document.getElementById('paginaConteudo'));
   }catch(e){ console.error('salvarMeusDados',e); toast('Não consegui salvar. Tente de novo.','err'); }
 }
 
@@ -2176,7 +2185,7 @@ function mostrarListaOS(filtro){
         '<span class="text-sm fw-600">'+fmt(o.valor_servico)+'</span>'+
       '</div>'+
       '<div class="flex gap-8 mt-8">'+
-        (osAtiva(o.status)?'<button class="btn btn-ghost btn-sm" style="width:auto;padding:6px 12px;font-size:.75rem" onclick="renderNovaOS(document.getElementById(\'mainContent\'),'+o.id+')">'+ico('pencil',13)+' Editar</button>':'')+
+        (osAtiva(o.status)?'<button class="btn btn-ghost btn-sm" style="width:auto;padding:6px 12px;font-size:.75rem" onclick="renderNovaOS(document.getElementById(\'paginaConteudo\'),'+o.id+')">'+ico('pencil',13)+' Editar</button>':'')+
         '<button class="btn btn-ghost btn-sm" style="width:auto;padding:6px 12px;font-size:.75rem" onclick="gerarPdfOS('+o.id+')">'+ico('printer',13)+' PDF</button>'+
       '</div>'+
       (o.motivo_recusa?'<div class="text-sm text-danger mt-8">Motivo: '+o.motivo_recusa+'</div>':'')+
@@ -2217,7 +2226,7 @@ async function abrirDetalheOS(id){
   if(osAtiva(o.status)){
     acoes='<div class="flex gap-8 mt-16" style="flex-wrap:wrap">'+
       '<button class="btn btn-primary btn-sm" style="width:auto" onclick="solicitarPecaOS('+o.id+')">'+ico('wrench',14)+' Solicitar peça</button>'+
-      '<button class="btn btn-ghost btn-sm" style="width:auto" onclick="this.closest(\'.modal-overlay\').classList.remove(\'show\');renderNovaOS(document.getElementById(\'mainContent\'),'+o.id+')">'+ico('pencil',13)+' Editar OS</button>'+
+      '<button class="btn btn-ghost btn-sm" style="width:auto" onclick="this.closest(\'.modal-overlay\').classList.remove(\'show\');renderNovaOS(document.getElementById(\'paginaConteudo\'),'+o.id+')">'+ico('pencil',13)+' Editar OS</button>'+
       '<button class="btn btn-ghost btn-sm" style="width:auto;color:var(--danger)" onclick="cancelarOS('+o.id+')">'+ico('x',13)+' Cancelar OS</button>'+
     '</div>';
   }
@@ -2978,13 +2987,26 @@ async function renderFinanceiro(el){
           ? '<p class="text-xs text-muted" style="margin-top:4px">Aprovando, você confirma os valores das '+p.qtd_os+' OS deste mês. A Stonni paga depois disso.</p>'
           : '<p class="text-xs text-muted" style="margin-top:4px">A NFS-e do serviço prestado é obrigatória para aprovar — é o documento que a Bononi precisa para pagar.</p>');
       }
-      html+='<div class="card" style="margin-bottom:10px"><div class="flex justify-between items-center mb-8"><span class="fw-700" style="font-size:1rem">'+esc(fmtMes(p.mes_referencia))+'</span><span class="badge '+st+'">'+esc(PAG_ROTULO[p.status]||p.status)+'</span></div>'+
+      html+='<div class="card" id="fin-card-'+p.id+'" style="margin-bottom:10px"><div class="flex justify-between items-center mb-8"><span class="fw-700" style="font-size:1rem">'+esc(fmtMes(p.mes_referencia))+'</span><span class="badge '+st+'">'+esc(PAG_ROTULO[p.status]||p.status)+'</span></div>'+
         '<div class="flex justify-between text-sm mb-8"><span class="text-muted">'+p.qtd_os+' OS</span><span class="text-muted">Serviços: '+fmt(p.valor_servicos)+'</span><span class="fw-700 text-primary" style="font-size:1.1rem">'+fmt(p.valor_total)+'</span></div>'+
         '<div class="text-xs" style="line-height:1.5">'+etapa+'</div>'+
         linhaNfse+
         botoes+
       '</div>';
     });box.innerHTML=html;
+    // Chegou clicando em "Ver e aprovar": leva o olho ate o cartao certo. Com
+    // varios meses na tela, parar no topo ainda deixa a pessoa procurando.
+    if(window._focarPendencia){
+      window._focarPendencia=false;
+      var alvo=(_pendAprov&&_pendAprov.length)?document.getElementById('fin-card-'+_pendAprov[0].id):null;
+      if(alvo){
+        var suave=!window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        alvo.scrollIntoView({behavior:suave?'smooth':'auto',block:'center'});
+        alvo.style.transition='box-shadow .3s';
+        alvo.style.boxShadow='0 0 0 3px #F5B36B';
+        setTimeout(function(){alvo.style.boxShadow=''},2600);
+      }
+    }
   }catch(e){console.error(e)}
 }
 // ---------------------------------------------- NFS-e do servico prestado
@@ -3052,6 +3074,77 @@ async function nfseAbrir(pagId){
     console.error(e);
     toast('Não deu para abrir a NFS-e: '+(e&&e.message),'error');
   }
+}
+
+/* ---------------------------------------------------------------
+   AVISO DE PENDÊNCIA — orçamento esperando o aceite da autorizada
+
+   Aprovar orçamento é etapa nova: ela não tem o hábito de procurar. E o app
+   restaura a última página aberta, então pode nem passar pelo Início. Por
+   isso o aviso mora fora de #paginaConteudo e aparece em qualquer tela.
+   --------------------------------------------------------------- */
+var _pendAprov = [];
+
+async function pendenciasCarregar(){
+  if(!_parceiroId){ _pendAprov=[]; pendenciasRender(); return; }
+  try{
+    var r=await fetch(SB_URL+'/rest/v1/prt_pagamentos?parceiro_id=eq.'+_parceiroId
+      +'&status=eq.pendente&relatorio_enviado=is.true&order=mes_referencia.asc'
+      +'&select=id,mes_referencia,valor_total,qtd_os,nfse_arquivo_path',
+      {headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY},cache:'no-store'});
+    var rows=await r.json();
+    _pendAprov=Array.isArray(rows)?rows:[];
+  }catch(e){
+    // Sem aviso é melhor que aviso errado: se a consulta falhar, a faixa some
+    // em vez de mostrar um número velho.
+    _pendAprov=[];
+  }
+  pendenciasRender();
+}
+
+function pendenciasRender(){
+  var n=_pendAprov.length;
+
+  // contador na navegação: visível de qualquer tela, inclusive no celular
+  var b=document.getElementById('badgeFin');
+  if(b){
+    b.textContent=n;
+    // sem isto o leitor de tela anuncia só o número, sem dizer de quê
+    b.setAttribute('aria-label', n===1?'1 orçamento esperando sua aprovação'
+                                      :n+' orçamentos esperando sua aprovação');
+    if(n>0) b.classList.remove('hidden'); else b.classList.add('hidden');
+  }
+
+  var el=document.getElementById('avisoPendencia');
+  if(!el) return;
+  // No Financeiro a própria tela já mostra o cartão e o botão — repetir vira ruído.
+  if(n===0 || _paginaAtual==='financeiro'){ el.innerHTML=''; return; }
+
+  var total=_pendAprov.reduce(function(s,p){return s+(parseFloat(p.valor_total)||0)},0);
+  var faltaNota=_pendAprov.filter(function(p){return !p.nfse_arquivo_path}).length;
+  var meses=_pendAprov.map(function(p){return fmtMes(p.mes_referencia)}).join(', ');
+  var oQueFazer=faltaNota>0
+    ? 'Confira os valores, <b>anexe a nota fiscal do serviço</b> e aprove.'
+    : 'Confira os valores e aprove.';
+
+  el.innerHTML=
+    '<div role="region" aria-label="Pendência de aprovação" style="background:#FFF4E5;border:1px solid #F5B36B;border-radius:var(--radius);padding:16px 18px;margin-bottom:18px;display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap">'+
+      '<span style="line-height:1;color:#8a5a00;flex:0 0 auto">'+ico('triangle-alert',22)+'</span>'+
+      '<div style="flex:1 1 280px;min-width:0">'+
+        '<div style="font-weight:700;color:#8a5a00;font-size:1rem;margin-bottom:4px">'+
+          (n===1?'Você tem 1 orçamento esperando sua aprovação'
+                :'Você tem '+n+' orçamentos esperando sua aprovação')+
+        '</div>'+
+        '<div style="font-size:.85rem;color:#7a5410;line-height:1.5">'+
+          'A Stonni fechou '+(n===1?'o mês de ':'os meses de ')+'<b>'+esc(meses)+'</b>, '+
+          'no total de <b>'+fmt(total)+'</b>. '+oQueFazer+
+          ' <b>O pagamento só sai depois do seu aceite.</b>'+
+        '</div>'+
+      '</div>'+
+      '<button class="btn btn-primary btn-sm" style="width:auto;flex:0 0 auto" onclick="window._focarPendencia=true;navegar(\'financeiro\')">'+
+        ico('arrow-right',14)+' Ver e aprovar'+
+      '</button>'+
+    '</div>';
 }
 
 // Rotulo publico do fechamento e competencia por extenso. Mesmas palavras da
