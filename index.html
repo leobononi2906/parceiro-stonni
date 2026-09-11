@@ -432,6 +432,7 @@ tbody tr:hover{background:var(--primary-bg)}
       <div class="nav-item" onclick="navegar('comprar-pecas')">
         <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
         Comprar Peças
+        <span class="nav-badge hidden" id="badgePec">0</span>
       </div>
       <div class="nav-item" onclick="navegar('financeiro')">
         <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
@@ -3083,68 +3084,112 @@ async function nfseAbrir(pagId){
    restaura a última página aberta, então pode nem passar pelo Início. Por
    isso o aviso mora fora de #paginaConteudo e aparece em qualquer tela.
    --------------------------------------------------------------- */
-var _pendAprov = [];
+var _pendAprov = [];    // orçamentos do mês esperando o aceite dela
+var _pendComprov = [];  // pedidos de peça esperando o comprovante dela
 
 async function pendenciasCarregar(){
-  if(!_parceiroId){ _pendAprov=[]; pendenciasRender(); return; }
-  try{
-    var r=await fetch(SB_URL+'/rest/v1/prt_pagamentos?parceiro_id=eq.'+_parceiroId
+  if(!_parceiroId){ _pendAprov=[]; _pendComprov=[]; pendenciasRender(); return; }
+  var H={headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY},cache:'no-store'};
+  // As duas consultas em paralelo e cada uma com o seu catch: uma falhando não
+  // pode apagar o aviso da outra.
+  var a=fetch(SB_URL+'/rest/v1/prt_pagamentos?parceiro_id=eq.'+_parceiroId
       +'&status=eq.pendente&relatorio_enviado=is.true&order=mes_referencia.asc'
-      +'&select=id,mes_referencia,valor_total,qtd_os,nfse_arquivo_path',
-      {headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY},cache:'no-store'});
-    var rows=await r.json();
-    _pendAprov=Array.isArray(rows)?rows:[];
-  }catch(e){
-    // Sem aviso é melhor que aviso errado: se a consulta falhar, a faixa some
-    // em vez de mostrar um número velho.
-    _pendAprov=[];
-  }
+      +'&select=id,mes_referencia,valor_total,qtd_os,nfse_arquivo_path', H)
+    .then(function(r){return r.json()})
+    .then(function(x){ _pendAprov=Array.isArray(x)?x:[] })
+    // Sem aviso é melhor que aviso errado: falhando, a faixa some em vez de
+    // mostrar um número velho.
+    .catch(function(){ _pendAprov=[] });
+
+  var b=fetch(SB_URL+'/rest/v1/prt_compras_detalhe?parceiro_id=eq.'+_parceiroId
+      +'&status=eq.aguardando_pagamento&order=criado_em.asc'
+      +'&select=id,codigo,valor_final,data_vencimento,anexos_comprovante', H)
+    .then(function(r){return r.json()})
+    .then(function(x){ _pendComprov=Array.isArray(x)?x:[] })
+    .catch(function(){ _pendComprov=[] });
+
+  await Promise.all([a,b]);
   pendenciasRender();
 }
 
-function pendenciasRender(){
-  var n=_pendAprov.length;
+// Uma faixa, um assunto. Duas pendências viram duas faixas: juntar as duas num
+// texto só faria a pessoa ler tudo para descobrir o que é dela agora.
+function avisoFaixa(o){
+  return '<div role="region" aria-label="'+esc(o.rotulo)+'" style="background:#FFF4E5;border:1px solid #F5B36B;border-radius:var(--radius);padding:16px 18px;margin-bottom:14px;display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap">'+
+      '<span style="line-height:1;color:#8a5a00;flex:0 0 auto">'+ico('triangle-alert',22)+'</span>'+
+      '<div style="flex:1 1 280px;min-width:0">'+
+        '<div style="font-weight:700;color:#8a5a00;font-size:1rem;margin-bottom:4px">'+o.titulo+'</div>'+
+        '<div style="font-size:.85rem;color:#7a5410;line-height:1.5">'+o.corpo+'</div>'+
+      '</div>'+
+      '<button class="btn btn-primary btn-sm" style="width:auto;flex:0 0 auto" onclick="'+o.acao+'">'+
+        ico('arrow-right',14)+' '+esc(o.botao)+
+      '</button>'+
+    '</div>';
+}
 
-  // contador na navegação: visível de qualquer tela, inclusive no celular
-  var b=document.getElementById('badgeFin');
-  if(b){
-    b.textContent=n;
-    // sem isto o leitor de tela anuncia só o número, sem dizer de quê
-    b.setAttribute('aria-label', n===1?'1 orçamento esperando sua aprovação'
-                                      :n+' orçamentos esperando sua aprovação');
-    if(n>0) b.classList.remove('hidden'); else b.classList.add('hidden');
-  }
+function contador(id, n, umQuando1, umQuandoN){
+  var b=document.getElementById(id);
+  if(!b) return;
+  b.textContent=n;
+  // sem isto o leitor de tela anuncia só o número, sem dizer de quê
+  b.setAttribute('aria-label', n===1?umQuando1:n+' '+umQuandoN);
+  if(n>0) b.classList.remove('hidden'); else b.classList.add('hidden');
+}
+
+function pendenciasRender(){
+  var nA=_pendAprov.length, nC=_pendComprov.length;
+
+  contador('badgeFin', nA, '1 orçamento esperando sua aprovação', 'orçamentos esperando sua aprovação');
+  contador('badgePec', nC, '1 pedido de peça esperando o comprovante', 'pedidos de peça esperando o comprovante');
 
   var el=document.getElementById('avisoPendencia');
   if(!el) return;
-  // No Financeiro a própria tela já mostra o cartão e o botão — repetir vira ruído.
-  if(n===0 || _paginaAtual==='financeiro'){ el.innerHTML=''; return; }
+  var out='';
 
-  var total=_pendAprov.reduce(function(s,p){return s+(parseFloat(p.valor_total)||0)},0);
-  var faltaNota=_pendAprov.filter(function(p){return !p.nfse_arquivo_path}).length;
-  var meses=_pendAprov.map(function(p){return fmtMes(p.mes_referencia)}).join(', ');
-  var oQueFazer=faltaNota>0
-    ? 'Confira os valores, <b>anexe a nota fiscal do serviço</b> e aprove.'
-    : 'Confira os valores e aprove.';
+  // Na própria tela do assunto a faixa some: ali o cartão e o botão já estão
+  // à vista, e repetir vira ruído.
+  if(nA>0 && _paginaAtual!=='financeiro'){
+    var total=_pendAprov.reduce(function(s,p){return s+(parseFloat(p.valor_total)||0)},0);
+    var faltaNota=_pendAprov.filter(function(p){return !p.nfse_arquivo_path}).length;
+    var meses=_pendAprov.map(function(p){return fmtMes(p.mes_referencia)}).join(', ');
+    out+=avisoFaixa({
+      rotulo:'Orçamento esperando sua aprovação',
+      titulo:(nA===1?'Você tem 1 orçamento esperando sua aprovação'
+                    :'Você tem '+nA+' orçamentos esperando sua aprovação'),
+      corpo:'A Stonni fechou '+(nA===1?'o mês de ':'os meses de ')+'<b>'+esc(meses)+'</b>, '+
+            'no total de <b>'+fmt(total)+'</b>. '+
+            (faltaNota>0?'Confira os valores, <b>anexe a nota fiscal do serviço</b> e aprove.'
+                        :'Confira os valores e aprove.')+
+            ' <b>O pagamento só sai depois do seu aceite.</b>',
+      botao:'Ver e aprovar',
+      acao:'window._focarPendencia=true;navegar(\'financeiro\')'
+    });
+  }
 
-  el.innerHTML=
-    '<div role="region" aria-label="Pendência de aprovação" style="background:#FFF4E5;border:1px solid #F5B36B;border-radius:var(--radius);padding:16px 18px;margin-bottom:18px;display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap">'+
-      '<span style="line-height:1;color:#8a5a00;flex:0 0 auto">'+ico('triangle-alert',22)+'</span>'+
-      '<div style="flex:1 1 280px;min-width:0">'+
-        '<div style="font-weight:700;color:#8a5a00;font-size:1rem;margin-bottom:4px">'+
-          (n===1?'Você tem 1 orçamento esperando sua aprovação'
-                :'Você tem '+n+' orçamentos esperando sua aprovação')+
-        '</div>'+
-        '<div style="font-size:.85rem;color:#7a5410;line-height:1.5">'+
-          'A Stonni fechou '+(n===1?'o mês de ':'os meses de ')+'<b>'+esc(meses)+'</b>, '+
-          'no total de <b>'+fmt(total)+'</b>. '+oQueFazer+
-          ' <b>O pagamento só sai depois do seu aceite.</b>'+
-        '</div>'+
-      '</div>'+
-      '<button class="btn btn-primary btn-sm" style="width:auto;flex:0 0 auto" onclick="window._focarPendencia=true;navegar(\'financeiro\')">'+
-        ico('arrow-right',14)+' Ver e aprovar'+
-      '</button>'+
-    '</div>';
+  if(nC>0 && _paginaAtual!=='comprar-pecas'){
+    var soma=_pendComprov.reduce(function(s,p){return s+(parseFloat(p.valor_final)||0)},0);
+    var codigos=_pendComprov.map(function(p){return p.codigo||('#'+p.id)}).join(', ');
+    // Dois momentos dentro do MESMO status, com ações diferentes: anexar, ou
+    // avisar depois de já ter anexado. Dizer a errada faz procurar o que não existe.
+    var faltaAnexo=_pendComprov.filter(function(p){return (Number(p.anexos_comprovante)||0)===0}).length;
+    var vence=_pendComprov.filter(function(p){return p.data_vencimento})
+                          .map(function(p){return fmtData(p.data_vencimento)});
+    out+=avisoFaixa({
+      rotulo:'Pedido de peça esperando o comprovante',
+      titulo:(nC===1?'Você tem 1 pedido de peça esperando o pagamento'
+                    :'Você tem '+nC+' pedidos de peça esperando o pagamento'),
+      corpo:(nC===1?'O pedido ':'Os pedidos ')+'<b>'+esc(codigos)+'</b>, '+
+            'no total de <b>'+fmt(soma)+'</b>'+
+            (vence.length?' (vence '+esc(vence.join(', '))+')':'')+'. '+
+            (faltaAnexo>0?'<b>Pague e anexe o comprovante.</b>'
+                         :'O comprovante já está anexado — <b>falta avisar a Stonni</b>.')+
+            ' A peça só é liberada depois disso.',
+      botao:'Ver o pedido',
+      acao:'window._focarPedido=true;navegar(\'comprar-pecas\')'
+    });
+  }
+
+  el.innerHTML=out;
 }
 
 // Rotulo publico do fechamento e competencia por extenso. Mesmas palavras da
@@ -3206,6 +3251,9 @@ async function renderComprarPecas(el){
     '</div>'+
     '<div id="compraPecasArea"><div class="loading-full"><span class="spinner"></span> Carregando...</div></div>'+
     '<div id="pcPedidosArea" hidden></div>';
+  // Veio pelo aviso: esta tela abre no Catálogo, e parar ali mostraria a
+  // vitrine de peças em vez do pedido que espera por ela.
+  if(window._focarPedido) pcAba('pedidos');
   try{
     var cfgR=await fetch(SB_URL+'/rest/v1/prt_configuracoes?chave=eq.desconto_autorizada_perc&select=valor',{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
     var cfgArr=await cfgR.json();if(Array.isArray(cfgArr)&&cfgArr.length)_descontoAutorizada=parseFloat(cfgArr[0].valor)||15;
@@ -3472,6 +3520,9 @@ async function pcAnexar(compraId,categoria){
       toast(file.type==='application/pdf'?'PDF anexado!':'Imagem anexada!','success');
       var ped=document.getElementById('pcPedidosArea');
       if(ped)renderPcPedidos(ped);
+      // Sem isto a faixa continuaria pedindo "pague e anexe" depois de ela ja
+      // ter anexado -- a acao que falta passou a ser outra.
+      pendenciasCarregar();
     }catch(e){
       console.error(e);
       bononiLog('ERRO','compra','ANEXAR_PEDIDO',String(compraId),categoria,e&&e.message);
@@ -3575,7 +3626,7 @@ async function renderPcPedidos(box){
           'onclick="pcCancelarPedido('+p.id+')">'+ico('x',13)+' Cancelar pedido</button></div>';
       }
 
-      return '<div class="card" style="margin-bottom:10px">'+
+      return '<div class="card" id="pc-card-'+p.id+'" style="margin-bottom:10px">'+
         '<div class="flex justify-between items-center" style="flex-wrap:wrap;gap:6px">'+
           '<div><span class="fw-700" style="font-size:15px">'+esc(p.codigo||('#'+p.id))+'</span> '+pcBadge(p.status)+
             '<div class="text-xs" style="color:var(--text-m)">'+fmtData(p.criado_em)+' · '+(p.qtd_itens||its.length)+' item(ns)'+(vence?' · '+vence:'')+'</div></div>'+
@@ -3596,6 +3647,19 @@ async function renderPcPedidos(box){
         acoes+
       '</div>';
     }).join('');
+    // Chegou pelo aviso: leva o olho ate o pedido certo. A lista vem por data,
+    // entao o que espera por ela pode estar no meio de pedidos ja resolvidos.
+    if(window._focarPedido){
+      window._focarPedido=false;
+      var alvoPc=(_pendComprov&&_pendComprov.length)?document.getElementById('pc-card-'+_pendComprov[0].id):null;
+      if(alvoPc){
+        var suavePc=!window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        alvoPc.scrollIntoView({behavior:suavePc?'smooth':'auto',block:'center'});
+        alvoPc.style.transition='box-shadow .3s';
+        alvoPc.style.boxShadow='0 0 0 3px #F5B36B';
+        setTimeout(function(){alvoPc.style.boxShadow=''},2600);
+      }
+    }
   }catch(e){
     console.error(e);
     bononiLog('ERRO','compra','LOAD_MEUS_PEDIDOS',null,null,e&&e.message);
