@@ -2342,12 +2342,21 @@ async function confirmarCancelarOS(osId){
   var motivo=(document.getElementById('cancelMotivo').value||'').trim();
   var btn=document.getElementById('btnCancelarOS');btn.disabled=true;btn.innerHTML='<span class="spinner"></span>';
   try{
-    await fetch(SB_URL+'/rest/v1/prt_ordens_servico?id=eq.'+osId,{method:'PATCH',headers:{'apikey':SB_KEY,'Authorization':AUTHZ,'Content-Type':'application/json'},body:JSON.stringify({status:'cancelada',atualizado_em:new Date().toISOString()})});
+    // fetch NAO levanta em 4xx/5xx: sem conferir res.ok, um PATCH recusado
+    // seguia direto para o toast "OS cancelada." com a OS intacta -- ela
+    // continuaria indo para aprovacao e para pagamento, e a autorizada
+    // acreditaria ter cancelado. Era exatamente o que acontecia enquanto o
+    // CHECK da tabela nao aceitava 'cancelada'.
+    var res=await fetch(SB_URL+'/rest/v1/prt_ordens_servico?id=eq.'+osId,{method:'PATCH',headers:{'apikey':SB_KEY,'Authorization':AUTHZ,'Content-Type':'application/json'},body:JSON.stringify({status:'cancelada',atualizado_em:new Date().toISOString()})});
+    if(!res.ok){
+      var det=await res.text().catch(function(){return ''});
+      throw new Error('o cancelamento foi recusado (HTTP '+res.status+') '+(det||'').slice(0,160));
+    }
     bononiLog('ACAO','os','CANCELAR_OS',String(osId),motivo||'sem motivo');
     document.getElementById('modalCancelarOS').remove();
     toast('OS cancelada.','success');
     carregarMinhasOS('');
-  }catch(e){console.error(e);toast('Erro ao cancelar','error');btn.disabled=false;btn.innerHTML='Cancelar OS'}
+  }catch(e){console.error(e);toast('Não deu para cancelar: '+(e&&e.message||''),'error');btn.disabled=false;btn.innerHTML='Cancelar OS'}
 }
 
 // ===== MATERIAL TÉCNICO =====
@@ -3004,6 +3013,13 @@ async function renderFinanceiro(el){
       var linhaNfse=temNfse
         ? '<div class="text-xs mt-8" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span class="text-muted">NFS-e:</span><a href="#" onclick="nfseAbrir('+p.id+');return false" style="color:var(--primary-txt);font-weight:600">'+esc(p.nfse_arquivo_nome||'ver arquivo')+'</a><span class="text-muted">'+(p.nfse_enviada_em?'enviada em '+fmtData(p.nfse_enviada_em):'')+'</span></div>'
         : '';
+      // O comprovante da transferencia, do lado de quem RECEBE. So aparece
+      // quando existe: os fechamentos pagos antes desta funcao nao tem, e uma
+      // linha dizendo "a Stonni nao anexou" viraria cobranca por algo que nem
+      // era possivel na epoca.
+      var linhaComprovante=p.comprovante_arquivo_path
+        ? '<div class="text-xs mt-8" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span class="text-muted">Comprovante do pagamento:</span><a href="#" onclick="comprovanteAbrir('+p.id+');return false" style="color:var(--primary-txt);font-weight:600">'+esc(p.comprovante_arquivo_nome||'ver arquivo')+'</a><span class="text-muted">'+(p.comprovante_enviado_em?'anexado em '+fmtData(p.comprovante_enviado_em):'')+'</span></div>'
+        : '';
       var botoes='';
       if(naEtapaDoAceite){
         botoes='<div class="flex gap-8 mt-8" style="flex-wrap:wrap">'+
@@ -3018,6 +3034,7 @@ async function renderFinanceiro(el){
         '<div class="flex justify-between text-sm mb-8"><span class="text-muted">'+p.qtd_os+' OS</span><span class="text-muted">Serviços: '+fmt(p.valor_servicos)+'</span><span class="fw-700 text-primary" style="font-size:1.1rem">'+fmt(p.valor_total)+'</span></div>'+
         '<div class="text-xs" style="line-height:1.5">'+etapa+'</div>'+
         linhaNfse+
+        linhaComprovante+
         botoes+
       '</div>';
     });box.innerHTML=html;
@@ -3039,7 +3056,7 @@ async function renderFinanceiro(el){
 // ---------------------------------------------- NFS-e do servico prestado
 // Bucket PRIVADO: nota fiscal nao fica em link publico. A tela abre por URL
 // assinada, de uma hora, do mesmo jeito que os anexos do ciclo de compra.
-var NFSE_BUCKET='assist-parceiros-docs';
+var DOCS_BUCKET='assist-parceiros-docs';
 // parceiro_id na 1a pasta: e o que vai permitir escopar o bucket por autorizada
 // quando a RLS de storage entrar.
 function nfseAnexar(pagId){
@@ -3056,7 +3073,7 @@ function nfseAnexar(pagId){
       var path=(_parceiroId||0)+'/nfse/'+pagId+'/'+Date.now()+'-'+limpo;
       var sess=await sb.auth.getSession();
       var token=(sess&&sess.data&&sess.data.session)?sess.data.session.access_token:SB_KEY;
-      var up=await fetch(SB_URL+'/storage/v1/object/'+NFSE_BUCKET+'/'+path,{
+      var up=await fetch(SB_URL+'/storage/v1/object/'+DOCS_BUCKET+'/'+path,{
         method:'POST',
         headers:{'apikey':SB_KEY,'Authorization':'Bearer '+token,'Content-Type':file.type||'application/octet-stream','x-upsert':'true'},
         body:file
@@ -3089,7 +3106,7 @@ async function nfseAbrir(pagId){
     if(!path)throw new Error('a NFS-e não está mais anexada');
     var sess=await sb.auth.getSession();
     var token=(sess&&sess.data&&sess.data.session)?sess.data.session.access_token:SB_KEY;
-    var r=await fetch(SB_URL+'/storage/v1/object/sign/'+NFSE_BUCKET+'/'+path,{
+    var r=await fetch(SB_URL+'/storage/v1/object/sign/'+DOCS_BUCKET+'/'+path,{
       method:'POST',
       headers:{'apikey':SB_KEY,'Authorization':'Bearer '+token,'Content-Type':'application/json'},
       body:JSON.stringify({expiresIn:3600})
@@ -3100,6 +3117,31 @@ async function nfseAbrir(pagId){
   }catch(e){
     console.error(e);
     toast('Não deu para abrir a NFS-e: '+(e&&e.message),'error');
+  }
+}
+
+/* Comprovante da transferencia que a STONNI fez. Gemeo de nfseAbrir, e o par
+   do documento: a NFS-e prova o que foi cobrado, o comprovante prova o que foi
+   pago. Aqui a autorizada so ABRE -- quem anexa e a Stonni, no app interno. */
+async function comprovanteAbrir(pagId){
+  try{
+    var q=await fetch(SB_URL+'/rest/v1/prt_pagamentos?id=eq.'+pagId+'&select=comprovante_arquivo_path',{headers:{'apikey':SB_KEY,'Authorization':AUTHZ}});
+    var arr=await q.json();
+    var path=(Array.isArray(arr)&&arr.length)?arr[0].comprovante_arquivo_path:null;
+    if(!path)throw new Error('o comprovante não está mais anexado');
+    var sess=await sb.auth.getSession();
+    var token=(sess&&sess.data&&sess.data.session)?sess.data.session.access_token:SB_KEY;
+    var r=await fetch(SB_URL+'/storage/v1/object/sign/'+DOCS_BUCKET+'/'+path,{
+      method:'POST',
+      headers:{'apikey':SB_KEY,'Authorization':'Bearer '+token,'Content-Type':'application/json'},
+      body:JSON.stringify({expiresIn:3600})
+    });
+    var d=await r.json().catch(function(){return null});
+    if(!r.ok||!d||!d.signedURL)throw new Error((d&&d.message)||('HTTP '+r.status));
+    window.open(SB_URL+'/storage/v1'+d.signedURL,'_blank');
+  }catch(e){
+    console.error(e);
+    toast('Não deu para abrir o comprovante: '+(e&&e.message),'error');
   }
 }
 
