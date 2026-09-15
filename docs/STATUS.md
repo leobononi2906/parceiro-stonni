@@ -1,6 +1,6 @@
 # STATUS — Portal Rede Autorizada (parceiro-stonni)
 
-> Atualizado: 2026-09-10
+> Atualizado: 2026-09-14
 
 ## O que é
 Portal do **parceiro da rede de assistência técnica autorizada Stonni**: o parceiro abre OS, consulta material técnico, controla o próprio estoque de peças, compra peças e vê o financeiro dele.
@@ -10,6 +10,45 @@ Portal do **parceiro da rede de assistência técnica autorizada Stonni**: o par
 - **Deploy:** https://parceiro-stonni.vercel.app (chave de acesso no Hub = `rede-autorizada`) · push na `main` → Vercel automático.
 - **Supabase:** `vishxwdxqiygbxmtpfoy` (prefixo `prt_`).
 - **Código:** `index.html` único (~196KB). Sem build. `vercel.json` com SPA rewrite + headers de segurança (X-Frame-Options DENY, nosniff). Chama Supabase por `fetch` em `/rest/v1/`.
+
+## 14/09/2026 — Comprovante do pagamento, código do fechamento e o "Cancelar OS"
+
+> **Telas gêmeas:** tudo aqui tem par em `stonni-assistencia/modules/pagamentos.js`
+> e `os.js`. As duas mudam juntas, sempre.
+
+- **Comprovante da transferência** no card do fechamento pago: `comprovanteAbrir()`,
+  gêmeo de `nfseAbrir()`. A NFS-e prova o que foi cobrado; o comprovante, o que
+  foi pago. Aqui a autorizada só **abre** — quem anexa é a Stonni, no app interno.
+  Fechamento pago **sem** comprovante não mostra nada: os pagos antes de hoje não
+  têm, e uma linha "a Stonni não anexou" viraria cobrança por algo que não era
+  possível na época.
+- **`NFSE_BUCKET` → `DOCS_BUCKET`** (o bucket guarda dois tipos de documento).
+  Renomeado nos dois apps junto, com contagem conferida.
+- **Código do fechamento** (`PAG-2026-0001`) embaixo do mês, no card: é o número
+  que a Stonni digita no SGA e o mesmo que ela cita ao falar do pagamento.
+- **"Cancelar OS" dizia que cancelou sem ter cancelado.** O CHECK de
+  `prt_ordens_servico.status` não aceitava `cancelada` (corrigido no banco em
+  14/09). Deste lado o defeito era pior que um erro na tela: **o retorno do
+  `fetch` não era conferido**, então o PATCH voltava 400 e o código seguia —
+  gravava o log, fechava o modal e anunciava "OS cancelada." com a OS intacta,
+  seguindo para aprovação e pagamento. Agora confere `res.ok` e mostra o motivo.
+  Ninguém foi mordido: zero `CANCELAR_OS` em `prt_logs`.
+
+## 11/09/2026 — Escreve como usuário logado, PIX/NFS-e e os avisos de pendência
+
+- **`AUTHZ`**: as ~54 chamadas passaram a mandar o JWT da sessão em vez da chave
+  anônima. Era o único dos quatro apps que escrevia em `prt_*` como `anon`.
+- **PIX no cadastro** + **NFS-e do serviço prestado**, que passou a ser condição
+  para a autorizada aprovar o orçamento. O campo com o **número** da NF, que ela
+  preenchia antes de receber, nunca foi usado (0 de 8 fechamentos) e saiu.
+- **Avisos de pendência**: faixa no topo levando ao orçamento à espera do aceite
+  e ao pedido de peça esperando o comprovante, com o olho guiado até o cartão
+  certo (`_focarPendencia` / `_focarPedido`). Aprovar orçamento é etapa nova e
+  ninguém tinha o hábito de procurar.
+- **Abertura de OS destravada**: `_servicosCarregando` ficava presa em `true`
+  quando a carga falhava, e a tela ficava eternamente em "Carregando a tabela de
+  serviços". Faltava o `finally` — que o app interno sempre teve. Porte de tela
+  gêmea perde esse tipo de coisa em silêncio.
 
 ## 10/09/2026 — Recarregar não tira mais do lugar
 
