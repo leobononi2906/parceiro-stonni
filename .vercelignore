@@ -1,0 +1,14 @@
+# A Vercel publica o repo INTEIRO, não só o que o app carrega. Sem isto,
+# docs/STATUS.md respondia 200 em parceiro-stonni.vercel.app.
+#
+# O rewrite `/(.*)` do vercel.json NÃO protegia: a Vercel serve o arquivo
+# estático ANTES de aplicar rewrite. O rewrite só pega caminho que não
+# existe — e docs/STATUS.md existia.
+#
+# NÃO PODE ENTRAR AQUI: index.html e vercel.json — é o app inteiro.
+# Isto não apaga nada do git, só deixa de mandar para o deploy.
+
+docs/
+CLAUDE.md
+README.md
+.claude/

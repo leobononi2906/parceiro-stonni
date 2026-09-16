@@ -1,6 +1,6 @@
 # STATUS — Portal Rede Autorizada (parceiro-stonni)
 
-> Atualizado: 2026-09-14
+> Atualizado: 2026-09-16
 
 ## O que é
 Portal do **parceiro da rede de assistência técnica autorizada Stonni**: o parceiro abre OS, consulta material técnico, controla o próprio estoque de peças, compra peças e vê o financeiro dele.
@@ -214,5 +214,6 @@ Início/dashboard (Últimas OS) · Nova OS · Minhas OS · **Encaminhar cliente*
 - ✅ Não usa `confirm()`/`alert()` nativos (UI própria) — manter assim.
 
 ## Dev-log
+- 2026-09-16 — **`.vercelignore`: `docs/` estava público, e o rewrite não protegia.** `docs/STATUS.md` respondia **200** em `parceiro-stonni.vercel.app` mesmo com o `vercel.json` tendo `rewrites: /(.*) -> /index.html`. **O motivo vale anotar:** a Vercel serve o arquivo estático **antes** de aplicar rewrite. O rewrite só pega caminho que **não existe** — e `docs/STATUS.md` existia. Achar que "o rewrite manda tudo pro index" é a leitura errada. A Vercel serve o repo INTEIRO, não só o que o app carrega — descoberto ao fechar a mesma coisa no Hub e no Compras. **Não era vazamento de credencial:** a chave anon já sai no `index.html` por design, e uma varredura nos 12 sites do grupo confirmou que `.env`, `.env.local`, `.git/config` e `package.json` **não** estavam expostos em lugar nenhum. O que ficava aberto era schema e notas internas. Fechado com `.vercelignore` (`docs/`, `CLAUDE.md`, `README.md`, `.claude/`). **`index.html` e `vercel.json` ficaram de fora** — o `index.html` é o app inteiro aqui. **Isto não apaga nada do git** — só deixa de mandar para o deploy.
 - 2026-08-11 — Clone desaninhado de `assistencia\parceiro-stonni` → raiz de `Projetos GitHub`. Criado este STATUS.
 - 2026-07-15 (commit `4629a6e`) — Restaura "Últimas OS" como tabela/lista no dashboard.
