@@ -458,6 +458,9 @@ tbody tr:hover{background:var(--primary-bg)}
 
 <!-- ==================== SCRIPTS ==================== -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<!-- "Quem tem acesso aqui" (fim de Meus dados). Cópia verbatim de
+     bononi-hub/ds/geral-acesso.js — subir o ?v= junto ao trocar o arquivo. -->
+<script src="ds/geral-acesso.js?v=2"></script>
 <script>
 // ===== SUPABASE =====
 var SB_URL='https://vishxwdxqiygbxmtpfoy.supabase.co';
@@ -1062,10 +1065,25 @@ async function renderPerfil(el){
           ? '<div style="display:flex;gap:8px;flex-wrap:wrap">'+tags.map(chip).join('')+'</div>'
           : '<div style="font-size:13px;color:var(--text-m)">Nenhum produto marcado ainda.</div>')+
         '<div style="font-size:12px;color:var(--text-m);margin-top:12px">Os produtos que você atende são definidos pela Stonni. Se algo estiver errado, fale com a gente.</div>'+
-      '</div>';
+      '</div>'+
+      '<div id="prt-acessos" style="margin-top:16px"></div>';
+    montarAcessosParceiro();
   }catch(e){
     el.innerHTML='<div class="page-header"><h1>Meus dados</h1></div><div class="card">Erro ao carregar seus dados. Tente de novo.</div>';
   }
+}
+
+/* "Quem tem acesso aqui" — leitura da hierarquia, que e definida no Hub.
+   Fica no fim de "Meus dados" e some para quem nao pode ver: a RPC so
+   responde a admin global ou a admin do modulo `rede-autorizada`, e quem ela
+   recusa nao ve nem a moldura. Um parceiro comum, portanto, nao ve os outros
+   parceiros — que e exatamente o que tem de acontecer aqui. */
+async function montarAcessosParceiro(){
+  var ok = typeof GeralAcesso!=='undefined' && await GeralAcesso.montar({
+    alvo:'prt-acessos', modulo:'rede-autorizada',
+    url:SB_URL, key:SB_KEY, sb:sb,
+  });
+  if(!ok){ var el=document.getElementById('prt-acessos'); if(el) el.remove(); }
 }
 async function salvarMeusDados(){
   if(!_parceiroId){ toast('Sem autorizada vinculada','err'); return; }
