@@ -1,6 +1,6 @@
 /* ============================================================
    geral-central.js — Sugestão, avisos, atualização cadastral e
-   expiração de senha  |  v3 — 23/09/2026
+   expiração de senha  |  v4 — 23/09/2026
    ============================================================
    v2: botão vira ícone com tooltip no hover (antes era pílula de texto
    fixa, cobria mais tela). Formulário de sugestão passou a diferenciar
@@ -11,6 +11,12 @@
    Precisa da migration 0008 (colunas tipo/tela em geral_pedidos_melhoria).
    v3: emoji dos dois botões de tipo trocado por SVG inline (mesmo
    espírito do ícone do FAB) — sem depender de fonte de emoji do SO.
+   v4: atualização cadastral pode ser BLOQUEANTE (geral_avisos.bloqueante).
+   Sem o botão "Depois" — a pessoa preenche o nome e só então o overlay
+   sai, liberando o app. Existe porque e-mail de app é reutilizado por
+   mais de uma pessoa no grupo, e um "Depois" infinito nunca corrige
+   quem é o operador real da conta. Nome virou campo obrigatório.
+   Precisa da migration 0009.
    Módulo para colar em qualquer app do grupo, complementar ao
    geral-acesso.js (aquele é "quem tem acesso"; este é "o Painel de
    Desenvolvimento falando com quem usa o app").
@@ -49,7 +55,7 @@
 (function () {
   'use strict';
 
-  var VERSAO = '3';
+  var VERSAO = '4';
 
   function esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
@@ -208,25 +214,28 @@
   }
 
   function mostrarFormularioCadastro(o, aviso) {
+    var travado = aviso.bloqueante === true;
     return new Promise(function (resolve) {
       var el = overlay('gc-cadastro', '<div style="' + caixa() + '">' +
         '<h3 style="font-size:16px;margin-bottom:4px">' + esc(aviso.titulo) + '</h3>' +
         '<p style="font-size:13px;color:#6b7382;margin-bottom:14px">' + esc(aviso.mensagem) + '</p>' +
-        '<label style="display:block;font-size:12px;font-weight:600;margin-bottom:4px">Nome</label>' +
+        '<label style="display:block;font-size:12px;font-weight:600;margin-bottom:4px">Seu nome</label>' +
         '<input id="gc-cad-nome" type="text" value="' + esc(o.usuario.nome || '') + '" style="width:100%;padding:9px 11px;border:1px solid #e2e5ea;border-radius:5px;margin-bottom:10px">' +
         '<label style="display:block;font-size:12px;font-weight:600;margin-bottom:4px">Telefone</label>' +
         '<input id="gc-cad-telefone" type="tel" placeholder="(11) 99999-9999" style="width:100%;padding:9px 11px;border:1px solid #e2e5ea;border-radius:5px">' +
         '<div id="gc-cad-erro" style="color:#c11f25;font-size:12px;margin-top:8px;min-height:16px"></div>' +
         '<div style="display:flex;gap:8px;margin-top:10px">' +
-        '<button id="gc-cad-depois" style="flex:1;padding:10px;background:#fff;color:#14161a;border:1px solid #e2e5ea;border-radius:5px;font-weight:600">Depois</button>' +
-        '<button id="gc-cad-salvar" style="flex:2;padding:10px;background:#14161a;color:#fff;border:none;border-radius:5px;font-weight:700">Salvar</button>' +
+        (travado ? '' : '<button id="gc-cad-depois" style="flex:1;padding:10px;background:#fff;color:#14161a;border:1px solid #e2e5ea;border-radius:5px;font-weight:600">Depois</button>') +
+        '<button id="gc-cad-salvar" style="flex:' + (travado ? '1' : '2') + ';padding:10px;background:#14161a;color:#fff;border:none;border-radius:5px;font-weight:700">Salvar' + (travado ? ' e continuar' : '') + '</button>' +
         '</div></div>');
 
-      el.querySelector('#gc-cad-depois').addEventListener('click', function () { el.remove(); resolve(); });
+      var btnDepois = el.querySelector('#gc-cad-depois');
+      if (btnDepois) btnDepois.addEventListener('click', function () { el.remove(); resolve(); });
       el.querySelector('#gc-cad-salvar').addEventListener('click', async function () {
         var erroEl = el.querySelector('#gc-cad-erro');
         var nome = el.querySelector('#gc-cad-nome').value.trim();
         var telefone = el.querySelector('#gc-cad-telefone').value.trim();
+        if (!nome) { erroEl.textContent = 'Preencha o nome.'; return; }
         try {
           var sessao = await o.sb.auth.getSession();
           var metaAtual = (sessao.data.session && sessao.data.session.user.user_metadata) || {};
