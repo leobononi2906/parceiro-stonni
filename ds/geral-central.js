@@ -1,6 +1,6 @@
 /* ============================================================
    geral-central.js — Sugestão, avisos, atualização cadastral e
-   expiração de senha  |  v5 — 23/09/2026
+   expiração de senha  |  v6 — 23/09/2026
    ============================================================
    v2: botão vira ícone com tooltip no hover (antes era pílula de texto
    fixa, cobria mais tela). Formulário de sugestão passou a diferenciar
@@ -25,6 +25,13 @@
    desativado). marcarVisto virou upsert pra suportar o diario sem
    colidir com a chave (aviso_id, usuario_email). Precisa da migration
    0010.
+   v6: aviso ganha atraso configurável pro botão "Entendi" liberar
+   (geral_avisos.atraso_botao_segundos — obriga esperar N segundos,
+   contador visível no botão). Botão "Sugerir melhoria" ganha aba "Meus
+   pedidos": lista os próprios pedidos com status e resposta, e uma
+   bolinha vermelha no ícone avisa quando tem novidade (resposta_vista=
+   false). Abrir "Meus pedidos" chama a RPC geral_marcar_pedidos_vistos()
+   e desliga a notificação. Precisa da migration 0011.
    Módulo para colar em qualquer app do grupo, complementar ao
    geral-acesso.js (aquele é "quem tem acesso"; este é "o Painel de
    Desenvolvimento falando com quem usa o app").
@@ -63,7 +70,7 @@
 (function () {
   'use strict';
 
-  var VERSAO = '5';
+  var VERSAO = '6';
 
   function esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
@@ -218,9 +225,29 @@
         '<div style="font-size:11px;font-weight:700;color:#c11f25;letter-spacing:.03em;margin-bottom:6px">AVISO</div>' +
         '<h3 style="font-size:16px;margin-bottom:8px">' + esc(aviso.titulo) + '</h3>' +
         '<p style="font-size:13px;line-height:1.5;white-space:pre-wrap;margin-bottom:18px">' + esc(aviso.mensagem) + '</p>' +
-        '<button id="gc-aviso-ok" style="width:100%;padding:10px;background:#14161a;color:#fff;border:none;border-radius:5px;font-weight:700">Entendi</button>' +
+        '<button id="gc-aviso-ok" style="width:100%;padding:10px;background:#14161a;color:#fff;border:none;border-radius:5px;font-weight:700;opacity:.5" disabled>Entendi</button>' +
         '</div>');
-      el.querySelector('#gc-aviso-ok').addEventListener('click', async function () {
+
+      var btn = el.querySelector('#gc-aviso-ok');
+      var restante = Math.max(0, parseInt(aviso.atraso_botao_segundos, 10) || 0);
+      function liberar() {
+        btn.disabled = false;
+        btn.style.opacity = '1';
+        btn.textContent = 'Entendi';
+      }
+      if (restante <= 0) {
+        liberar();
+      } else {
+        btn.textContent = 'Entendi (' + restante + ')';
+        var cron = setInterval(function () {
+          restante -= 1;
+          if (restante <= 0) { clearInterval(cron); liberar(); }
+          else { btn.textContent = 'Entendi (' + restante + ')'; }
+        }, 1000);
+      }
+
+      btn.addEventListener('click', async function () {
+        if (btn.disabled) return;
         el.remove();
         await marcarVisto(o, aviso.id);
         resolve();
@@ -303,10 +330,22 @@
         'border-radius:6px;white-space:nowrap;opacity:0;transform:translateX(6px);pointer-events:none;' +
         'transition:opacity .15s ease,transform .15s ease;box-shadow:0 2px 8px rgba(20,22,26,.18)}' +
       '.gc-fab-wrap:hover .gc-fab-tooltip,.gc-fab-wrap:focus-within .gc-fab-tooltip{opacity:1;transform:translateX(0)}' +
-      '#gc-fab-sugestao{width:44px;height:44px;border-radius:50%;border:none;cursor:pointer;' +
+      '#gc-fab-sugestao{width:44px;height:44px;border-radius:50%;border:none;cursor:pointer;position:relative;' +
         'background:var(--action-primary,#14161a);color:#fff;display:flex;align-items:center;justify-content:center;' +
         'box-shadow:var(--shadow-raised,0 4px 16px rgba(20,22,26,.25));flex:none}' +
       '#gc-fab-sugestao:active{transform:translateY(1px)}' +
+      '.gc-fab-badge{position:absolute;top:-2px;right:-2px;min-width:16px;height:16px;border-radius:999px;' +
+        'background:#c11f25;color:#fff;font-size:10px;font-weight:800;line-height:16px;text-align:center;' +
+        'padding:0 4px;border:2px solid #fff;box-sizing:content-box}' +
+      '.gc-modo-toggle{display:flex;gap:6px;margin-bottom:14px;border-bottom:1px solid #e2e5ea;padding-bottom:10px}' +
+      '.gc-modo-btn{flex:1;padding:7px 8px;font-size:12px;font-weight:700;border-radius:6px;border:none;' +
+        'background:transparent;color:#6b7382;cursor:pointer;text-align:center;position:relative}' +
+      '.gc-modo-btn.ativo{background:#f5f6f8;color:#14161a}' +
+      '.gc-modo-btn .gc-fab-badge{position:absolute;top:2px;right:6px;border-color:#f5f6f8}' +
+      '.gc-pedido-item{border:1px solid #e2e5ea;border-radius:6px;padding:10px;margin-bottom:8px;font-size:12px}' +
+      '.gc-pedido-item .topo{display:flex;justify-content:space-between;gap:8px;color:#6b7382;font-size:11px;margin-bottom:4px}' +
+      '.gc-pedido-item .msg{white-space:pre-wrap;color:#14161a;margin-bottom:6px}' +
+      '.gc-pedido-item .resposta{background:#f5f6f8;border-radius:5px;padding:7px 9px;font-size:11px;color:#14161a;margin-top:6px}' +
       '.gc-tipo-toggle{display:flex;gap:6px;margin-bottom:14px}' +
       '.gc-tipo-btn{flex:1;padding:9px 8px;font-size:12px;font-weight:600;border-radius:6px;' +
         'border:1px solid #e2e5ea;background:#fff;color:#14161a;cursor:pointer;text-align:center;' +
@@ -335,6 +374,37 @@
     'stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 ' +
     '1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>';
 
+  async function contarPedidosNaoVistos(o) {
+    try {
+      var resp = await rest(o, 'geral_pedidos_melhoria?select=id&usuario_email=eq.' + encodeURIComponent(o.usuario.email) + '&resposta_vista=eq.false', {
+        headers: { Prefer: 'count=exact', Range: '0-0' },
+      });
+      if (!resp || !resp.ok) return 0;
+      var cr = resp.headers.get('content-range');
+      if (!cr) return 0;
+      var total = cr.split('/')[1];
+      return total === '*' ? 0 : parseInt(total, 10) || 0;
+    } catch (e) { return 0; }
+  }
+
+  async function atualizarBadgeFab(o) {
+    var n = await contarPedidosNaoVistos(o);
+    var fab = document.getElementById('gc-fab-sugestao');
+    if (!fab) return n;
+    var badge = fab.querySelector('.gc-fab-badge');
+    if (n > 0) {
+      if (!badge) {
+        badge = document.createElement('span');
+        badge.className = 'gc-fab-badge';
+        fab.appendChild(badge);
+      }
+      badge.textContent = n > 9 ? '9+' : String(n);
+    } else if (badge) {
+      badge.remove();
+    }
+    return n;
+  }
+
   function montarFabSugestao(o) {
     if (document.getElementById('gc-fab-sugestao')) return;
     garantirEstiloFab();
@@ -345,11 +415,50 @@
       '<button id="gc-fab-sugestao" type="button" aria-label="Sugerir melhoria">' + ICONE_FAB + '</button>';
     document.body.appendChild(wrap);
     wrap.querySelector('#gc-fab-sugestao').addEventListener('click', function () { abrirModalSugestao(o); });
+    atualizarBadgeFab(o);
   }
 
-  function abrirModalSugestao(o) {
+  var ROTULO_STATUS = { aberto: 'Aberto', em_analise: 'Em análise', resolvido: 'Resolvido' };
+
+  async function carregarMeusPedidos(o, el) {
+    var lista = el.querySelector('#gc-meus-lista');
+    lista.innerHTML = '<div style="font-size:12px;color:#6b7382;text-align:center;padding:16px 0">Carregando…</div>';
+    try {
+      var resp = await rest(o, 'geral_pedidos_melhoria?select=*&usuario_email=eq.' + encodeURIComponent(o.usuario.email) + '&order=criado_em.desc', { headers: { Range: '0-49' } });
+      var pedidos = resp && resp.ok ? await resp.json() : [];
+      if (!Array.isArray(pedidos) || !pedidos.length) {
+        lista.innerHTML = '<div style="font-size:12px;color:#6b7382;text-align:center;padding:16px 0">Você ainda não mandou nenhum pedido.</div>';
+      } else {
+        lista.innerHTML = pedidos.map(function (p) {
+          return '<div class="gc-pedido-item">' +
+            '<div class="topo"><span>' + esc(p.app_origem) + ' · ' + (p.tipo === 'bug' ? 'não funcionou' : 'melhoria') + '</span>' +
+            '<span>' + (ROTULO_STATUS[p.status] || p.status) + '</span></div>' +
+            '<div class="msg">' + esc(p.mensagem) + '</div>' +
+            (p.resposta ? '<div class="resposta"><b>Resposta:</b> ' + esc(p.resposta) + '</div>' : '') +
+            '</div>';
+        }).join('');
+      }
+      // Abrir "Meus pedidos" é o que conta como "vi a resposta" — desliga a notificação.
+      await rest(o, 'rpc/geral_marcar_pedidos_vistos', { method: 'POST', body: '{}' });
+      atualizarBadgeFab(o);
+      var badgeAba = el.querySelector('#gc-aba-meus .gc-fab-badge');
+      if (badgeAba) badgeAba.remove();
+    } catch (e) {
+      lista.innerHTML = '<div style="font-size:12px;color:#c11f25;text-align:center;padding:16px 0">Erro ao carregar: ' + esc(e.message) + '</div>';
+    }
+  }
+
+  async function abrirModalSugestao(o) {
     var telaCapturada = capturarTela();
+    var naoVistos = await contarPedidosNaoVistos(o);
     var el = overlay('gc-sugestao', '<div style="' + caixa() + '">' +
+      '<div class="gc-modo-toggle">' +
+        '<button type="button" class="gc-modo-btn ativo" id="gc-aba-novo" data-modo="novo">Novo pedido</button>' +
+        '<button type="button" class="gc-modo-btn" id="gc-aba-meus" data-modo="meus">Meus pedidos' +
+          (naoVistos > 0 ? '<span class="gc-fab-badge">' + (naoVistos > 9 ? '9+' : naoVistos) + '</span>' : '') +
+        '</button>' +
+      '</div>' +
+      '<div id="gc-modo-novo">' +
       '<h3 style="font-size:16px;margin-bottom:4px">Sugerir melhoria</h3>' +
       '<p style="font-size:12px;color:#6b7382;margin-bottom:12px">Isso vai direto para o desenvolvedor, no Painel de Desenvolvimento.</p>' +
       '<div class="gc-tipo-toggle">' +
@@ -373,7 +482,25 @@
       '<div style="display:flex;gap:8px;margin-top:10px">' +
       '<button id="gc-sug-cancelar" style="flex:1;padding:10px;background:#fff;color:#14161a;border:1px solid #e2e5ea;border-radius:5px;font-weight:600">Cancelar</button>' +
       '<button id="gc-sug-enviar" style="flex:2;padding:10px;background:#14161a;color:#fff;border:none;border-radius:5px;font-weight:700">Enviar</button>' +
-      '</div></div>');
+      '</div>' +
+      '</div>' +
+      '<div id="gc-modo-meus" class="gc-oculto">' +
+      '<h3 style="font-size:16px;margin-bottom:10px">Meus pedidos</h3>' +
+      '<div id="gc-meus-lista" style="max-height:340px;overflow-y:auto"></div>' +
+      '<button id="gc-meus-fechar" style="width:100%;margin-top:10px;padding:10px;background:#fff;color:#14161a;border:1px solid #e2e5ea;border-radius:5px;font-weight:600">Fechar</button>' +
+      '</div>' +
+      '</div>');
+
+    var botoesModo = el.querySelectorAll('.gc-modo-btn');
+    botoesModo.forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        botoesModo.forEach(function (b) { b.classList.toggle('ativo', b === btn); });
+        el.querySelector('#gc-modo-novo').classList.toggle('gc-oculto', btn.dataset.modo !== 'novo');
+        el.querySelector('#gc-modo-meus').classList.toggle('gc-oculto', btn.dataset.modo !== 'meus');
+        if (btn.dataset.modo === 'meus') carregarMeusPedidos(o, el);
+      });
+    });
+    el.querySelector('#gc-meus-fechar').addEventListener('click', function () { el.remove(); });
 
     var tipoAtual = 'melhoria';
     var botoesTipo = el.querySelectorAll('.gc-tipo-btn');
