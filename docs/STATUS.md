@@ -1,6 +1,6 @@
 # STATUS — Portal Rede Autorizada (parceiro-stonni)
 
-> Atualizado: 2026-09-17
+> Atualizado: 2026-09-23
 
 ## O que é
 Portal do **parceiro da rede de assistência técnica autorizada Stonni**: o parceiro abre OS, consulta material técnico, controla o próprio estoque de peças, compra peças e vê o financeiro dele.
