@@ -1,7 +1,14 @@
 /* ============================================================
    geral-central.js — Sugestão, avisos, atualização cadastral e
-   expiração de senha  |  v1 — 23/09/2026
+   expiração de senha  |  v2 — 23/09/2026
    ============================================================
+   v2: botão vira ícone com tooltip no hover (antes era pílula de texto
+   fixa, cobria mais tela). Formulário de sugestão passou a diferenciar
+   "não funcionou" (o que eu queria fazer / o que deveria acontecer / o
+   que aconteceu) de "ideia de melhoria" (o que poderia ser diferente),
+   e captura a tela (título + rota) sozinho em vez de pedir pra pessoa
+   descrever onde estava — ela só confere/corrige o campo se quiser.
+   Precisa da migration 0008 (colunas tipo/tela em geral_pedidos_melhoria).
    Módulo para colar em qualquer app do grupo, complementar ao
    geral-acesso.js (aquele é "quem tem acesso"; este é "o Painel de
    Desenvolvimento falando com quem usa o app").
@@ -40,7 +47,7 @@
 (function () {
   'use strict';
 
-  var VERSAO = '1';
+  var VERSAO = '2';
 
   function esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
@@ -234,37 +241,122 @@
   }
 
   // ── 4. Botão "Sugerir melhoria" ──────────────────────────────────
+  // Captura a tela automaticamente (título + rota) — a pessoa não digita
+  // onde estava, só confere/corrige se quiser.
+  function capturarTela() {
+    try {
+      var titulo = (document.title || '').trim();
+      var rota = location.pathname + (location.hash || '');
+      return (titulo ? titulo + ' — ' : '') + rota;
+    } catch (e) {
+      return location.href || '';
+    }
+  }
+
+  function garantirEstiloFab() {
+    if (document.getElementById('gc-fab-estilo')) return;
+    var s = document.createElement('style');
+    s.id = 'gc-fab-estilo';
+    s.textContent =
+      '.gc-oculto{display:none !important}' +
+      '.gc-fab-wrap{position:fixed;right:16px;bottom:calc(16px + env(safe-area-inset-bottom));z-index:9997;' +
+        'display:flex;align-items:center;gap:8px}' +
+      '.gc-fab-tooltip{background:#14161a;color:#fff;font-size:12px;font-weight:600;padding:6px 11px;' +
+        'border-radius:6px;white-space:nowrap;opacity:0;transform:translateX(6px);pointer-events:none;' +
+        'transition:opacity .15s ease,transform .15s ease;box-shadow:0 2px 8px rgba(20,22,26,.18)}' +
+      '.gc-fab-wrap:hover .gc-fab-tooltip,.gc-fab-wrap:focus-within .gc-fab-tooltip{opacity:1;transform:translateX(0)}' +
+      '#gc-fab-sugestao{width:44px;height:44px;border-radius:50%;border:none;cursor:pointer;' +
+        'background:var(--action-primary,#14161a);color:#fff;display:flex;align-items:center;justify-content:center;' +
+        'box-shadow:var(--shadow-raised,0 4px 16px rgba(20,22,26,.25));flex:none}' +
+      '#gc-fab-sugestao:active{transform:translateY(1px)}' +
+      '.gc-tipo-toggle{display:flex;gap:6px;margin-bottom:14px}' +
+      '.gc-tipo-btn{flex:1;padding:9px 8px;font-size:12px;font-weight:600;border-radius:6px;' +
+        'border:1px solid #e2e5ea;background:#fff;color:#14161a;cursor:pointer;text-align:center}' +
+      '.gc-tipo-btn.ativo{background:#14161a;color:#fff;border-color:#14161a}' +
+      '.gc-campo label{display:block;font-size:12px;font-weight:600;margin:10px 0 4px}' +
+      '.gc-campo textarea{width:100%;min-height:64px;padding:9px 10px;border:1px solid #e2e5ea;border-radius:5px;resize:vertical}' +
+      '.gc-campo input[type=text]{width:100%;padding:8px 10px;border:1px solid #e2e5ea;border-radius:5px;font-size:12px;color:#6b7382}';
+    document.head.appendChild(s);
+  }
+
+  // Ícone de balão de conversa com "+" — sem depender do sistema de ícones
+  // de cada app (nem todos têm o mesmo hidratador de SVG).
+  var ICONE_FAB = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" ' +
+    'stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 ' +
+    '8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 ' +
+    '8.48 0 0 1 8 8v.5z"/><line x1="12" y1="7.5" x2="12" y2="13.5"/><line x1="9" y1="10.5" x2="15" y2="10.5"/></svg>';
+
   function montarFabSugestao(o) {
     if (document.getElementById('gc-fab-sugestao')) return;
-    var b = document.createElement('button');
-    b.id = 'gc-fab-sugestao';
-    b.type = 'button';
-    b.textContent = 'Sugerir melhoria';
-    b.style.cssText = 'position:fixed;right:16px;bottom:calc(16px + env(safe-area-inset-bottom));z-index:9997;' +
-      'padding:11px 16px;border:none;border-radius:999px;background:var(--action-primary,#14161a);color:#fff;' +
-      'font-size:13px;font-weight:700;box-shadow:var(--shadow-raised,0 4px 16px rgba(20,22,26,.25));cursor:pointer';
-    b.addEventListener('mousedown', function () { b.style.transform = 'translateY(1px)'; });
-    b.addEventListener('mouseup', function () { b.style.transform = ''; });
-    b.addEventListener('click', function () { abrirModalSugestao(o); });
-    document.body.appendChild(b);
+    garantirEstiloFab();
+    var wrap = document.createElement('div');
+    wrap.className = 'gc-fab-wrap';
+    wrap.innerHTML =
+      '<span class="gc-fab-tooltip">Sugerir melhoria</span>' +
+      '<button id="gc-fab-sugestao" type="button" aria-label="Sugerir melhoria">' + ICONE_FAB + '</button>';
+    document.body.appendChild(wrap);
+    wrap.querySelector('#gc-fab-sugestao').addEventListener('click', function () { abrirModalSugestao(o); });
   }
 
   function abrirModalSugestao(o) {
+    var telaCapturada = capturarTela();
     var el = overlay('gc-sugestao', '<div style="' + caixa() + '">' +
-      '<h3 style="font-size:16px;margin-bottom:8px">Sugerir melhoria</h3>' +
-      '<p style="font-size:12px;color:#6b7382;margin-bottom:12px">Vai direto pro desenvolvedor, no Painel de Desenvolvimento.</p>' +
-      '<textarea id="gc-sug-texto" placeholder="O que podia funcionar melhor aqui?" style="width:100%;min-height:90px;padding:10px;border:1px solid #e2e5ea;border-radius:5px"></textarea>' +
-      '<div id="gc-sug-msg" style="font-size:12px;margin-top:8px;min-height:16px"></div>' +
+      '<h3 style="font-size:16px;margin-bottom:4px">Sugerir melhoria</h3>' +
+      '<p style="font-size:12px;color:#6b7382;margin-bottom:12px">Isso vai direto para o desenvolvedor, no Painel de Desenvolvimento.</p>' +
+      '<div class="gc-tipo-toggle">' +
+        '<button type="button" class="gc-tipo-btn ativo" data-tipo="melhoria">💡 Uma ideia de melhoria</button>' +
+        '<button type="button" class="gc-tipo-btn" data-tipo="bug">⚠️ Algo não funcionou</button>' +
+      '</div>' +
+      '<div id="gc-campos-melhoria" class="gc-campo">' +
+        '<label>O que essa tela faz hoje que poderia ser diferente?</label>' +
+        '<textarea id="gc-m-diferente" placeholder="Ex.: essa lista podia ter um filtro por data"></textarea>' +
+      '</div>' +
+      '<div id="gc-campos-bug" class="gc-campo gc-oculto">' +
+        '<label>O que você estava tentando fazer?</label>' +
+        '<textarea id="gc-b-tentando"></textarea>' +
+        '<label>O que deveria acontecer?</label>' +
+        '<textarea id="gc-b-esperado"></textarea>' +
+        '<label>O que aconteceu de fato?</label>' +
+        '<textarea id="gc-b-aconteceu"></textarea>' +
+      '</div>' +
+      '<div class="gc-campo"><label>Tela</label><input id="gc-tela" type="text" value="' + esc(telaCapturada) + '"></div>' +
+      '<div id="gc-sug-msg" style="font-size:12px;margin-top:6px;min-height:16px"></div>' +
       '<div style="display:flex;gap:8px;margin-top:10px">' +
       '<button id="gc-sug-cancelar" style="flex:1;padding:10px;background:#fff;color:#14161a;border:1px solid #e2e5ea;border-radius:5px;font-weight:600">Cancelar</button>' +
       '<button id="gc-sug-enviar" style="flex:2;padding:10px;background:#14161a;color:#fff;border:none;border-radius:5px;font-weight:700">Enviar</button>' +
       '</div></div>');
 
+    var tipoAtual = 'melhoria';
+    var botoesTipo = el.querySelectorAll('.gc-tipo-btn');
+    botoesTipo.forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        tipoAtual = btn.dataset.tipo;
+        botoesTipo.forEach(function (b) { b.classList.toggle('ativo', b === btn); });
+        el.querySelector('#gc-campos-melhoria').classList.toggle('gc-oculto', tipoAtual !== 'melhoria');
+        el.querySelector('#gc-campos-bug').classList.toggle('gc-oculto', tipoAtual !== 'bug');
+      });
+    });
+
     el.querySelector('#gc-sug-cancelar').addEventListener('click', function () { el.remove(); });
     el.querySelector('#gc-sug-enviar').addEventListener('click', async function () {
       var msgEl = el.querySelector('#gc-sug-msg');
-      var texto = el.querySelector('#gc-sug-texto').value.trim();
-      if (!texto) { msgEl.style.color = '#c11f25'; msgEl.textContent = 'Escreva alguma coisa.'; return; }
+      var tela = el.querySelector('#gc-tela').value.trim();
+      var mensagem;
+      if (tipoAtual === 'bug') {
+        var tentando = el.querySelector('#gc-b-tentando').value.trim();
+        var esperado = el.querySelector('#gc-b-esperado').value.trim();
+        var aconteceu = el.querySelector('#gc-b-aconteceu').value.trim();
+        if (!tentando || !esperado || !aconteceu) {
+          msgEl.style.color = '#c11f25'; msgEl.textContent = 'Preencha os três campos.'; return;
+        }
+        mensagem = 'O que eu queria fazer: ' + tentando +
+          '\nO que deveria acontecer: ' + esperado +
+          '\nO que aconteceu: ' + aconteceu;
+      } else {
+        var diferente = el.querySelector('#gc-m-diferente').value.trim();
+        if (!diferente) { msgEl.style.color = '#c11f25'; msgEl.textContent = 'Escreva alguma coisa.'; return; }
+        mensagem = diferente;
+      }
       try {
         var resp = await rest(o, 'geral_pedidos_melhoria', {
           method: 'POST',
@@ -272,7 +364,9 @@
             app_origem: o.appId,
             usuario_email: o.usuario.email,
             usuario_nome: o.usuario.nome || null,
-            mensagem: texto,
+            tipo: tipoAtual,
+            tela: tela || null,
+            mensagem: mensagem,
           }),
         });
         if (!resp || !resp.ok) throw new Error('HTTP ' + (resp ? resp.status : '?'));
