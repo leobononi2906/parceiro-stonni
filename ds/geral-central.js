@@ -1,6 +1,6 @@
 /* ============================================================
    geral-central.js — Sugestão, avisos, atualização cadastral e
-   expiração de senha  |  v2 — 23/09/2026
+   expiração de senha  |  v3 — 23/09/2026
    ============================================================
    v2: botão vira ícone com tooltip no hover (antes era pílula de texto
    fixa, cobria mais tela). Formulário de sugestão passou a diferenciar
@@ -9,6 +9,8 @@
    e captura a tela (título + rota) sozinho em vez de pedir pra pessoa
    descrever onde estava — ela só confere/corrige o campo se quiser.
    Precisa da migration 0008 (colunas tipo/tela em geral_pedidos_melhoria).
+   v3: emoji dos dois botões de tipo trocado por SVG inline (mesmo
+   espírito do ícone do FAB) — sem depender de fonte de emoji do SO.
    Módulo para colar em qualquer app do grupo, complementar ao
    geral-acesso.js (aquele é "quem tem acesso"; este é "o Painel de
    Desenvolvimento falando com quem usa o app").
@@ -47,7 +49,7 @@
 (function () {
   'use strict';
 
-  var VERSAO = '2';
+  var VERSAO = '3';
 
   function esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
@@ -271,7 +273,9 @@
       '#gc-fab-sugestao:active{transform:translateY(1px)}' +
       '.gc-tipo-toggle{display:flex;gap:6px;margin-bottom:14px}' +
       '.gc-tipo-btn{flex:1;padding:9px 8px;font-size:12px;font-weight:600;border-radius:6px;' +
-        'border:1px solid #e2e5ea;background:#fff;color:#14161a;cursor:pointer;text-align:center}' +
+        'border:1px solid #e2e5ea;background:#fff;color:#14161a;cursor:pointer;text-align:center;' +
+        'display:flex;align-items:center;justify-content:center;gap:6px}' +
+      '.gc-tipo-btn svg{flex:none}' +
       '.gc-tipo-btn.ativo{background:#14161a;color:#fff;border-color:#14161a}' +
       '.gc-campo label{display:block;font-size:12px;font-weight:600;margin:10px 0 4px}' +
       '.gc-campo textarea{width:100%;min-height:64px;padding:9px 10px;border:1px solid #e2e5ea;border-radius:5px;resize:vertical}' +
@@ -285,6 +289,15 @@
     'stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 ' +
     '8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 ' +
     '8.48 0 0 1 8 8v.5z"/><line x1="12" y1="7.5" x2="12" y2="13.5"/><line x1="9" y1="10.5" x2="15" y2="10.5"/></svg>';
+
+  // Ícones dos dois tipos do formulário — mesmo espírito do ícone do FAB:
+  // SVG inline, sem depender do hidratador de ícones de cada app.
+  var ICONE_LAMPADA = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" ' +
+    'stroke-linecap="round" stroke-linejoin="round"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 ' +
+    '1.3.5 2.6 1.5 3.5.8.8 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/></svg>';
+  var ICONE_ALERTA = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" ' +
+    'stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 ' +
+    '1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>';
 
   function montarFabSugestao(o) {
     if (document.getElementById('gc-fab-sugestao')) return;
@@ -304,8 +317,8 @@
       '<h3 style="font-size:16px;margin-bottom:4px">Sugerir melhoria</h3>' +
       '<p style="font-size:12px;color:#6b7382;margin-bottom:12px">Isso vai direto para o desenvolvedor, no Painel de Desenvolvimento.</p>' +
       '<div class="gc-tipo-toggle">' +
-        '<button type="button" class="gc-tipo-btn ativo" data-tipo="melhoria">💡 Uma ideia de melhoria</button>' +
-        '<button type="button" class="gc-tipo-btn" data-tipo="bug">⚠️ Algo não funcionou</button>' +
+        '<button type="button" class="gc-tipo-btn ativo" data-tipo="melhoria">' + ICONE_LAMPADA + ' Uma ideia de melhoria</button>' +
+        '<button type="button" class="gc-tipo-btn" data-tipo="bug">' + ICONE_ALERTA + ' Algo não funcionou</button>' +
       '</div>' +
       '<div id="gc-campos-melhoria" class="gc-campo">' +
         '<label>O que essa tela faz hoje que poderia ser diferente?</label>' +
