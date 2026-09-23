@@ -1,6 +1,6 @@
 /* ============================================================
    geral-central.js — Sugestão, avisos, atualização cadastral e
-   expiração de senha  |  v4 — 23/09/2026
+   expiração de senha  |  v5 — 23/09/2026
    ============================================================
    v2: botão vira ícone com tooltip no hover (antes era pílula de texto
    fixa, cobria mais tela). Formulário de sugestão passou a diferenciar
@@ -17,6 +17,14 @@
    mais de uma pessoa no grupo, e um "Depois" infinito nunca corrige
    quem é o operador real da conta. Nome virou campo obrigatório.
    Precisa da migration 0009.
+   v5: campo de e-mail de contato no formulário de cadastro (grava
+   user_metadata.email_contato — não é o e-mail de login, que é
+   compartilhado). Avisos ganham agendamento (mostrar_a_partir: nulo =
+   assim que publicado) e frequência (uma_vez = padrão de sempre; diario
+   = mostra de novo a cada primeiro acesso do dia, até ser resolvido ou
+   desativado). marcarVisto virou upsert pra suportar o diario sem
+   colidir com a chave (aviso_id, usuario_email). Precisa da migration
+   0010.
    Módulo para colar em qualquer app do grupo, complementar ao
    geral-acesso.js (aquele é "quem tem acesso"; este é "o Painel de
    Desenvolvimento falando com quem usa o app").
@@ -55,7 +63,7 @@
 (function () {
   'use strict';
 
-  var VERSAO = '4';
+  var VERSAO = '5';
 
   function esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
@@ -156,27 +164,42 @@
   }
 
   // ── 2 e 3. Avisos e campanha de atualização cadastral ────────────
+  function mesmoDia(a, b) {
+    return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+  }
+
   async function buscarAvisosPendentes(o, tipo) {
+    var agora = new Date();
     var resp = await rest(o, 'geral_avisos?select=*&ativo=eq.true&order=criado_em.asc');
     if (!resp || !resp.ok) return [];
     var todos = await resp.json();
     if (!Array.isArray(todos)) return [];
     var doTipo = todos.filter(function (a) {
       return a.tipo === tipo && (!a.apps_alvo || !a.apps_alvo.length || a.apps_alvo.indexOf(o.appId) !== -1)
-        && (!a.expira_em || new Date(a.expira_em) > new Date());
+        && (!a.expira_em || new Date(a.expira_em) > agora)
+        && (!a.mostrar_a_partir || new Date(a.mostrar_a_partir) <= agora); // agendamento: ainda não chegou a hora
     });
     if (!doTipo.length) return [];
 
-    var respVistos = await rest(o, 'geral_avisos_visualizacoes?usuario_email=eq.' + encodeURIComponent(o.usuario.email) + '&select=aviso_id');
+    var respVistos = await rest(o, 'geral_avisos_visualizacoes?usuario_email=eq.' + encodeURIComponent(o.usuario.email) + '&select=aviso_id,visto_em');
     var vistos = respVistos && respVistos.ok ? await respVistos.json() : [];
-    var idsVistos = (Array.isArray(vistos) ? vistos : []).map(function (v) { return v.aviso_id; });
-    return doTipo.filter(function (a) { return idsVistos.indexOf(a.id) === -1; });
+    vistos = Array.isArray(vistos) ? vistos : [];
+
+    return doTipo.filter(function (a) {
+      var registro = vistos.filter(function (v) { return v.aviso_id === a.id; })[0];
+      if (!registro) return true; // nunca viu
+      if (a.frequencia === 'diario') return !mesmoDia(new Date(registro.visto_em), agora); // já viu, mas não hoje
+      return false; // uma_vez: já viu, não mostra de novo
+    });
   }
 
   async function marcarVisto(o, avisoId) {
-    await rest(o, 'geral_avisos_visualizacoes', {
+    // upsert: em frequencia=diario a mesma pessoa marca visto todo dia, e a
+    // chave (aviso_id, usuario_email) já existe — precisa atualizar, não inserir.
+    await rest(o, 'geral_avisos_visualizacoes?on_conflict=aviso_id,usuario_email', {
       method: 'POST',
-      body: JSON.stringify({ aviso_id: avisoId, usuario_email: o.usuario.email }),
+      headers: { Prefer: 'resolution=merge-duplicates' },
+      body: JSON.stringify({ aviso_id: avisoId, usuario_email: o.usuario.email, visto_em: new Date().toISOString() }),
     });
   }
 
@@ -221,6 +244,8 @@
         '<p style="font-size:13px;color:#6b7382;margin-bottom:14px">' + esc(aviso.mensagem) + '</p>' +
         '<label style="display:block;font-size:12px;font-weight:600;margin-bottom:4px">Seu nome</label>' +
         '<input id="gc-cad-nome" type="text" value="' + esc(o.usuario.nome || '') + '" style="width:100%;padding:9px 11px;border:1px solid #e2e5ea;border-radius:5px;margin-bottom:10px">' +
+        '<label style="display:block;font-size:12px;font-weight:600;margin-bottom:4px">Seu e-mail (o seu, não o da conta)</label>' +
+        '<input id="gc-cad-email" type="email" placeholder="seu@email.com" style="width:100%;padding:9px 11px;border:1px solid #e2e5ea;border-radius:5px;margin-bottom:10px">' +
         '<label style="display:block;font-size:12px;font-weight:600;margin-bottom:4px">Telefone</label>' +
         '<input id="gc-cad-telefone" type="tel" placeholder="(11) 99999-9999" style="width:100%;padding:9px 11px;border:1px solid #e2e5ea;border-radius:5px">' +
         '<div id="gc-cad-erro" style="color:#c11f25;font-size:12px;margin-top:8px;min-height:16px"></div>' +
@@ -234,12 +259,14 @@
       el.querySelector('#gc-cad-salvar').addEventListener('click', async function () {
         var erroEl = el.querySelector('#gc-cad-erro');
         var nome = el.querySelector('#gc-cad-nome').value.trim();
+        var emailContato = el.querySelector('#gc-cad-email').value.trim();
         var telefone = el.querySelector('#gc-cad-telefone').value.trim();
         if (!nome) { erroEl.textContent = 'Preencha o nome.'; return; }
+        if (!emailContato) { erroEl.textContent = 'Preencha o e-mail.'; return; }
         try {
           var sessao = await o.sb.auth.getSession();
           var metaAtual = (sessao.data.session && sessao.data.session.user.user_metadata) || {};
-          var r = await o.sb.auth.updateUser({ data: Object.assign({}, metaAtual, { nome: nome, telefone: telefone }) });
+          var r = await o.sb.auth.updateUser({ data: Object.assign({}, metaAtual, { nome: nome, email_contato: emailContato, telefone: telefone }) });
           if (r.error) { erroEl.textContent = r.error.message; return; }
           await marcarVisto(o, aviso.id);
           el.remove();
