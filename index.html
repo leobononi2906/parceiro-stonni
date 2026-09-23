@@ -462,6 +462,7 @@ tbody tr:hover{background:var(--primary-bg)}
 <!-- "Quem tem acesso aqui" (fim de Meus dados). Cópia verbatim de
      bononi-hub/ds/geral-acesso.js — subir o ?v= junto ao trocar o arquivo. -->
 <script src="ds/geral-acesso.js?v=2"></script>
+<script src="ds/geral-central.js?v=1"></script>
 <script>
 // ===== SUPABASE =====
 var SB_URL='https://vishxwdxqiygbxmtpfoy.supabase.co';
@@ -709,6 +710,9 @@ async function carregarPerfil(){
   });
   var parceiros=await r2.json();
   _parceiro=(Array.isArray(parceiros)&&parceiros.length)?parceiros[0]:{nome:'Admin Stonni'};
+  if (window.GeralCentral) {
+    GeralCentral.iniciar({ appId: 'rede-autorizada', url: SB_URL, key: SB_KEY, sb, usuario: { email: _user.email, nome: _parceiro.nome } });
+  }
   iniciarApp();
 }
 

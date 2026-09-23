@@ -11,6 +11,9 @@ Portal do **parceiro da rede de assistência técnica autorizada Stonni**: o par
 - **Supabase:** `vishxwdxqiygbxmtpfoy` (prefixo `prt_`).
 - **Código:** `index.html` único (~196KB). Sem build. `vercel.json` com SPA rewrite + headers de segurança (X-Frame-Options DENY, nosniff). Chama Supabase por `fetch` em `/rest/v1/`.
 
+## 2026-09-23 — Botão "Sugerir melhoria" (rollout do geral-central.js)
+Chamado logo após `carregarPerfil()` popular `_user`/`_perfil`/`_parceiro`, antes de `iniciarApp()` — mesmo ponto do login confirmado (fluxo de login e o de sessão restaurada convergem aqui). `appId: 'rede-autorizada'`. Testado local: script carrega sem erro, `window.GeralCentral` existe. Original em `bononi-hub/ds/geral-central.js`.
+
 ## 14/09/2026 — Comprovante do pagamento, código do fechamento e o "Cancelar OS"
 
 > **Telas gêmeas:** tudo aqui tem par em `stonni-assistencia/modules/pagamentos.js`
