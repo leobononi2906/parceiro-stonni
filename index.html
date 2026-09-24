@@ -2057,7 +2057,7 @@ async function gerarPdfOS(id){
   var cfgs={};
   try{var rc=await fetch(SB_URL+'/rest/v1/prt_configuracoes?select=chave,valor',{headers:{'apikey':SB_KEY,'Authorization':AUTHZ}});var cv=await rc.json();if(Array.isArray(cv))cv.forEach(function(c){cfgs[c.chave]=c.valor||''});}catch(e){}
   // Nome do parceiro
-  var parcNome=_usuario?_usuario.parceiro_nome||_usuario.nome||'':'';
+  var parcNome=_parceiro?_parceiro.nome||'':'';
   // Formatar telefone
   function fmtFone(f){return f?fmtTelefone(f):'-'}  // delega p/ o helper global
   // Status badge

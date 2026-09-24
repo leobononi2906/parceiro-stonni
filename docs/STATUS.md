@@ -1,12 +1,12 @@
 # STATUS — Portal Rede Autorizada (parceiro-stonni)
 
-> Atualizado: 2026-09-24
+> Atualizado: 2026-09-24 (2)
 
 ## O que é
 Portal do **parceiro da rede de assistência técnica autorizada Stonni**: o parceiro abre OS, consulta material técnico, controla o próprio estoque de peças, compra peças e vê o financeiro dele.
 
 ## Onde está
-- **Clone real (git):** `C:\CLAUDE\Projetos GitHub\parceiro-stonni` (remote `leobononi2906/parceiro-stonni`, branch `main`). *(Desaninhado de `assistencia\` em 11/08/2026.)*
+- **Clone real (git):** `C:\Aplicações da bononi\parceiro-stonni` (remote `leobononi2906/parceiro-stonni`, branch `main`). *(Desaninhado de `assistencia\` em 11/08/2026; caminho corrigido em 24/09/2026 — este STATUS citava um caminho antigo.)*
 - **Deploy:** https://parceiro-stonni.vercel.app (chave de acesso no Hub = `rede-autorizada`) · push na `main` → Vercel automático.
 - **Supabase:** `vishxwdxqiygbxmtpfoy` (prefixo `prt_`).
 - **Código:** `index.html` único (~196KB). Sem build. `vercel.json` com SPA rewrite + headers de segurança (X-Frame-Options DENY, nosniff). Chama Supabase por `fetch` em `/rest/v1/`.
@@ -217,6 +217,14 @@ Início/dashboard (Últimas OS) · Nova OS · Minhas OS · **Encaminhar cliente*
 - ✅ Não usa `confirm()`/`alert()` nativos (UI própria) — manter assim.
 
 ## Dev-log
+- 2026-09-24 — **PDF da OS não gerava para o parceiro — `_usuario` não existia.** Achado pelo
+  painel de saúde (bononi-painel-dev): 9 erros de `ReferenceError: _usuario is not defined` em
+  `prt_logs` entre 28/08 e 14/09, todos do mesmo parceiro (nauticagrillorefrigeracao), 5 tentativas
+  seguidas em 12/09. `gerarPdfOS()` (linha ~2060) lia `_usuario`, variável que nunca existiu neste
+  arquivo — o estado global é `_user` (sessão de auth) e `_parceiro` (dados do parceiro vinculado,
+  com `.nome`). Trocado para `_parceiro.nome||''`, mesmo padrão usado em outras 8 chamadas no
+  arquivo (linhas 723, 968, 2779 etc.). Não precisou de bump de `?v=`: o service worker (entrada
+  de 2026-09-24 acima) já cobre atualização do `index.html`.
 - 2026-09-24 — **Correção do FAB "Sugerir melhoria": z-index:150 não era baixo o suficiente.** A
   correção anterior (mesmo dia, `z-index:9997` → `150`) partiu do que resolvia no `com_stonni`
   (drawer com `z-index:200/201`), mas testando ao vivo no `bononi-exped` e no `bononi-cobranca`
