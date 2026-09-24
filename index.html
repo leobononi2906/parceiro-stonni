@@ -3010,6 +3010,7 @@ async function renderFinanceiro(el){
     var r=await fetch(SB_URL+'/rest/v1/prt_pagamentos?parceiro_id=eq.'+_parceiroId+'&order=mes_referencia.desc&select=*',{headers:{'apikey':SB_KEY,'Authorization':AUTHZ}});
     var pags=await r.json();if(!Array.isArray(pags))pags=[];
     var box=document.getElementById('finArea');
+    if(!box) return; // navegou p/ outra tela durante o load (gêmea: stonni-assistencia/modules/pagamentos.js)
     if(!pags.length){box.innerHTML='<div class="empty-state"><p>Nenhum fechamento financeiro ainda</p><p class="text-xs text-muted">Os pagamentos aparecem aqui após o fechamento mensal pela Stonni</p></div>';return}
     var html='';
     pags.forEach(function(p){

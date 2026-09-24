@@ -217,6 +217,7 @@ Início/dashboard (Últimas OS) · Nova OS · Minhas OS · **Encaminhar cliente*
 - ✅ Não usa `confirm()`/`alert()` nativos (UI própria) — manter assim.
 
 ## Dev-log
+- 2026-09-24 — **Financeiro preso em "Carregando..." ao trocar de tela durante o load.** `renderFinanceiro` usava `#finArea` depois do `await` sem guarda de null — a gêmea `stonni-assistencia/modules/pagamentos.js` já tinha; voltou para a origem. Achado do pente fino de 24/09.
 - 2026-09-24 — **"Minhas OS" quebrava com `innerHTML` de elemento nulo, ao trocar de tela durante
   o carregamento.** Achado pelo painel de saúde: 6 `PROMISE_REJEITADA` com "Cannot set properties
   of null (setting 'innerHTML')" em `prt_logs` entre 14/07 e 08/09, 3 usuários. `mostrarListaOS()`
