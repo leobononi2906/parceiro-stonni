@@ -1,6 +1,6 @@
 # STATUS — Portal Rede Autorizada (parceiro-stonni)
 
-> Atualizado: 2026-09-23
+> Atualizado: 2026-09-24
 
 ## O que é
 Portal do **parceiro da rede de assistência técnica autorizada Stonni**: o parceiro abre OS, consulta material técnico, controla o próprio estoque de peças, compra peças e vê o financeiro dele.
@@ -217,6 +217,10 @@ Início/dashboard (Últimas OS) · Nova OS · Minhas OS · **Encaminhar cliente*
 - ✅ Não usa `confirm()`/`alert()` nativos (UI própria) — manter assim.
 
 ## Dev-log
+- 2026-09-24 — `geral-central.js` v7: aviso aceita HTML simples. Mensagem do aviso passa por
+  `escHtmlSimples` (escapa tudo e libera só `<b>`, `<i>`, `<u>`, `<br>`, `<a href="https://...">`)
+  em vez de `esc` puro. Mudança no original `bononi-hub/ds/geral-central.js`, replicada verbatim
+  aqui, `?v=` bumpado de 6 pra 7 no `index.html`.
 - 2026-09-17 — **Favicon e logo pararam de depender de `stonni.com.br` — hotlink corrigido.**
   As três ocorrências (`<link rel="icon">`, `.login-logo`, `.topbar-logo`) apontavam para
   `stonni.com.br/wp-content/uploads/...` — funcionava, mas quebraria sem nenhum commit deste repo
