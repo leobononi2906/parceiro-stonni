@@ -337,7 +337,7 @@
     s.id = 'gc-fab-estilo';
     s.textContent =
       '.gc-oculto{display:none !important}' +
-      '.gc-fab-wrap{position:fixed;right:16px;bottom:calc(16px + env(safe-area-inset-bottom));z-index:9997;' +
+      '.gc-fab-wrap{position:fixed;right:16px;bottom:calc(16px + env(safe-area-inset-bottom));z-index:150;' +
         'display:flex;align-items:center;gap:8px}' +
       '.gc-fab-tooltip{background:#14161a;color:#fff;font-size:12px;font-weight:600;padding:6px 11px;' +
         'border-radius:6px;white-space:nowrap;opacity:0;transform:translateX(6px);pointer-events:none;' +
