@@ -217,6 +217,15 @@ Início/dashboard (Últimas OS) · Nova OS · Minhas OS · **Encaminhar cliente*
 - ✅ Não usa `confirm()`/`alert()` nativos (UI própria) — manter assim.
 
 ## Dev-log
+- 2026-09-24 — **Service worker novo: pega versão nova sozinho, sem F5.** O app não tinha
+  service worker — só dependia de cada arquivo ser lembrado na hora de subir. `sw.js` novo
+  (network-first pra casca, `skipWaiting`+`clients.claim`), registrado no `index.html` com
+  checagem de atualização a cada 30 min / ao voltar pra aba / no load, e reload automático
+  quando o SW novo assume. `vercel.json` ganhou `Cache-Control: no-cache` em
+  `index.html`/`sw.js` (headers de segurança existentes preservados). A persistência de tela
+  (`localStorage['prt:pagina']`, função `pgGuardar`) já existia e não foi tocada — o "F5 volta
+  pro início" que era relatado provavelmente vinha da falta do SW, que fazia o navegador servir
+  HTML velho do cache antes do JS de restauração rodar.
 - 2026-09-24 — **FAB "Sugerir melhoria" não fica mais em cima de drawer/modal aberto.** `.gc-fab-wrap` (`ds/geral-central.js`) tinha `z-index:9997`, acima de qualquer drawer/modal/painel lateral do app — risco de tampar um botão de ação no canto inferior direito quando algum estivesse aberto (bug confirmado assim no `com_stonni`, no `bononi-exped` e no `bononi-cobranca`). Baixado para `z-index:150` por precaução, mesma correção aplicada em todos os apps que usam este arquivo. `?v=` bumpado de 7 pra 8 no `index.html`.
 - 2026-09-24 — `geral-central.js` v7: aviso aceita HTML simples. Mensagem do aviso passa por
   `escHtmlSimples` (escapa tudo e libera só `<b>`, `<i>`, `<u>`, `<br>`, `<a href="https://...">`)

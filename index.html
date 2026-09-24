@@ -3794,6 +3794,30 @@ document.addEventListener('click',function(e){
   }
 });
 </script>
+
+<!-- PWA: registra o service worker (network-first; ver sw.js). Detecta versão
+     nova sozinho e recarrega — sem isto, só via deploy novo apertando F5. -->
+<script>
+if ('serviceWorker' in navigator) {
+  let jaRecarregou = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (jaRecarregou) return;
+    jaRecarregou = true;
+    location.reload();
+  });
+
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').then((reg) => {
+      reg.update().catch(() => {});
+      setInterval(() => reg.update().catch(() => {}), 30 * 60 * 1000);
+      document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) reg.update().catch(() => {});
+      });
+    }).catch(() => {});
+  });
+}
+</script>
+
 </body>
 </html>
 
