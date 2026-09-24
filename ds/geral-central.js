@@ -78,6 +78,19 @@
     });
   }
 
+  // Mensagem de aviso aceita um punhado de tags simples (negrito, itálico,
+  // sublinhado, quebra de linha e link) — tudo escapado primeiro, depois só
+  // essas tags específicas voltam a virar HTML de verdade. Nunca usar o texto
+  // do aviso direto em innerHTML sem passar por aqui.
+  function escHtmlSimples(s) {
+    var t = esc(s);
+    t = t.replace(/&lt;br\s*\/?&gt;/gi, '<br>');
+    t = t.replace(/&lt;(\/?)(b|strong|i|em|u)&gt;/gi, '<$1$2>');
+    t = t.replace(/&lt;a href=&quot;(https?:\/\/[^&"]*)&quot;&gt;/gi, '<a href="$1" target="_blank" rel="noopener noreferrer">');
+    t = t.replace(/&lt;\/a&gt;/gi, '</a>');
+    return t;
+  }
+
   function overlay(id, htmlInterno) {
     var existente = document.getElementById(id);
     if (existente) existente.remove();
@@ -224,7 +237,7 @@
       var el = overlay('gc-aviso-' + aviso.id, '<div style="' + caixa() + '">' +
         '<div style="font-size:11px;font-weight:700;color:#c11f25;letter-spacing:.03em;margin-bottom:6px">AVISO</div>' +
         '<h3 style="font-size:16px;margin-bottom:8px">' + esc(aviso.titulo) + '</h3>' +
-        '<p style="font-size:13px;line-height:1.5;white-space:pre-wrap;margin-bottom:18px">' + esc(aviso.mensagem) + '</p>' +
+        '<p style="font-size:13px;line-height:1.5;white-space:pre-wrap;margin-bottom:18px">' + escHtmlSimples(aviso.mensagem) + '</p>' +
         '<button id="gc-aviso-ok" style="width:100%;padding:10px;background:#14161a;color:#fff;border:none;border-radius:5px;font-weight:700;opacity:.5" disabled>Entendi</button>' +
         '</div>');
 
@@ -268,7 +281,7 @@
     return new Promise(function (resolve) {
       var el = overlay('gc-cadastro', '<div style="' + caixa() + '">' +
         '<h3 style="font-size:16px;margin-bottom:4px">' + esc(aviso.titulo) + '</h3>' +
-        '<p style="font-size:13px;color:#6b7382;margin-bottom:14px">' + esc(aviso.mensagem) + '</p>' +
+        '<p style="font-size:13px;color:#6b7382;margin-bottom:14px">' + escHtmlSimples(aviso.mensagem) + '</p>' +
         '<label style="display:block;font-size:12px;font-weight:600;margin-bottom:4px">Seu nome</label>' +
         '<input id="gc-cad-nome" type="text" value="' + esc(o.usuario.nome || '') + '" style="width:100%;padding:9px 11px;border:1px solid #e2e5ea;border-radius:5px;margin-bottom:10px">' +
         '<label style="display:block;font-size:12px;font-weight:600;margin-bottom:4px">Seu e-mail (o seu, não o da conta)</label>' +
