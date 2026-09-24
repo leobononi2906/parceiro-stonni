@@ -217,6 +217,12 @@ Início/dashboard (Últimas OS) · Nova OS · Minhas OS · **Encaminhar cliente*
 - ✅ Não usa `confirm()`/`alert()` nativos (UI própria) — manter assim.
 
 ## Dev-log
+- 2026-09-24 — **Correção do FAB "Sugerir melhoria": z-index:150 não era baixo o suficiente.** A
+  correção anterior (mesmo dia, `z-index:9997` → `150`) partiu do que resolvia no `com_stonni`
+  (drawer com `z-index:200/201`), mas testando ao vivo no `bononi-exped` e no `bononi-cobranca`
+  (que usam escala Tailwind `z-20`/`z-30`/`z-50` para nav/drawer/painel) o FAB continuava por
+  cima — `150 > 50`. Baixado de novo, agora para `z-index:10`, valor seguro em todos os apps que
+  usam este arquivo (abaixo até do menor caso encontrado, `z-20`). `?v=` bumpado de 8 pra 9.
 - 2026-09-24 — **Service worker novo: pega versão nova sozinho, sem F5.** O app não tinha
   service worker — só dependia de cada arquivo ser lembrado na hora de subir. `sw.js` novo
   (network-first pra casca, `skipWaiting`+`clients.claim`), registrado no `index.html` com
