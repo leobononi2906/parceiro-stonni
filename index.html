@@ -2206,7 +2206,7 @@ async function carregarMinhasOS(filtro){
     _todasOS=await r.json();
     if(!Array.isArray(_todasOS)) _todasOS=[];
     mostrarListaOS(filtro);
-  }catch(e){console.error(e);document.getElementById('listaOS').innerHTML='<div class="empty-state"><p>Erro ao carregar</p></div>'}
+  }catch(e){console.error(e);var boxErro=document.getElementById('listaOS');if(boxErro)boxErro.innerHTML='<div class="empty-state"><p>Erro ao carregar</p></div>'}
 }
 
 function filtrarOS(chip,filtro){
@@ -2218,6 +2218,7 @@ function filtrarOS(chip,filtro){
 function mostrarListaOS(filtro){
   var lista=filtro?_todasOS.filter(function(o){return grupoStatus(o.status)===filtro}):_todasOS;
   var box=document.getElementById('listaOS');
+  if(!box) return; // usuário trocou de tela enquanto a lista carregava
   if(!lista.length){
     box.innerHTML='<div class="empty-state"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><p>Nenhuma OS encontrada</p>'+(filtro?'':'<button class="btn btn-primary btn-sm" onclick="navegar(\'nova-os\')">Criar primeira OS</button>')+'</div>';
     return;

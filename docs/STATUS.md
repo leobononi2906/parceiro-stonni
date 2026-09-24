@@ -217,6 +217,13 @@ Início/dashboard (Últimas OS) · Nova OS · Minhas OS · **Encaminhar cliente*
 - ✅ Não usa `confirm()`/`alert()` nativos (UI própria) — manter assim.
 
 ## Dev-log
+- 2026-09-24 — **"Minhas OS" quebrava com `innerHTML` de elemento nulo, ao trocar de tela durante
+  o carregamento.** Achado pelo painel de saúde: 6 `PROMISE_REJEITADA` com "Cannot set properties
+  of null (setting 'innerHTML')" em `prt_logs` entre 14/07 e 08/09, 3 usuários. `mostrarListaOS()`
+  pegava `#listaOS` sem checar null e escrevia nele depois do `await fetch` de `carregarMinhasOS`
+  — se o usuário já tinha saído da tela quando a resposta chegava, o elemento não existia mais.
+  Mesmo defeito que `carregarDashboardKPIs()` já tinha corrigido (`if(!box) return`), agora
+  replicado em `mostrarListaOS()` e no `catch` de `carregarMinhasOS()`.
 - 2026-09-24 — **PDF da OS não gerava para o parceiro — `_usuario` não existia.** Achado pelo
   painel de saúde (bononi-painel-dev): 9 erros de `ReferenceError: _usuario is not defined` em
   `prt_logs` entre 28/08 e 14/09, todos do mesmo parceiro (nauticagrillorefrigeracao), 5 tentativas
