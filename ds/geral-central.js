@@ -1,7 +1,12 @@
 /* ============================================================
    geral-central.js — Sugestão, avisos, atualização cadastral e
-   expiração de senha  |  v12 — 25/09/2026
+   expiração de senha  |  v13 — 25/09/2026
    ============================================================
+   v13: marcarVisto() grava também QUAIS campos a pessoa alterou de
+   verdade na campanha de cadastro (geral_avisos_visualizacoes.campos_alterados,
+   migration 0015) — é o que alimenta, no Painel Dev, "quem alterou,
+   quem manteve" por campanha. EXIGE a 0015 já aplicada: sem a coluna,
+   o PostgREST recusa o insert inteiro e o "visto" não grava.
    v12: campanha de atualização cadastral passa a ler/gravar em
    geral_cadastro_confirmacoes (RPCs geral_cadastro_status/
    geral_cadastro_confirmar, migration 0012/0014) em vez de
@@ -81,7 +86,7 @@
 (function () {
   'use strict';
 
-  var VERSAO = '12';
+  var VERSAO = '13';
 
   function esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
@@ -224,13 +229,18 @@
     });
   }
 
-  async function marcarVisto(o, avisoId) {
+  async function marcarVisto(o, avisoId, extra) {
     // upsert: em frequencia=diario a mesma pessoa marca visto todo dia, e a
     // chave (aviso_id, usuario_email) já existe — precisa atualizar, não inserir.
+    // `extra` (opcional): hoje só `campos_alterados` (campanha de cadastro,
+    // migration 0015) — quais campos a pessoa digitou nesta visualização.
     await rest(o, 'geral_avisos_visualizacoes?on_conflict=aviso_id,usuario_email', {
       method: 'POST',
       headers: { Prefer: 'resolution=merge-duplicates' },
-      body: JSON.stringify({ aviso_id: avisoId, usuario_email: o.usuario.email, visto_em: new Date().toISOString() }),
+      body: JSON.stringify(Object.assign(
+        { aviso_id: avisoId, usuario_email: o.usuario.email, visto_em: new Date().toISOString() },
+        extra || {}
+      )),
     });
   }
 
@@ -334,10 +344,11 @@
         // Campo em branco = "está certo": mantém o valor atual. Só o campo
         // que a pessoa de fato digitou vai como valor novo.
         var valores = {};
+        var alterados = [];
         CAMPOS_CADASTRO.forEach(function (c) { valores[c.valor] = dadosAtuais[c.valor] || null; });
         pedidos.forEach(function (c) {
           var digitado = el.querySelector('[data-campo="' + c.valor + '"]').value.trim();
-          if (digitado) valores[c.valor] = digitado;
+          if (digitado) { valores[c.valor] = digitado; alterados.push(c.valor); }
         });
         if (!valores.nome) { erroEl.textContent = 'Preencha o nome.'; return; }
         try {
@@ -354,7 +365,12 @@
             }),
           });
           if (!resp || !resp.ok) { erroEl.textContent = 'Erro ao salvar. Tente de novo.'; return; }
-          await marcarVisto(o, aviso.id);
+          // Exige a migration 0015 (coluna geral_avisos_visualizacoes.campos_alterados)
+          // já aplicada: sem ela o PostgREST recusa o insert inteiro (coluna
+          // desconhecida) e o "visto" nem grava — a campanha voltaria a
+          // aparecer pra pessoa. NÃO subir este arquivo antes da 0015 estar
+          // em produção.
+          await marcarVisto(o, aviso.id, { campos_alterados: alterados });
           el.remove();
           resolve();
         } catch (e) {
