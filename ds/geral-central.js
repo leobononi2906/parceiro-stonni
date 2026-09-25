@@ -1,7 +1,18 @@
 /* ============================================================
    geral-central.js — Sugestão, avisos, atualização cadastral e
-   expiração de senha  |  v6 — 23/09/2026
+   expiração de senha  |  v12 — 25/09/2026
    ============================================================
+   v12: campanha de atualização cadastral passa a ler/gravar em
+   geral_cadastro_confirmacoes (RPCs geral_cadastro_status/
+   geral_cadastro_confirmar, migration 0012/0014) em vez de
+   user_metadata. O dev escolhe no Painel QUAIS dos 5 campos (nome,
+   telefone, e-mail pessoal, cargo, empresa/loja) esta campanha pede
+   (geral_avisos.campos); cada campo mostra o valor já registrado e um
+   input em branco embaixo — em branco = "está certo" (mantém o valor
+   atual), preenchido = corrige. Sem a migration 0014 no banco, desiste
+   em silêncio (mesmo padrão de sempre).
+   Este arquivo não tem o bloco de prazo de treinamento (v10/v11) dos
+   demais apps — divergência já existente, mantida de propósito aqui.
    v2: botão vira ícone com tooltip no hover (antes era pílula de texto
    fixa, cobria mais tela). Formulário de sugestão passou a diferenciar
    "não funcionou" (o que eu queria fazer / o que deveria acontecer / o
@@ -70,7 +81,7 @@
 (function () {
   'use strict';
 
-  var VERSAO = '6';
+  var VERSAO = '12';
 
   function esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
@@ -268,28 +279,50 @@
     });
   }
 
+  // Os 5 campos de geral_cadastro_confirmacoes (migration 0012/0014) — o
+  // dev escolhe no Painel quais uma campanha pede (geral_avisos.campos).
+  var CAMPOS_CADASTRO = [
+    { valor: 'nome', label: 'Nome', tipo: 'text', placeholder: 'Ex: Maria Silva' },
+    { valor: 'telefone', label: 'Telefone', tipo: 'tel', placeholder: '(11) 99999-9999' },
+    { valor: 'email_pessoal', label: 'E-mail pessoal', tipo: 'email', placeholder: 'seu@email.com' },
+    { valor: 'cargo', label: 'Cargo', tipo: 'text', placeholder: 'Ex: Vendedora' },
+    { valor: 'empresa_ou_loja', label: 'Empresa/loja', tipo: 'text', placeholder: 'Ex: Loja Centro' },
+  ];
+
   async function verificarAtualizacaoCadastral(o) {
     try {
       var pendentes = await buscarAvisosPendentes(o, 'atualizacao_cadastral');
       if (!pendentes.length) return;
-      await mostrarFormularioCadastro(o, pendentes[0]);
+      var respStatus = await rest(o, 'rpc/geral_cadastro_status', { method: 'POST', body: '{}' });
+      if (!respStatus || !respStatus.ok) return; // migration 0012/0014 ausente neste banco: desiste em silêncio
+      var status = await respStatus.json();
+      var dadosAtuais = (status && status.dados) || {};
+      await mostrarFormularioCadastro(o, pendentes[0], dadosAtuais);
     } catch (e) { console.warn('[geral-central] cadastro', e && e.message); }
   }
 
-  function mostrarFormularioCadastro(o, aviso) {
+  function mostrarFormularioCadastro(o, aviso, dadosAtuais) {
     var travado = aviso.bloqueante === true;
+    var pedidos = (Array.isArray(aviso.campos) && aviso.campos.length)
+      ? CAMPOS_CADASTRO.filter(function (c) { return aviso.campos.indexOf(c.valor) !== -1; })
+      : CAMPOS_CADASTRO;
+
     return new Promise(function (resolve) {
+      var camposHtml = pedidos.map(function (c) {
+        var atual = dadosAtuais[c.valor];
+        return '<label style="display:block;font-size:12px;font-weight:600;margin-bottom:4px">' + esc(c.label) + '</label>' +
+          '<div style="width:100%;padding:8px 11px;border-radius:5px;margin-bottom:4px;background:#f4f5f7;color:#6b7382;font-size:13px">' +
+          (atual ? esc(atual) : 'ainda não informado') + '</div>' +
+          '<input data-campo="' + c.valor + '" type="' + c.tipo + '" placeholder="Deixe em branco se está certo, ou digite o valor certo" ' +
+          'style="width:100%;padding:9px 11px;border:1px solid #e2e5ea;border-radius:5px;margin-bottom:10px">';
+      }).join('');
+
       var el = overlay('gc-cadastro', '<div style="' + caixa() + '">' +
         '<h3 style="font-size:16px;margin-bottom:4px">' + esc(aviso.titulo) + '</h3>' +
         '<p style="font-size:13px;color:#6b7382;margin-bottom:14px">' + escHtmlSimples(aviso.mensagem) + '</p>' +
-        '<label style="display:block;font-size:12px;font-weight:600;margin-bottom:4px">Seu nome</label>' +
-        '<input id="gc-cad-nome" type="text" value="' + esc(o.usuario.nome || '') + '" style="width:100%;padding:9px 11px;border:1px solid #e2e5ea;border-radius:5px;margin-bottom:10px">' +
-        '<label style="display:block;font-size:12px;font-weight:600;margin-bottom:4px">Seu e-mail (o seu, não o da conta)</label>' +
-        '<input id="gc-cad-email" type="email" placeholder="seu@email.com" style="width:100%;padding:9px 11px;border:1px solid #e2e5ea;border-radius:5px;margin-bottom:10px">' +
-        '<label style="display:block;font-size:12px;font-weight:600;margin-bottom:4px">Telefone</label>' +
-        '<input id="gc-cad-telefone" type="tel" placeholder="(11) 99999-9999" style="width:100%;padding:9px 11px;border:1px solid #e2e5ea;border-radius:5px">' +
-        '<div id="gc-cad-erro" style="color:#c11f25;font-size:12px;margin-top:8px;min-height:16px"></div>' +
-        '<div style="display:flex;gap:8px;margin-top:10px">' +
+        camposHtml +
+        '<div id="gc-cad-erro" style="color:#c11f25;font-size:12px;margin-top:-2px;margin-bottom:8px;min-height:16px"></div>' +
+        '<div style="display:flex;gap:8px;margin-top:2px">' +
         (travado ? '' : '<button id="gc-cad-depois" style="flex:1;padding:10px;background:#fff;color:#14161a;border:1px solid #e2e5ea;border-radius:5px;font-weight:600">Depois</button>') +
         '<button id="gc-cad-salvar" style="flex:' + (travado ? '1' : '2') + ';padding:10px;background:#14161a;color:#fff;border:none;border-radius:5px;font-weight:700">Salvar' + (travado ? ' e continuar' : '') + '</button>' +
         '</div></div>');
@@ -298,16 +331,29 @@
       if (btnDepois) btnDepois.addEventListener('click', function () { el.remove(); resolve(); });
       el.querySelector('#gc-cad-salvar').addEventListener('click', async function () {
         var erroEl = el.querySelector('#gc-cad-erro');
-        var nome = el.querySelector('#gc-cad-nome').value.trim();
-        var emailContato = el.querySelector('#gc-cad-email').value.trim();
-        var telefone = el.querySelector('#gc-cad-telefone').value.trim();
-        if (!nome) { erroEl.textContent = 'Preencha o nome.'; return; }
-        if (!emailContato) { erroEl.textContent = 'Preencha o e-mail.'; return; }
+        // Campo em branco = "está certo": mantém o valor atual. Só o campo
+        // que a pessoa de fato digitou vai como valor novo.
+        var valores = {};
+        CAMPOS_CADASTRO.forEach(function (c) { valores[c.valor] = dadosAtuais[c.valor] || null; });
+        pedidos.forEach(function (c) {
+          var digitado = el.querySelector('[data-campo="' + c.valor + '"]').value.trim();
+          if (digitado) valores[c.valor] = digitado;
+        });
+        if (!valores.nome) { erroEl.textContent = 'Preencha o nome.'; return; }
         try {
-          var sessao = await o.sb.auth.getSession();
-          var metaAtual = (sessao.data.session && sessao.data.session.user.user_metadata) || {};
-          var r = await o.sb.auth.updateUser({ data: Object.assign({}, metaAtual, { nome: nome, email_contato: emailContato, telefone: telefone }) });
-          if (r.error) { erroEl.textContent = r.error.message; return; }
+          var resp = await rest(o, 'rpc/geral_cadastro_confirmar', {
+            method: 'POST',
+            body: JSON.stringify({
+              p_nome: valores.nome,
+              p_telefone: valores.telefone,
+              p_email_pessoal: valores.email_pessoal,
+              p_cargo: valores.cargo,
+              p_empresa_ou_loja: valores.empresa_ou_loja,
+              p_login_compartilhado: dadosAtuais.login_compartilhado || false,
+              p_detalhe_compartilhamento: dadosAtuais.detalhe_compartilhamento || null,
+            }),
+          });
+          if (!resp || !resp.ok) { erroEl.textContent = 'Erro ao salvar. Tente de novo.'; return; }
           await marcarVisto(o, aviso.id);
           el.remove();
           resolve();
