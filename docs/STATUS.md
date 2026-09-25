@@ -1,6 +1,6 @@
 # STATUS — Portal Rede Autorizada (parceiro-stonni)
 
-> Atualizado: 2026-09-24 (2)
+> Atualizado: 2026-09-25
 
 ## O que é
 Portal do **parceiro da rede de assistência técnica autorizada Stonni**: o parceiro abre OS, consulta material técnico, controla o próprio estoque de peças, compra peças e vê o financeiro dele.
@@ -217,6 +217,13 @@ Início/dashboard (Últimas OS) · Nova OS · Minhas OS · **Encaminhar cliente*
 - ✅ Não usa `confirm()`/`alert()` nativos (UI própria) — manter assim.
 
 ## Dev-log
+- 2026-09-25 — **"Minhas OS" e Financeiro só chegaram ao ar hoje.** O push de 24/09 às 14:37
+  (`19ddf6d`, "Minhas OS") foi para o GitHub, mas o deploy não saiu: a conta da Vercel (plano
+  Hobby) passou de 100 deploys em 24h, somando todos os apps, e o site ficou parado em `24cdfcd`
+  (PDF da OS, 14:24) — sem erro em lugar nenhum. A correção do Financeiro (`530ed3b`, commitada
+  às 17:55 e nunca enviada) subiu no mesmo push.
+  - Conferido no ar em 25/09, ~08:45: os 3 arquivos servidos testados batem com `530ed3b`.
+  - Daqui em diante o teto é controlado pela skill `controlar-deploys` (pasta `.claude`).
 - 2026-09-24 — **Financeiro preso em "Carregando..." ao trocar de tela durante o load.** `renderFinanceiro` usava `#finArea` depois do `await` sem guarda de null — a gêmea `stonni-assistencia/modules/pagamentos.js` já tinha; voltou para a origem. Achado do pente fino de 24/09.
 - 2026-09-24 — **"Minhas OS" quebrava com `innerHTML` de elemento nulo, ao trocar de tela durante
   o carregamento.** Achado pelo painel de saúde: 6 `PROMISE_REJEITADA` com "Cannot set properties
