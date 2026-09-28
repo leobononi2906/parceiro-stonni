@@ -469,6 +469,29 @@ var SB_URL='https://vishxwdxqiygbxmtpfoy.supabase.co';
 var SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZpc2h4d2R4cWl5Z2J4bXRwZm95Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI0Njg2MjIsImV4cCI6MjA4ODA0NDYyMn0.J647m3ieDHahNQYBWMRESl0aPFXsT_zt_7ZcDvyB-SA';
 var sb=window.supabase.createClient(SB_URL,SB_KEY);
 
+// Auto-login de teste: só existe function no projeto de TESTE (gxzhuewczlixksqrmjuk),
+// então em produção o fetch nem acha a rota. serve-staging.py troca SB_URL/SB_KEY em
+// memória ao servir local; o arquivo em disco continua com produção de propósito.
+var BONONI_TEST_MODE = SB_URL.includes('gxzhuewczlixksqrmjuk');
+
+async function bononiAutoLoginTeste(sb){
+  if(!BONONI_TEST_MODE) return null;
+  try{
+    var resp=await fetch(SB_URL+'/functions/v1/auto-login-teste',{
+      method:'POST',
+      headers:{'Content-Type':'application/json',apikey:SB_KEY},
+      body:'{}',
+    });
+    var data=await resp.json();
+    if(!data.ok) return null;
+    var r=await sb.auth.setSession({access_token:data.access_token,refresh_token:data.refresh_token});
+    if(r.error) return null;
+    return r.data.session;
+  }catch(e){
+    return null;
+  }
+}
+
 // Valor corrente do cabecalho Authorization. Comeca na chave ANONIMA porque a
 // tela de login precisa falar com o banco antes de existir usuario; a partir
 // do login passa a ser o token da pessoa.
@@ -751,9 +774,11 @@ async function fazerLogout(){
 // check session on load
 (async function(){
   var sess=await sb.auth.getSession();
-  if(sess&&sess.data&&sess.data.session){
-    AUTHZ='Bearer '+sess.data.session.access_token;
-    _user=sess.data.session.user;
+  var session=sess&&sess.data&&sess.data.session;
+  if(!session) session=await bononiAutoLoginTeste(sb);
+  if(session){
+    AUTHZ='Bearer '+session.access_token;
+    _user=session.user;
     await carregarPerfil();
   }
 })();
