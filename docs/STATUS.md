@@ -217,6 +217,7 @@ Início/dashboard (Últimas OS) · Nova OS · Minhas OS · **Encaminhar cliente*
 - ✅ Não usa `confirm()`/`alert()` nativos (UI própria) — manter assim.
 
 ## Dev-log
+- 2026-09-28 — **Selo morto "Minhas OS" removido.** `#badgeOS` nascia no primeiro commit e nenhuma função escrevia nele. A OS recusada é estado final para a autorizada (sem ação possível — ela vê o motivo, só), então não havia fila para contar. `sw.js` → `v1-20260928`. O sino do grupo não aparece aqui de propósito (é da equipe interna). Pendente: o "visto" dos encaminhamentos mora só no `localStorage` do aparelho.
 - 2026-09-28 — **Auto-login em ambiente de TESTE.** `bononiAutoLoginTeste(sb)` tenta a Edge
   Function `auto-login-teste` (do `bononi-hub`, só existe no projeto de teste) antes de mostrar
   login, só quando `SB_URL` é a de teste (via `serve-staging.py`). Em produção não muda nada.
