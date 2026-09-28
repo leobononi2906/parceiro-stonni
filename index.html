@@ -641,24 +641,31 @@ var _paginaAtual='dashboard';
 // iniciarApp() mandava sempre para o dashboard, entao F5 (ou um deploy novo)
 // tirava do lugar quem estava no meio de um cadastro.
 var PG_CHAVE='prt:pagina';
-function pgGuardar(p){
-  // aba privada ou dados de site bloqueados fazem o acesso levantar: perder a
-  // memoria da pagina nao pode derrubar a entrada no app
-  try{ localStorage.setItem(PG_CHAVE,p) }catch(e){}
+// sub: sub-aba da pagina (_encAba do Encaminhar, ou a aba do pcAba() de
+// Comprar Pecas). Formato novo e um JSON {p,sub}; sem sub grava a mesma
+// string pura de sempre, entao um valor salvo antes desta mudanca continua
+// legivel (ver pgGuardada).
+function pgGuardar(p,sub){
+  try{ localStorage.setItem(PG_CHAVE, sub?JSON.stringify({p:p,sub:sub}):p) }catch(e){}
 }
 function pgGuardada(){
-  var p=null;
-  try{ p=localStorage.getItem(PG_CHAVE) }catch(e){ return null }
+  var raw=null;
+  try{ raw=localStorage.getItem(PG_CHAVE) }catch(e){ return null }
+  if(!raw) return null;
+  var p=raw,sub=null;
+  if(raw.charAt(0)==='{'){
+    try{ var o=JSON.parse(raw); p=o&&o.p; sub=(o&&o.sub)||null }catch(e){ p=raw; sub=null }
+  }
   if(!p) return null;
   // so vale se houver item de menu para ela no documento -- rota removida num
   // deploy nao pode deixar a tela em branco
   var itens=document.querySelectorAll('.nav-item');
   for(var i=0;i<itens.length;i++){
     var oc=itens[i].getAttribute('onclick')||'';
-    if(oc.indexOf("navegar('"+p+"')")>-1) return p;
+    if(oc.indexOf("navegar('"+p+"')")>-1) return {p:p,sub:sub};
   }
   // 'perfil' nao esta no menu lateral: fica no menu do avatar
-  return p==='perfil'?p:null;
+  return p==='perfil'?{p:p,sub:sub}:null;
 }
 
 // ===== AUTH =====
@@ -725,7 +732,11 @@ function iniciarApp(){
   encBadgeAoEntrar();   // sem await: o contador nao pode atrasar a entrada
   // pendenciasCarregar() nao entra aqui: o navegar() logo abaixo ja chama, e
   // duas vezes seria a mesma consulta duplicada em todo login.
-  navegar(pgGuardada()||'dashboard');   // a guardada, ou o dashboard como antes
+  var _pgSalva=pgGuardada();
+  // consumida uma vez por renderEncaminhar()/renderComprarPecas(), qualquer
+  // que seja a pagina restaurada (as duas so existem juntas por construcao)
+  window._subAbaRestaurar=(_pgSalva&&_pgSalva.sub)||null;
+  navegar((_pgSalva&&_pgSalva.p)||'dashboard');   // a guardada, ou o dashboard como antes
 }
 
 async function fazerLogout(){
@@ -2520,6 +2531,9 @@ var _encRecebidos=null;      // null = ainda não buscado
 var _encOrigens={};          // parceiro_id -> contato de quem indicou
 
 async function renderEncaminhar(el){
+  // restaura a sub-aba guardada (prt:pagina), so na primeira renderizacao apos o F5
+  if(window._subAbaRestaurar==='buscar'||window._subAbaRestaurar==='recebidos') _encAba=window._subAbaRestaurar;
+  window._subAbaRestaurar=null;
   _encAchados=[];
   el.innerHTML=
     '<div class="page-header"><h1>Encaminhar cliente</h1></div>'+
@@ -2540,6 +2554,7 @@ function encRenderAbas(){
 }
 async function encSetAba(i){
   _encAba=i===1?'recebidos':'buscar';
+  pgGuardar('encaminhar',_encAba);
   encRenderAbas();
   await encRenderAba();
 }
@@ -3347,6 +3362,9 @@ async function renderComprarPecas(el){
   // Veio pelo aviso: esta tela abre no Catálogo, e parar ali mostraria a
   // vitrine de peças em vez do pedido que espera por ela.
   if(window._focarPedido) pcAba('pedidos');
+  // restaura a sub-aba guardada (prt:pagina), so na primeira renderizacao apos o F5
+  else if(window._subAbaRestaurar==='pedidos') pcAba('pedidos');
+  window._subAbaRestaurar=null;
   try{
     var cfgR=await fetch(SB_URL+'/rest/v1/prt_configuracoes?chave=eq.desconto_autorizada_perc&select=valor',{headers:{'apikey':SB_KEY,'Authorization':AUTHZ}});
     var cfgArr=await cfgR.json();if(Array.isArray(cfgArr)&&cfgArr.length)_descontoAutorizada=parseFloat(cfgArr[0].valor)||15;
@@ -3476,6 +3494,7 @@ function pcBadge(s){
 // Aba em vez de item novo no menu: a barra lateral já tem 8 itens, e pedido de
 // peça é continuação de comprar peça, não outro assunto.
 function pcAba(qual){
+  pgGuardar('comprar-pecas',qual);
   var chips=document.querySelectorAll('#pcAbas .filter-chip');
   for(var i=0;i<chips.length;i++)chips[i].classList.toggle('active',chips[i].getAttribute('data-aba')===qual);
   var cat=document.getElementById('compraPecasArea');
@@ -3797,16 +3816,55 @@ document.addEventListener('click',function(e){
 });
 </script>
 
-<!-- PWA: registra o service worker (network-first; ver sw.js). Detecta versão
-     nova sozinho e recarrega — sem isto, só via deploy novo apertando F5. -->
+<!-- PWA: registra o service worker (network-first; ver sw.js).
+     Versão nova fica "pronta" e só entra com a aba oculta ou a pessoa ociosa,
+     nunca com modal/drawer aberto, campo em edição ou uma OS em preenchimento.
+     Antes (até 28/09/2026) recarregava na hora do controllerchange. -->
 <script>
 if ('serviceWorker' in navigator) {
-  let jaRecarregou = false;
-  navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (jaRecarregou) return;
-    jaRecarregou = true;
+  let temControlador = !!navigator.serviceWorker.controller;
+  let versaoNovaPronta = false, recarregando = false, ultimoToque = Date.now();
+  const OCIOSO_MS = 10 * 60 * 1000;
+  ['pointerdown', 'keydown', 'input'].forEach(ev =>
+    window.addEventListener(ev, () => { ultimoToque = Date.now(); }, { capture: true, passive: true }));
+
+  // .modal-overlay ganha role="dialog"/aria-modal ao abrir (modalAtivar, acima
+  // neste arquivo); .sidebar-overlay é o menu mobile.
+  const SOBREPOSICAO = '.modal-overlay.show,.sidebar-overlay.show,dialog[open],[role="dialog"],[aria-modal="true"]';
+
+  function ocupado() {
+    const a = document.activeElement;
+    if (a && (a.isContentEditable || (/^(INPUT|TEXTAREA)$/.test(a.tagName) && a.value !== ''))) return true;
+    if ([...document.querySelectorAll(SOBREPOSICAO)].some(el => el.getClientRects().length > 0)) return true;
+    // window._guardaSaida (definido em osInstalarGuarda, acima) é função de
+    // CONFIRMAÇÃO: chama osCommit() e devolve o texto do diálogo de saída, não
+    // um booleano de consulta. Aqui lemos direto o estado que ela mesma lê,
+    // sem chamá-la (evita repetir o commit a cada checagem de 60s/visibilidade).
+    if (typeof osFormTemAlgo === 'function' && document.getElementById('osFormArea') && osFormTemAlgo()) return true;
+    return typeof window.trabalhoEmAndamento === 'function' && window.trabalhoEmAndamento();
+  }
+
+  function podeRecarregarAgora() {
+    if (ocupado()) return false;
+    return document.visibilityState === 'hidden' || Date.now() - ultimoToque > OCIOSO_MS;
+  }
+
+  function aplicarVersaoNova() {
+    if (!versaoNovaPronta || recarregando || !podeRecarregarAgora()) return;
+    recarregando = true;
+    // Flush síncrono do rascunho da OS: osAgendarRascunho() teria um debounce
+    // de 500ms que o reload cortaria no meio.
+    try { if (typeof osCommit === 'function') osCommit(); if (typeof osSalvarRascunhoLocal === 'function') osSalvarRascunhoLocal(); } catch (e) {}
     location.reload();
+  }
+
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!temControlador) { temControlador = true; return; }
+    versaoNovaPronta = true;
+    aplicarVersaoNova();
   });
+  document.addEventListener('visibilitychange', aplicarVersaoNova);
+  setInterval(aplicarVersaoNova, 60 * 1000);
 
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('./sw.js').then((reg) => {

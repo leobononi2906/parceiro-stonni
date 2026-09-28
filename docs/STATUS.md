@@ -1,6 +1,6 @@
 # STATUS — Portal Rede Autorizada (parceiro-stonni)
 
-> Atualizado: 2026-09-25
+> Atualizado: 2026-09-28
 
 ## O que é
 Portal do **parceiro da rede de assistência técnica autorizada Stonni**: o parceiro abre OS, consulta material técnico, controla o próprio estoque de peças, compra peças e vê o financeiro dele.
@@ -217,6 +217,7 @@ Início/dashboard (Últimas OS) · Nova OS · Minhas OS · **Encaminhar cliente*
 - ✅ Não usa `confirm()`/`alert()` nativos (UI própria) — manter assim.
 
 ## Dev-log
+- 2026-09-28 — **Versão nova não recarrega mais no meio de uma OS, e o F5 volta na mesma sub-aba.** Regra do grupo desde hoje (skill `manter-tela-ao-atualizar`). O `controllerchange` recarregava na hora. Agora a versão nova fica pronta e só entra com a aba oculta ou a pessoa parada há 10 min, nunca com `.modal-overlay.show`, menu mobile aberto, campo preenchido em foco ou OS em preenchimento (`osFormTemAlgo()`, lido direto, porque `_guardaSaida` é de confirmação e tem efeito colateral). Antes do reload, flush do rascunho (`osCommit` + `osSalvarRascunhoLocal`). `prt:pagina` passou a guardar `{p, sub}` em JSON (string antiga continua legível): Encaminhar lembra Buscar/Recebidos, e Comprar Peças lembra Catálogo/Meus pedidos. **Tela gêmea:** mesma mudança no `stonni-assistencia`. Pendente: `fazerLogout()` não limpa `prt:pagina`.
 - 2026-09-25 — **"Minhas OS" e Financeiro só chegaram ao ar hoje.** O push de 24/09 às 14:37
   (`19ddf6d`, "Minhas OS") foi para o GitHub, mas o deploy não saiu: a conta da Vercel (plano
   Hobby) passou de 100 deploys em 24h, somando todos os apps, e o site ficou parado em `24cdfcd`
