@@ -1,6 +1,6 @@
 # STATUS — Portal Rede Autorizada (parceiro-stonni)
 
-> Atualizado: 2026-09-28
+> Atualizado: 2026-10-05
 
 ## O que é
 Portal do **parceiro da rede de assistência técnica autorizada Stonni**: o parceiro abre OS, consulta material técnico, controla o próprio estoque de peças, compra peças e vê o financeiro dele.
@@ -217,6 +217,9 @@ Início/dashboard (Últimas OS) · Nova OS · Minhas OS · **Encaminhar cliente*
 - ✅ Não usa `confirm()`/`alert()` nativos (UI própria) — manter assim.
 
 ## Dev-log
+- 2026-10-05 — (`3e2eaa9`, publicado) **Link no aviso do Painel Dev aparece como link.** O estilo base do app zera cor e sublinhado do `<a>`, então o link escrito no aviso (`<a href="https://...">`) já funcionava mas saía igual ao resto do texto e ninguém via que dava para clicar. Caso que revelou: o aviso das notas paradas há 24h na Expedição, com "abrir as notas paradas".
+  - Este app está numa versão antiga do `geral-central.js` (diferente da v15 do hub): trocada **só a linha do link** em `escHtmlSimples`, sem recopiar o arquivo, para não trazer v13–v15 sem conferir. `?v=13` no `index.html`.
+  - Conferido no ar: o `geral-central.js` publicado já traz o estilo novo. Não visto na tela (o aviso só aparece com login).
 - 2026-09-28 — **Selo morto "Minhas OS" removido.** `#badgeOS` nascia no primeiro commit e nenhuma função escrevia nele. A OS recusada é estado final para a autorizada (sem ação possível — ela vê o motivo, só), então não havia fila para contar. `sw.js` → `v1-20260928`. O sino do grupo não aparece aqui de propósito (é da equipe interna). Pendente: o "visto" dos encaminhamentos mora só no `localStorage` do aparelho.
 - 2026-09-28 — **Auto-login em ambiente de TESTE.** `bononiAutoLoginTeste(sb)` tenta a Edge
   Function `auto-login-teste` (do `bononi-hub`, só existe no projeto de teste) antes de mostrar
