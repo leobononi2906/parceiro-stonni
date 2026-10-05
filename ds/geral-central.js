@@ -102,7 +102,7 @@
     var t = esc(s);
     t = t.replace(/&lt;br\s*\/?&gt;/gi, '<br>');
     t = t.replace(/&lt;(\/?)(b|strong|i|em|u)&gt;/gi, '<$1$2>');
-    t = t.replace(/&lt;a href=&quot;(https?:\/\/[^&"]*)&quot;&gt;/gi, '<a href="$1" target="_blank" rel="noopener noreferrer">');
+    t = t.replace(/&lt;a href=&quot;(https?:\/\/[^&"]*)&quot;&gt;/gi, '<a href="$1" target="_blank" rel="noopener noreferrer" style="color:#c11f25;text-decoration:underline;font-weight:700;cursor:pointer">');
     t = t.replace(/&lt;\/a&gt;/gi, '</a>');
     return t;
   }
