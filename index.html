@@ -1490,7 +1490,7 @@ function renderOsStep(){
           '<div class="form-group"><label for="osNF">Número da NF de compra <span class="text-xs" style="color:var(--danger)">*</span></label><input type="text" id="osNF" value="'+esc(_osData.numero_nf)+'" placeholder="NF de compra do cliente"></div>'+
           '<div class="form-group"><label for="osDataCompra">Data da compra</label><input type="date" id="osDataCompra" value="'+esc(_osData.data_compra)+'"></div>'+
         '</div>'+
-        '<div class="form-group"><label for="fotoNF">NF de compra (foto ou PDF)</label>'+
+        '<div class="form-group"><label for="fotoNF">NF de compra (foto ou PDF) <span class="text-xs" style="color:var(--danger)">*</span></label>'+
           '<input type="file" id="fotoNF" accept="image/*,application/pdf" onchange="uploadFoto(\'nf\')" style="display:none">'+
           '<div id="previewNF" class="foto-preview" onclick="document.getElementById(\'fotoNF\').click()">'+
             (_osData.foto_nf?previewNFHtml(_osData.foto_nf):'<svg viewBox="0 0 24 24" width="24" height="24" stroke="var(--text-d)" fill="none" stroke-width="1.5" aria-hidden="true" focusable="false"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg><span class="text-xs text-muted">Toque para escolher foto ou PDF da NF</span>')+
@@ -1520,7 +1520,7 @@ function renderOsStep(){
         '<div id="pecasArea"><div class="loading-full"><span class="spinner"></span> Carregando peças...</div></div>'+
         '<div id="pecasSelArea">'+renderPecasSelHtml()+'</div>'+
         '<hr style="border:0;border-top:1px solid var(--border);margin:16px 0">'+
-        '<div class="card-title">Fotos do equipamento</div>'+
+        '<div class="card-title">Fotos do equipamento <span class="text-xs" style="color:var(--danger)">*</span></div>'+
         '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px" id="fotosEquipGrid">'+fotosEquipHtml+'</div>'+
         '<input type="file" id="fotoEquipInput" accept="image/*,application/pdf" onchange="uploadFotoEquip()" style="display:none" multiple>'+
         '<button class="btn btn-ghost btn-sm" style="width:auto" onclick="document.getElementById(\'fotoEquipInput\').click()">'+ico('camera',14)+' Adicionar foto</button>'+
@@ -1972,6 +1972,8 @@ function osProximo(step){
       // nao tem como conferir o inicio da garantia contra a data digitada.
       _osData.numero_nf=tr(_osData.numero_nf);
       if(!_osData.numero_nf){toast('Informe o número da NF-e de compra','error');return}
+      // Sem o documento a Stonni recusa a OS na análise; barrar aqui poupa a volta.
+      if(!_osData.foto_nf){toast('Anexe a foto ou o PDF da NF de compra (se está enviando, aguarde terminar)','error');return}
       _servicosCache=[];_categoriasCache=[];_accordionOpen=null;_servicosSelecionados=[];_showAccordionPicker=false;_tetoProduto=null;
       break;
     case 3:
@@ -1979,6 +1981,7 @@ function osProximo(step){
       if(!_osData.defeito_descricao){toast('Descreva o defeito','error');return}
       if(!_osData.data_servico){toast('Informe a data do serviço','error');return}
       if(!_servicosSelecionados.length){toast('Adicione ao menos um serviço realizado','error');return}
+      if(!osTemFotoEquip()){toast('Adicione ao menos uma foto do equipamento','error');return}
       // calcValorEfetivo() depende de _categoriasCache/_tetoProduto. Avancar
       // antes do carregamento terminar gravaria valor_servico SEM os tetos --
       // ou seja, valor maior do que a Stonni paga.
@@ -1996,7 +1999,18 @@ function osProximo(step){
 // Commit ANTES de trocar de passo: sem isto, voltar apagava tudo do passo atual.
 function osVoltar(){ osCommit(); osSalvarRascunhoLocal(); _osStep--; renderOsStep() }
 
+// OS antiga pode ter só a foto legada (foto_equipamento), sem o array.
+function osTemFotoEquip(){
+  return (Array.isArray(_osData.fotos_equipamento)&&_osData.fotos_equipamento.length>0)||!!_osData.foto_equipamento;
+}
+
 async function osSalvar(status){
+  // Rascunho pode ficar incompleto; o que vai para a Stonni, não. Repete a
+  // checagem dos passos porque OS aberta para edição pode ter vindo sem anexo.
+  if(status!=='rascunho'){
+    if(!_osData.foto_nf){toast('Anexe a foto ou o PDF da NF de compra (passo 2)','error');return}
+    if(!osTemFotoEquip()){toast('Adicione ao menos uma foto do equipamento (passo 3)','error');return}
+  }
   var btn=document.getElementById(status==='rascunho'?'btnRascunho':'btnEnviar');
   btn.disabled=true;btn.innerHTML='<span class="spinner"></span>';
   var payload={

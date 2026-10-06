@@ -1,6 +1,6 @@
 # STATUS — Portal Rede Autorizada (parceiro-stonni)
 
-> Atualizado: 2026-10-05
+> Atualizado: 2026-10-06
 
 ## O que é
 Portal do **parceiro da rede de assistência técnica autorizada Stonni**: o parceiro abre OS, consulta material técnico, controla o próprio estoque de peças, compra peças e vê o financeiro dele.
@@ -10,6 +10,9 @@ Portal do **parceiro da rede de assistência técnica autorizada Stonni**: o par
 - **Deploy:** https://parceiro-stonni.vercel.app (chave de acesso no Hub = `rede-autorizada`) · push na `main` → Vercel automático.
 - **Supabase:** `vishxwdxqiygbxmtpfoy` (prefixo `prt_`).
 - **Código:** `index.html` único (~196KB). Sem build. `vercel.json` com SPA rewrite + headers de segurança (X-Frame-Options DENY, nosniff). Chama Supabase por `fetch` em `/rest/v1/`.
+
+## 2026-10-06 — OS não sai sem NF anexada e sem foto do equipamento
+Antes só o número da NF era obrigatório. Agora `osProximo` barra o passo 2 sem `foto_nf` (foto ou PDF) e o passo 3 sem ao menos uma foto do equipamento (vale a foto legada `foto_equipamento`); `osSalvar` repete a checagem para tudo que não é rascunho, porque OS antiga aberta para edição pode não ter anexo. Os dois campos ganharam `*`. Mesma regra na tela gêmea (`stonni-assistencia/modules/os.js`). Só no front: o banco ainda aceita OS sem anexo. `sw.js` VERSAO → `20261006`.
 
 ## 2026-09-23 — Botão "Sugerir melhoria" (rollout do geral-central.js)
 Chamado logo após `carregarPerfil()` popular `_user`/`_perfil`/`_parceiro`, antes de `iniciarApp()` — mesmo ponto do login confirmado (fluxo de login e o de sessão restaurada convergem aqui). `appId: 'rede-autorizada'`. Testado local: script carrega sem erro, `window.GeralCentral` existe. Original em `bononi-hub/ds/geral-central.js`.
