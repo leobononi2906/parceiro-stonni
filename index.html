@@ -509,7 +509,7 @@ var AUTHZ='Bearer '+SB_KEY;
 // chamada leva 401 e as telas ficam vazias sem explicacao.
 sb.auth.onAuthStateChange(function(evento,sessao){
   if(sessao&&sessao.access_token) AUTHZ='Bearer '+sessao.access_token;
-  else if(evento==='SIGNED_OUT') AUTHZ='Bearer '+SB_KEY;
+  else if(evento==='SIGNED_OUT'){ AUTHZ='Bearer '+SB_KEY; try{ localStorage.removeItem(PG_CHAVE) }catch(e){} rascunhosLimparTodos(); }
 });
 
 // ===== ICONS v1 -- subconjunto do lucide 0.462.0 (ISC), a mesma versao que os
@@ -762,6 +762,8 @@ function iniciarApp(){
 }
 
 async function fazerLogout(){
+  try{ localStorage.removeItem(PG_CHAVE) }catch(e){}   // tela guardada e do usuario que saiu
+  rascunhosLimparTodos();
   await sb.auth.signOut();
   AUTHZ='Bearer '+SB_KEY;   // explicito: nao depender da ordem do evento
   _user=null;_perfil=null;_parceiro=null;_parceiroId=null;
@@ -1274,6 +1276,15 @@ function rascunhoLer(k,ttl){
   }catch(e){ return null }
 }
 function rascunhoLimpar(k){ try{ localStorage.removeItem(k) }catch(e){} }
+// no Sair: apaga o rascunho de OS de todos os usuarios/parceiros deste aparelho
+function rascunhosLimparTodos(){
+  try{
+    for(var i=localStorage.length-1;i>=0;i--){
+      var k=localStorage.key(i);
+      if(k&&k.indexOf('stonni_os_draft_v1:')===0) localStorage.removeItem(k);
+    }
+  }catch(e){}
+}
 function haQuantoTempo(ts){
   var s=Math.max(0,Math.round((Date.now()-ts)/1000));
   if(s<60) return 'agora ha pouco';
