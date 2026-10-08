@@ -8,7 +8,7 @@
 //
 //  ⚠️ Ao subir um deploy, BUMPAR VERSAO para invalidar o cache antigo.
 // ============================================================
-const VERSAO = 'parceiro-stonni-v1-20261006';
+const VERSAO = 'parceiro-stonni-v1-20261008';
 const CASCA = [
   './',
   './index.html',

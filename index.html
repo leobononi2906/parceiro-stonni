@@ -512,6 +512,29 @@ sb.auth.onAuthStateChange(function(evento,sessao){
   else if(evento==='SIGNED_OUT'){ AUTHZ='Bearer '+SB_KEY; try{ localStorage.removeItem(PG_CHAVE) }catch(e){} rascunhosLimparTodos(); }
 });
 
+// E mesmo acompanhando, a aba parada vence o token ANTES do auto-refresh rodar
+// (o navegador segura o timer em aba oculta): a primeira chamada ao voltar leva
+// 401. Mesmo conserto do stonni-assistencia (08/10/2026), so que aqui sao ~40
+// fetch soltos para /rest/v1 e nenhum helper -- entao o conserto fica no fetch:
+// 401 da REST renova a sessao uma vez e repete com o token novo. Repetir escrita
+// nao duplica: o PostgREST recusa o JWT vencido antes de tocar no banco.
+(function(){
+  var fetchOrig=window.fetch.bind(window);
+  window.fetch=async function(url,init){
+    var res=await fetchOrig(url,init);
+    if(res.status!==401||typeof url!=='string'||url.indexOf(SB_URL+'/rest/v1/')!==0) return res;
+    try{
+      var d=(await sb.auth.refreshSession()).data;
+      var t=d&&d.session&&d.session.access_token;
+      if(!t) return res;
+      AUTHZ='Bearer '+t;
+      var h=Object.assign({},(init&&init.headers)||{});
+      h['Authorization']=AUTHZ;
+      return await fetchOrig(url,Object.assign({},init,{headers:h}));
+    }catch(e){ return res; }
+  };
+})();
+
 // ===== ICONS v1 -- subconjunto do lucide 0.462.0 (ISC), a mesma versao que os
 // apps React do grupo usam. Espelho de stonni-assistencia/modules/icones.js:
 // os dois arquivos sao IDENTICOS entre os marcadores -- sem build nao ha como

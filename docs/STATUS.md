@@ -1,6 +1,6 @@
 # STATUS — Portal Rede Autorizada (parceiro-stonni)
 
-> Atualizado: 2026-10-06
+> Atualizado: 2026-10-08
 
 ## O que é
 Portal do **parceiro da rede de assistência técnica autorizada Stonni**: o parceiro abre OS, consulta material técnico, controla o próprio estoque de peças, compra peças e vê o financeiro dele.
@@ -10,6 +10,9 @@ Portal do **parceiro da rede de assistência técnica autorizada Stonni**: o par
 - **Deploy:** https://parceiro-stonni.vercel.app (chave de acesso no Hub = `rede-autorizada`) · push na `main` → Vercel automático.
 - **Supabase:** `vishxwdxqiygbxmtpfoy` (prefixo `prt_`).
 - **Código:** `index.html` único (~196KB). Sem build. `vercel.json` com SPA rewrite + headers de segurança (X-Frame-Options DENY, nosniff). Chama Supabase por `fetch` em `/rest/v1/`.
+
+## 2026-10-08 — 401 de token vencido renova a sessão e repete
+Aba parada vence o token antes do auto-refresh do supabase-js rodar, e a primeira chamada ao voltar levava 401 (tela vazia). Mesmo conserto do `stonni-assistencia` (`sbQ`/`sbInsert`/`sbUpdate`, 08/10), mas aqui não há helper — são ~40 `fetch` soltos —, então o conserto é um embrulho no `window.fetch` logo abaixo do `onAuthStateChange`: só para `SB_URL/rest/v1/`, 401 → `sb.auth.refreshSession()` → atualiza `AUTHZ` → repete uma vez com o `Authorization` novo. Repetir escrita não duplica (o JWT vencido é recusado antes de gravar). Provado no preview: token inválido → 401 → repetição 200. `sw.js` VERSAO → `20261008`.
 
 ## 2026-10-06 — OS não sai sem NF anexada e sem foto do equipamento
 Antes só o número da NF era obrigatório. Agora `osProximo` barra o passo 2 sem `foto_nf` (foto ou PDF) e o passo 3 sem ao menos uma foto do equipamento (vale a foto legada `foto_equipamento`); `osSalvar` repete a checagem para tudo que não é rascunho, porque OS antiga aberta para edição pode não ter anexo. Os dois campos ganharam `*`. Mesma regra na tela gêmea (`stonni-assistencia/modules/os.js`). Só no front: o banco ainda aceita OS sem anexo. `sw.js` VERSAO → `20261006`.
