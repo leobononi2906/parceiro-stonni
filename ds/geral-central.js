@@ -1,6 +1,6 @@
 /* ============================================================
    geral-central.js — Sugestão, avisos, atualização cadastral e
-   expiração de senha  |  v13 — 25/09/2026
+   expiração de senha  |  v13.1 — 13/10/2026 (Enviar da sugestão sem duplo envio)
    ============================================================
    v13: marcarVisto() grava também QUAIS campos a pessoa alterou de
    verdade na campanha de cadastro (geral_avisos_visualizacoes.campos_alterados,
@@ -608,6 +608,10 @@
         if (!diferente) { msgEl.style.color = '#c11f25'; msgEl.textContent = 'Escreva alguma coisa.'; return; }
         mensagem = diferente;
       }
+      var btnEnviar = this;
+      if (btnEnviar.disabled) return;
+      btnEnviar.disabled = true;
+      btnEnviar.style.opacity = '.6';
       try {
         var resp = await rest(o, 'geral_pedidos_melhoria', {
           method: 'POST',
@@ -627,6 +631,8 @@
       } catch (e) {
         msgEl.style.color = '#c11f25';
         msgEl.textContent = 'Erro ao enviar: ' + e.message;
+        btnEnviar.disabled = false;
+        btnEnviar.style.opacity = '';
       }
     });
   }
