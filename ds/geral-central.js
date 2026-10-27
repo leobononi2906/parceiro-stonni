@@ -1,7 +1,10 @@
 /* ============================================================
    geral-central.js — Sugestão, avisos, atualização cadastral e
-   expiração de senha  |  v13.1 — 13/10/2026 (Enviar da sugestão sem duplo envio)
+   expiração de senha  |  v13.2 — 27/10/2026 (senha: 90 dias e sem repetir as últimas 5)
    ============================================================
+   v13.2: SÓ a expiração de senha veio da v21 do bononi-hub (RPCs
+   geral_senha_status / geral_trocar_senha, migration 0069). O resto é a
+   v13.1: o Portal mantém o visual atual, sem sino nem cor nova.
    v13: marcarVisto() grava também QUAIS campos a pessoa alterou de
    verdade na campanha de cadastro (geral_avisos_visualizacoes.campos_alterados,
    migration 0015) — é o que alimenta, no Painel Dev, "quem alterou,
@@ -146,50 +149,69 @@
   }
 
   // ── 1. Expiração de senha ────────────────────────────────────────
+  // v13.2: só esta seção veio da v21 do bononi-hub (o resto segue v13.1 — o
+  // Portal não ganha sino nem cor nova). Prazo e histórico moram no banco
+  // (migration 0069 do bononi-hub): 90 dias e sem repetir as últimas 5.
+  var ERRO_SENHA = {
+    repetida: 'Essa senha já foi usada por você. Escolha uma diferente das últimas {n}.',
+    curta: 'Mínimo de 8 caracteres.',
+    sem_senha: 'Esta conta entra pelo Google e não tem senha para trocar.',
+    sem_sessao: 'Sua sessão expirou. Entre de novo e troque a senha.',
+  };
+
+  /** Troca a senha da sessão atual conferindo o histórico. → { ok, mensagem } */
+  async function trocarSenha(o, nova) {
+    var tk = (await token(o)) || o.token;
+    if (!tk) return { ok: false, mensagem: ERRO_SENHA.sem_sessao };
+    var resp = await rest(Object.assign({}, o, { token: tk }), 'rpc/geral_trocar_senha', {
+      method: 'POST',
+      body: JSON.stringify({ p_nova: nova }),
+    });
+    var res = resp && resp.ok ? await resp.json().catch(function () { return null; }) : null;
+    if (!res) return { ok: false, mensagem: 'Não foi possível salvar agora (' + (resp ? resp.status : 'sem conexão') + '). Tente de novo.' };
+    if (res.ok) return { ok: true };
+    var msg = ERRO_SENHA[res.erro] || ('Não foi possível salvar: ' + (res.erro || 'erro desconhecido'));
+    return { ok: false, mensagem: msg.replace('{n}', res.bloqueadas || 5) };
+  }
+
   async function verificarExpiracaoSenha(o) {
     try {
-      var resp = await rest(o, 'geral_seguranca_config?id=eq.1&select=dias_expiracao_senha');
-      if (!resp || !resp.ok) return false;
-      var linhas = await resp.json();
-      var dias = Array.isArray(linhas) && linhas[0] ? linhas[0].dias_expiracao_senha : null;
-      if (!dias || dias <= 0) return false; // desligado
-
-      var sessao = await o.sb.auth.getSession();
-      var meta = (sessao.data.session && sessao.data.session.user.user_metadata) || {};
-      var alteradaEm = meta.senha_alterada_em;
-      // Nunca registrado ainda: não bloqueia hoje (ver docs/STATUS.md do
-      // Painel de Desenvolvimento — evita travar todo mundo no dia 1).
-      if (!alteradaEm) return false;
-
-      var diasPassados = (Date.now() - new Date(alteradaEm).getTime()) / 86400000;
-      if (diasPassados < dias) return false;
+      var resp = await rest(o, 'rpc/geral_senha_status', { method: 'POST', body: '{}' });
+      if (!resp || !resp.ok) return false; // sem a 0069 no banco: 404, não bloqueia
+      var st = await resp.json();
+      if (!st || st.vencida !== true) return false;
+      var dias = st.dias;
 
       return new Promise(function (resolve) {
         var el = overlay('gc-senha', '<div style="' + caixa() + '">' +
           '<h3 style="font-size:16px;margin-bottom:6px">Hora de trocar sua senha</h3>' +
           '<p style="font-size:13px;color:#6b7382;margin-bottom:16px">Já se passaram mais de ' + dias + ' dias desde a última troca. Defina uma senha nova para continuar.</p>' +
           '<label style="display:block;font-size:12px;font-weight:600;margin-bottom:4px">Nova senha</label>' +
-          '<input id="gc-nova-senha" type="password" minlength="6" style="width:100%;padding:9px 11px;border:1px solid #e2e5ea;border-radius:5px;margin-bottom:10px">' +
+          '<input id="gc-nova-senha" type="password" minlength="8" style="width:100%;padding:9px 11px;border:1px solid #e2e5ea;border-radius:5px;margin-bottom:10px">' +
           '<label style="display:block;font-size:12px;font-weight:600;margin-bottom:4px">Confirmar senha</label>' +
-          '<input id="gc-confirma-senha" type="password" minlength="6" style="width:100%;padding:9px 11px;border:1px solid #e2e5ea;border-radius:5px">' +
+          '<input id="gc-confirma-senha" type="password" minlength="8" style="width:100%;padding:9px 11px;border:1px solid #e2e5ea;border-radius:5px">' +
           '<div id="gc-senha-erro" style="color:#c11f25;font-size:12px;margin-top:8px;min-height:16px"></div>' +
           '<button id="gc-senha-salvar" style="margin-top:10px;width:100%;padding:10px;background:#14161a;color:#fff;border:none;border-radius:5px;font-weight:700">Salvar e continuar</button>' +
           '</div>');
 
-        el.querySelector('#gc-senha-salvar').addEventListener('click', async function () {
+        var botao = el.querySelector('#gc-senha-salvar');
+        botao.addEventListener('click', async function () {
+          if (botao.disabled) return;
           var erroEl = el.querySelector('#gc-senha-erro');
           var nova = el.querySelector('#gc-nova-senha').value;
           var conf = el.querySelector('#gc-confirma-senha').value;
-          if (nova.length < 6) { erroEl.textContent = 'Mínimo de 6 caracteres.'; return; }
+          if (nova.length < 8) { erroEl.textContent = ERRO_SENHA.curta; return; }
           if (nova !== conf) { erroEl.textContent = 'As senhas não conferem.'; return; }
+          botao.disabled = true;
+          erroEl.textContent = '';
           try {
-            var novaMeta = Object.assign({}, meta, { senha_alterada_em: new Date().toISOString() });
-            var r = await o.sb.auth.updateUser({ password: nova, data: novaMeta });
-            if (r.error) { erroEl.textContent = r.error.message; return; }
+            var r = await trocarSenha(o, nova);
+            if (!r.ok) { erroEl.textContent = r.mensagem; botao.disabled = false; return; }
             el.remove();
             resolve(true);
           } catch (e) {
             erroEl.textContent = 'Erro ao salvar: ' + e.message;
+            botao.disabled = false;
           }
         });
       });

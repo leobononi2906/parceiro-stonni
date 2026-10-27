@@ -1,6 +1,6 @@
 # STATUS — Portal Rede Autorizada (parceiro-stonni)
 
-> Atualizado: 2026-10-08
+> Atualizado: 2026-10-27
 
 ## O que é
 Portal do **parceiro da rede de assistência técnica autorizada Stonni**: o parceiro abre OS, consulta material técnico, controla o próprio estoque de peças, compra peças e vê o financeiro dele.
@@ -223,6 +223,7 @@ Início/dashboard (Últimas OS) · Nova OS · Minhas OS · **Encaminhar cliente*
 - ✅ Não usa `confirm()`/`alert()` nativos (UI própria) — manter assim.
 
 ## Dev-log
+- 2026-10-27 — **Senha a cada 90 dias e sem repetir as últimas 5 (`geral-central.js` v13.2, `?v=` subido).** Só a seção de senha veio da v21 do `bononi-hub` (o resto segue v13.1 — o Portal mantém o visual, sem sino): a troca forçada pergunta ao banco se a senha venceu (RPC `geral_senha_status`) e grava pela `geral_trocar_senha`, que recusa as últimas 5 senhas e menos de 8 caracteres (migrations 0069/0070 do `bononi-hub`, aplicadas em 27/10). Ninguém vence antes de 25/01/2027. Provado no navegador neste app (local, RPC simulada): a repetida mostra "Essa senha já foi usada por você…" e não libera; a nova libera.
 - 2026-10-05 — (`3e2eaa9`, publicado) **Link no aviso do Painel Dev aparece como link.** O estilo base do app zera cor e sublinhado do `<a>`, então o link escrito no aviso (`<a href="https://...">`) já funcionava mas saía igual ao resto do texto e ninguém via que dava para clicar. Caso que revelou: o aviso das notas paradas há 24h na Expedição, com "abrir as notas paradas".
   - Este app está numa versão antiga do `geral-central.js` (diferente da v15 do hub): trocada **só a linha do link** em `escHtmlSimples`, sem recopiar o arquivo, para não trazer v13–v15 sem conferir. `?v=13` no `index.html`.
   - Conferido no ar: o `geral-central.js` publicado já traz o estilo novo. Não visto na tela (o aviso só aparece com login).
